@@ -59,7 +59,7 @@ function canManufacturerUpdateStatus(currentStatus: RfqRequestStatus, nextStatus
     return currentStatus === "completed";
   }
 
-  return nextStatus !== currentStatus && nextStatus !== "fulfilled";
+  return nextStatus !== currentStatus;
 }
 
 export async function createRfqRequest(input: SubmitRfqInput, request?: Request) {
