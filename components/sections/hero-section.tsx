@@ -7,6 +7,7 @@ import { HeroGraphic } from "./HeroGraphic";
 import { supabase } from "@/lib/supabase";
 
 const heroVideoSrc = "https://capa.ai/static/landing_video_desktop.mp4";
+//player.vimeo.com/video/1182417429?autoplay=1&muted=1&loop=1&background=1&quality=1080p&dnt=1
 
 function useCountUp(endValue: number, duration: number = 2000, start: boolean = true) {
   const [count, setCount] = useState(0);

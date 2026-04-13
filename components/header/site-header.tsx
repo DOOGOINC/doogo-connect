@@ -12,7 +12,7 @@ const navItems = [
   { label: "커넥트 홈", href: "/" },
   { label: "제조 견적", href: "/estimate" },
   { label: "제조사 목록", href: "/manufacturers" },
-  { label: "성공 사례", href: "/success-stories" },
+  { label: "성공사례", href: "/success-stories" },
   { label: "고객센터", href: "/support" },
 ];
 
@@ -21,6 +21,7 @@ export function SiteHeader() {
   const [isAuthModalOpen, setIsAuthModalOpen] = useState(false);
   const [authMode, setAuthMode] = useState<"login" | "signup">("login");
   const [session, setSession] = useState<Session | null>(null);
+  const [displayName, setDisplayName] = useState("");
   const [userRole, setUserRole] = useState("");
 
   const pathname = usePathname();
@@ -44,12 +45,26 @@ export function SiteHeader() {
     return typeof email === "string" && email.includes("@") ? email.split("@")[0] : email;
   };
 
+  const applySessionState = (nextSession: Session | null) => {
+    setSession(nextSession);
+
+    if (!nextSession) {
+      setDisplayName("");
+      setUserRole("");
+      return;
+    }
+
+    const fallbackName = getDisplayName(nextSession);
+    if (fallbackName) {
+      setDisplayName((prev) => prev || fallbackName);
+    }
+
+    const metadataRole = nextSession.user?.user_metadata?.role;
+    setUserRole(typeof metadataRole === "string" ? metadataRole : "");
+  };
+
   const syncProfile = async (userId: string) => {
-    const { data, error } = await supabase
-      .from("profiles")
-      .select("full_name, role")
-      .eq("id", userId)
-      .maybeSingle();
+    const { data, error } = await supabase.from("profiles").select("full_name, role").eq("id", userId).maybeSingle();
 
     if (error) {
       console.warn("Header profile lookup failed:", error.message);
@@ -57,20 +72,7 @@ export function SiteHeader() {
     }
 
     if (data?.full_name && data.full_name.trim()) {
-      setSession((prev: Session | null) =>
-        prev
-          ? {
-              ...prev,
-              user: {
-                ...prev.user,
-                user_metadata: {
-                  ...prev.user.user_metadata,
-                  full_name: data.full_name,
-                },
-              },
-            }
-          : prev
-      );
+      setDisplayName(data.full_name.trim());
     }
 
     setUserRole(typeof data?.role === "string" ? data.role : "");
@@ -145,26 +147,20 @@ export function SiteHeader() {
   useEffect(() => {
     let mounted = true;
 
-    supabase.auth.getSession().then(({ data: { session } }) => {
+    supabase.auth.getSession().then(({ data: { session: nextSession } }) => {
       if (!mounted) return;
-      setSession(session);
-      if (session?.user?.id) {
-        void syncProfile(session.user.id);
-      } else {
-        const metadataRole = session?.user?.user_metadata?.role;
-        setUserRole(typeof metadataRole === "string" ? metadataRole : "");
+      applySessionState(nextSession);
+      if (nextSession?.user?.id) {
+        void syncProfile(nextSession.user.id);
       }
     });
 
     const {
       data: { subscription },
     } = supabase.auth.onAuthStateChange((_event, nextSession) => {
-      setSession(nextSession);
+      applySessionState(nextSession);
       if (nextSession?.user?.id) {
         void syncProfile(nextSession.user.id);
-      } else {
-        const metadataRole = nextSession?.user?.user_metadata?.role;
-        setUserRole(typeof metadataRole === "string" ? metadataRole : "");
       }
     });
 
@@ -200,7 +196,7 @@ export function SiteHeader() {
     } = await supabase.auth.getSession();
 
     if (liveSession !== session) {
-      setSession(liveSession);
+      applySessionState(liveSession);
     }
 
     if (needAuth && !liveSession) {
@@ -290,7 +286,7 @@ export function SiteHeader() {
                 </button>
 
                 <span className={`text-sm font-medium ${isWhiteHeader ? "text-slate-600" : "text-white/80"}`}>
-                  {getDisplayName(session)}님
+                  {displayName || getDisplayName(session)}님
                 </span>
 
                 <button

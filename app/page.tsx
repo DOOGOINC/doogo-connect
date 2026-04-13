@@ -1,5 +1,3 @@
-import { SiteFooter } from "@/components/footer/site-footer";
-import { SiteHeader } from "@/components/header/site-header";
 import { ClientLogoStrip } from "@/components/sections/client-logo-strip";
 import { HeroSection } from "@/components/sections/hero-section";
 import { Section03 } from "@/components/sections/section03";
@@ -14,7 +12,6 @@ import { Section09 } from "@/components/sections/section09";
 export default function Home() {
   return (
     <div className="min-h-screen bg-white text-slate-950">
-      <SiteHeader />
       <main>
         <HeroSection />
         <ClientLogoStrip />
