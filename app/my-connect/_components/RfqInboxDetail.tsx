@@ -21,7 +21,7 @@ export function RfqInboxDetail({ request, onStatusChange, onReject, statusLabelO
     return (
       <div className="flex flex-1 items-center justify-center bg-[#f9fafb] p-12">
         <div className="flex h-[400px] w-full max-w-[420px] flex-col items-center justify-center rounded-[32px] border border-[#e5e9ef] bg-white p-10 shadow-sm">
-          <div className="mb-8 flex h-24 w-24 items-center justify-center rounded-[28px] bg-[#f2f4f6] shadow-inner">
+          <div className="mb-8 flex h-24 w-24 items-center justify-center rounded-[14px] bg-[#f2f4f6] shadow-inner">
             <Box className="h-12 w-12 text-[#adb5bd]" />
           </div>
           <h4 className="mb-3 text-center text-[20px] font-bold text-[#191f28]">견적 요청을 선택해 주세요</h4>

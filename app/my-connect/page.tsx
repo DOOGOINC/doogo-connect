@@ -13,6 +13,7 @@ import { ClientPaymentManagement } from "./_components/ClientPaymentManagement";
 import { ClientProjectDetail } from "./_components/ClientProjectDetail";
 import { EmptyState } from "./_components/EmptyState";
 import { OrdersManagement } from "./_components/OrdersManagement";
+import { PointsWallet } from "./_components/PointsWallet";
 import { ProductionManagement } from "./_components/ProductionManagement";
 import { ProductRegistration } from "./_components/ProductRegistration";
 import { ProjectList } from "./_components/ProjectList";
@@ -348,6 +349,8 @@ export default function MyConnectPage() {
         return <ClientPaymentManagement requests={rfqRequests} />;
       case "settings":
         return <AccountSettings />;
+      case "points":
+        return <PointsWallet />;
       default:
         return <div className="flex flex-1 items-center justify-center bg-[#F8F9FA] font-medium text-gray-500">준비 중인 서비스입니다.</div>;
     }

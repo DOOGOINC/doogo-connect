@@ -60,7 +60,7 @@ export function SiteHeader() {
     }
 
     const metadataRole = nextSession.user?.user_metadata?.role;
-    setUserRole(typeof metadataRole === "string" ? metadataRole : "");
+    setUserRole((prev) => (typeof metadataRole === "string" && metadataRole.trim() ? metadataRole : prev));
   };
 
   const syncProfile = async (userId: string) => {
@@ -197,6 +197,9 @@ export function SiteHeader() {
 
     if (liveSession !== session) {
       applySessionState(liveSession);
+      if (liveSession?.user?.id) {
+        void syncProfile(liveSession.user.id);
+      }
     }
 
     if (needAuth && !liveSession) {

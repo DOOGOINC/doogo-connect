@@ -5,6 +5,7 @@ import { useEffect, useState } from "react";
 import { Loader2, X } from "lucide-react";
 import { authFetch } from "@/lib/client/auth-fetch";
 import { supabase } from "@/lib/supabase";
+import { captureReferralFromLocation, clearStoredReferralCode, getStoredReferralCode } from "@/utils/referral";
 
 interface AuthModalProps {
   isOpen: boolean;
@@ -56,6 +57,7 @@ export function AuthModal({ isOpen, onClose, initialMode = "login" }: AuthModalP
     setError(null);
 
     try {
+      captureReferralFromLocation();
       const next = `${window.location.pathname}${window.location.search}`;
       const redirectTo = `${window.location.origin}/auth/callback?next=${encodeURIComponent(next)}`;
 
@@ -230,6 +232,7 @@ export function AuthModal({ isOpen, onClose, initialMode = "login" }: AuthModalP
       } = await supabase.auth.getUser();
 
       if (user) {
+        const referralCode = getStoredReferralCode();
         const profileResponse = await authFetch("/api/profile/sync", {
           method: "POST",
           headers: {
@@ -239,12 +242,17 @@ export function AuthModal({ isOpen, onClose, initialMode = "login" }: AuthModalP
             fullName: name.trim(),
             email,
             phoneNumber: normalizedPhone,
+            referralCode,
           }),
         });
         const profilePayload = (await profileResponse.json()) as { error?: string };
 
         if (!profileResponse.ok) {
           throw new Error(profilePayload.error || "프로필 저장에 실패했습니다.");
+        }
+
+        if (referralCode) {
+          clearStoredReferralCode();
         }
       }
 
@@ -267,7 +275,7 @@ export function AuthModal({ isOpen, onClose, initialMode = "login" }: AuthModalP
       onClick={onClose}
     >
       <div
-        className="relative w-full max-w-[400px] animate-in rounded-[24px] bg-white p-8 shadow-2xl zoom-in-95 duration-200"
+        className="relative w-full max-w-[400px] animate-in rounded-[14px] bg-white p-8 shadow-2xl zoom-in-95 duration-200"
         onClick={(event) => event.stopPropagation()}
       >
         <button

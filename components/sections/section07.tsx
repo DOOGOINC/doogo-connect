@@ -48,7 +48,7 @@ export function Section07() {
           {features.map((feature, index) => (
             <div
               key={index}
-              className="group border border-[#e5e8eb] rounded-[24px] p-8 bg-white transition-all duration-300  hover:shadow-[0_10px_10px_rgba(0,0,0,0.06)] hover:border-[#d1d6db]"
+              className="group border border-[#e5e8eb] rounded-[14px] p-8 bg-white transition-all duration-300  hover:shadow-[0_10px_10px_rgba(0,0,0,0.06)] hover:border-[#d1d6db]"
             >
               {/* 아이콘 영역 */}
               <div

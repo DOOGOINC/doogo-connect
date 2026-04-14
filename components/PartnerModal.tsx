@@ -91,7 +91,7 @@ export function PartnerModal({ isOpen, onClose }: PartnerModalProps) {
 
   return (
     <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/60 px-4 backdrop-blur-sm">
-      <div className="relative w-full max-w-[560px] overflow-hidden rounded-[24px] bg-white shadow-2xl animate-in fade-in zoom-in duration-300">
+      <div className="relative w-full max-w-[560px] overflow-hidden rounded-[14px] bg-white shadow-2xl animate-in fade-in zoom-in duration-300">
         <div className="bg-[#0064FF] p-8 text-white">
           <button
             onClick={onClose}

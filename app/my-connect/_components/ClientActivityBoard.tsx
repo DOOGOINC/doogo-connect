@@ -21,7 +21,7 @@ export function ClientActivityBoard({ requests }: ClientActivityBoardProps) {
   return (
     <div className="flex flex-1 flex-col overflow-auto bg-[#f5f7fb] p-6 lg:p-8">
       <div className="mx-auto grid w-full max-w-[1380px] gap-6 lg:grid-cols-[0.9fr_1.1fr]">
-        <section className="rounded-[28px] border border-[#e7ecf3] bg-white p-6 shadow-[0_18px_60px_rgba(15,23,42,0.08)]">
+        <section className="rounded-[14px] border border-[#e7ecf3] bg-white p-6 shadow-[0_18px_60px_rgba(15,23,42,0.08)]">
           <div className="flex items-center gap-2">
             <BellRing className="h-5 w-5 text-[#2563eb]" />
             <h2 className="text-[20px] font-bold text-[#111827]">다음 액션</h2>
@@ -72,7 +72,7 @@ export function ClientActivityBoard({ requests }: ClientActivityBoardProps) {
           </div>
         </section>
 
-        <section className="rounded-[28px] border border-[#e7ecf3] bg-white p-6 shadow-[0_18px_60px_rgba(15,23,42,0.08)]">
+        <section className="rounded-[14px] border border-[#e7ecf3] bg-white p-6 shadow-[0_18px_60px_rgba(15,23,42,0.08)]">
           <h2 className="text-[20px] font-bold text-[#111827]">최근 활동 로그</h2>
 
           <div className="mt-6 space-y-4">

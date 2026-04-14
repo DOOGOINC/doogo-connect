@@ -24,7 +24,7 @@ export function ClientDashboard({ requests, onRequestSelect, onTabChange }: Clie
     <div className="flex flex-1 flex-col overflow-auto bg-[#f5f7fb] p-6 lg:p-8">
       <div className="mx-auto flex w-full max-w-[1400px] flex-col gap-6">
         <section className="grid gap-4 lg:grid-cols-[1.3fr_0.7fr]">
-          <div className="overflow-hidden rounded-[28px] bg-[radial-gradient(circle_at_top_left,_#0f172a,_#1d4ed8_58%,_#60a5fa)] p-7 text-white shadow-[0_24px_80px_rgba(15,23,42,0.24)]">
+          <div className="overflow-hidden rounded-[14px] bg-[radial-gradient(circle_at_top_left,_#0f172a,_#1d4ed8_58%,_#60a5fa)] p-7 text-white shadow-[0_24px_80px_rgba(15,23,42,0.24)]">
             <div className="flex flex-wrap items-start justify-between gap-4">
               <div>
                 <p className="text-[13px] font-semibold uppercase tracking-[0.22em] text-white/70">Client Control</p>
@@ -55,7 +55,7 @@ export function ClientDashboard({ requests, onRequestSelect, onTabChange }: Clie
             </div>
           </div>
 
-          <div className="rounded-[28px] border border-[#e7ecf3] bg-white p-6 shadow-[0_18px_60px_rgba(15,23,42,0.08)]">
+          <div className="rounded-[14px] border border-[#e7ecf3] bg-white p-6 shadow-[0_18px_60px_rgba(15,23,42,0.08)]">
             <div className="flex items-center gap-2 text-[#1f2937]">
               <Wallet className="h-5 w-5 text-[#2563eb]" />
               <h3 className="text-[18px] font-bold">구매 확정 요약</h3>
@@ -81,11 +81,10 @@ export function ClientDashboard({ requests, onRequestSelect, onTabChange }: Clie
           </div>
         </section>
 
-        <section className="rounded-[28px] border border-[#e7ecf3] bg-white p-6 shadow-[0_18px_60px_rgba(15,23,42,0.08)]">
+        <section className="rounded-[14px] border border-[#e7ecf3] bg-white p-6 shadow-[0_18px_60px_rgba(15,23,42,0.08)]">
           <div className="flex items-center justify-between gap-3">
             <div>
               <h3 className="text-[20px] font-bold text-[#111827]">최근 주문</h3>
-              <p className="mt-1 text-[14px] text-[#667085]">최근 들어온 주문과 현재 상태를 빠르게 확인할 수 있습니다.</p>
             </div>
             <button
               type="button"

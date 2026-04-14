@@ -5,6 +5,7 @@ import type { Session, User } from "@supabase/supabase-js";
 import { Loader2 } from "lucide-react";
 import { authFetch } from "@/lib/client/auth-fetch";
 import { supabase } from "@/lib/supabase";
+import { clearStoredReferralCode, getStoredReferralCode } from "@/utils/referral";
 
 type ProfileRow = {
   full_name: string | null;
@@ -59,15 +60,26 @@ export function ProfileCompletionGate() {
     setIsChecking(true);
 
     try {
-      await authFetch("/api/profile/sync", {
+      const referralCode = getStoredReferralCode();
+      const response = await authFetch("/api/profile/sync", {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
         },
         body: JSON.stringify({
           email: nextSession.user.email || null,
+          referralCode,
         }),
       });
+
+      if (!response.ok) {
+        const payload = (await response.json()) as { error?: string };
+        throw new Error(payload.error || "프로필 동기화에 실패했습니다.");
+      }
+
+      if (referralCode) {
+        clearStoredReferralCode();
+      }
 
       const { data, error: profileError } = await supabase
         .from("profiles")
@@ -89,7 +101,7 @@ export function ProfileCompletionGate() {
 
       if (isIncomplete && alertedUserRef.current !== nextSession.user.id) {
         alertedUserRef.current = nextSession.user.id;
-        window.alert("카카오 로그인 후에는 내 정보 입력이 필요합니다. 이름과 연락처를 입력해 주세요.");
+        window.alert("카카오 로그인 이후에는 기본 정보 입력이 필요합니다. 이름과 연락처를 입력해 주세요.");
       }
     } catch (err) {
       console.error("Profile completion check failed:", err);
@@ -138,6 +150,7 @@ export function ProfileCompletionGate() {
     setError("");
 
     try {
+      const referralCode = getStoredReferralCode();
       const profileResponse = await authFetch("/api/profile/sync", {
         method: "POST",
         headers: {
@@ -147,12 +160,17 @@ export function ProfileCompletionGate() {
           fullName: trimmedName,
           email: session.user.email || null,
           phoneNumber: normalizedPhone,
+          referralCode,
         }),
       });
 
       const profilePayload = (await profileResponse.json()) as { error?: string };
       if (!profileResponse.ok) {
         throw new Error(profilePayload.error || "프로필 저장에 실패했습니다.");
+      }
+
+      if (referralCode) {
+        clearStoredReferralCode();
       }
 
       const { error: metadataError } = await supabase.auth.updateUser({
@@ -188,12 +206,12 @@ export function ProfileCompletionGate() {
 
   return (
     <div className="fixed inset-0 z-[110] flex items-center justify-center bg-black/55 px-6">
-      <div className="w-full max-w-md rounded-[28px] bg-white p-8 shadow-2xl">
+      <div className="w-full max-w-md rounded-[14px] bg-white p-8 shadow-2xl">
         <div className="mb-6">
           <p className="mb-2 text-sm font-semibold text-[#0064FF]">카카오 로그인 완료</p>
-          <h2 className="text-2xl font-bold text-[#191F28]">내 정보를 입력해 주세요</h2>
+          <h2 className="text-2xl font-bold text-[#191F28]">기본 정보를 입력해 주세요</h2>
           <p className="mt-2 text-sm leading-6 text-[#6B7684]">
-            카카오에서는 이메일만 연동하고 있습니다. 서비스 이용을 위해 이름과 연락처를 한 번만 입력해 주세요.
+            카카오에서는 이메일만 연동됩니다. 서비스 이용을 위해 이름과 연락처를 한 번만 입력해 주세요.
           </p>
         </div>
 

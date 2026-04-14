@@ -318,7 +318,7 @@ export function ManufacturerAdmin() {
         >
           <div className="grid gap-6 lg:grid-cols-[minmax(0,1fr)_320px]">
             <div className="space-y-6">
-              <section className="rounded-[24px] border border-[#E7EDF3] bg-[#FCFDFE] p-5 sm:p-6">
+              <section className="rounded-[14px] border border-[#E7EDF3] bg-[#FCFDFE] p-5 sm:p-6">
                 <div className="grid gap-4 sm:grid-cols-2">
                   <div className="space-y-2">
                     <label className="text-[13px] font-semibold text-[#4E5968]">제조사명</label>
@@ -400,7 +400,7 @@ export function ManufacturerAdmin() {
             </div>
 
             <div className="space-y-6">
-              <section className="rounded-[24px] border border-[#E7EDF3] bg-[#FCFDFE] p-5">
+              <section className="rounded-[14px] border border-[#E7EDF3] bg-[#FCFDFE] p-5">
                 <p className="text-[15px] font-semibold text-[#191F28]">배경 이미지</p>
                 <div className="mt-4 flex h-44 items-center justify-center overflow-hidden rounded-[20px] border border-[#E5E8EB] bg-white">
                   {formData.image ? (
@@ -421,7 +421,7 @@ export function ManufacturerAdmin() {
                 <input ref={imageInputRef} type="file" hidden accept="image/*" onChange={(e) => handleFileChange(e, "image")} />
               </section>
 
-              <section className="rounded-[24px] border border-[#E7EDF3] bg-[#FCFDFE] p-5">
+              <section className="rounded-[14px] border border-[#E7EDF3] bg-[#FCFDFE] p-5">
                 <p className="text-[15px] font-semibold text-[#191F28]">로고 이미지</p>
                 <div className="mt-4 flex h-44 items-center justify-center overflow-hidden rounded-[20px] border border-[#E5E8EB] bg-white p-4">
                   {formData.logo ? (
@@ -446,7 +446,7 @@ export function ManufacturerAdmin() {
         </CatalogModal>
 
         {loading ? (
-          <div className="flex flex-1 items-center justify-center rounded-[28px] border border-[#F2F4F6] bg-white py-24">
+          <div className="flex flex-1 items-center justify-center rounded-[14px] border border-[#F2F4F6] bg-white py-24">
             <Loader2 className="h-8 w-8 animate-spin text-[#0064FF]" />
           </div>
         ) : (

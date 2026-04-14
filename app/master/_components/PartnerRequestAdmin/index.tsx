@@ -221,7 +221,7 @@ export function PartnerRequestAdmin() {
 
       {selectedRequest ? (
         <div className="fixed inset-0 z-[90] flex items-center justify-center bg-black/50 px-4 py-8">
-          <div className="flex max-h-[calc(100vh-64px)] w-full max-w-[820px] flex-col overflow-hidden rounded-[24px] bg-white shadow-[0_24px_70px_rgba(15,23,42,0.26)]">
+          <div className="flex max-h-[calc(100vh-64px)] w-full max-w-[820px] flex-col overflow-hidden rounded-[14px] bg-white shadow-[0_24px_70px_rgba(15,23,42,0.26)]">
             <div className="flex items-center justify-between border-b border-[#EEF2F6] px-6 py-5">
               <div>
                 <p className="text-[12px] font-bold uppercase tracking-[0.14em] text-[#98A2B3]">Partner Request</p>

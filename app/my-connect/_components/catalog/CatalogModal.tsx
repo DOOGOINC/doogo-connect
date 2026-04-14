@@ -57,7 +57,7 @@ export function CatalogModal({
       role="presentation"
     >
       <div
-        className={`relative flex max-h-[calc(100vh-3rem)] w-full flex-col overflow-hidden rounded-[28px] border border-[#DDE3EA] bg-white shadow-[0_28px_80px_rgba(15,23,42,0.22)] ${maxWidthClassName}`}
+        className={`relative flex max-h-[calc(100vh-3rem)] w-full flex-col overflow-hidden rounded-[14px] border border-[#DDE3EA] bg-white shadow-[0_28px_80px_rgba(15,23,42,0.22)] ${maxWidthClassName}`}
         onClick={(event) => event.stopPropagation()}
         role="dialog"
         aria-modal="true"

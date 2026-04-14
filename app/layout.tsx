@@ -1,4 +1,6 @@
+import { Suspense } from "react";
 import type { Metadata } from "next";
+import { ReferralTracker } from "@/components/ReferralTracker";
 import { ProfileCompletionGate } from "@/components/auth/ProfileCompletionGate";
 import { SiteFooter } from "@/components/footer/site-footer";
 import { SiteHeader } from "@/components/header/site-header";
@@ -19,6 +21,9 @@ export default function RootLayout({
     <html lang="ko" className="antialiased">
       <body className="min-h-screen bg-[#f9fafb] text-[#191f28]">
         <SessionTimeout />
+        <Suspense fallback={null}>
+          <ReferralTracker />
+        </Suspense>
         <ProfileCompletionGate />
 
         <div className="print:hidden">

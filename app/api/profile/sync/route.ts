@@ -1,4 +1,5 @@
 import { mapRouteError, ok } from "@/lib/server/http";
+import { applyReferralAttribution, ensureUserReferralCode, sanitizeReferralCode } from "@/lib/server/referral";
 import { createServiceRoleClient, requireServerUser } from "@/lib/server/supabase";
 
 function trimOrNull(value: unknown) {
@@ -21,10 +22,11 @@ export async function POST(request: Request) {
     const fullName = trimOrNull(body.fullName);
     const email = trimOrNull(body.email) || user.email || null;
     const phoneNumber = trimOrNull(body.phoneNumber);
+    const submittedReferralCode = sanitizeReferralCode(body.referralCode);
 
     const { data: existingProfile, error: profileReadError } = await profileClient
       .from("profiles")
-      .select("full_name, email, phone_number, role")
+      .select("full_name, email, phone_number, role, referral_code, referred_by_profile_id, referred_by_code")
       .eq("id", user.id)
       .maybeSingle();
 
@@ -38,6 +40,9 @@ export async function POST(request: Request) {
       email: email ?? existingProfile?.email ?? null,
       phone_number: phoneNumber ?? existingProfile?.phone_number ?? null,
       role: safeRole ?? existingProfile?.role ?? "member",
+      referral_code: existingProfile?.referral_code ?? null,
+      referred_by_profile_id: existingProfile?.referred_by_profile_id ?? null,
+      referred_by_code: existingProfile?.referred_by_code ?? null,
       updated_at: new Date().toISOString(),
     };
 
@@ -46,7 +51,19 @@ export async function POST(request: Request) {
       throw new Error(error.message);
     }
 
-    return ok({ success: true, profile: payload });
+    const ensuredReferralCode = await ensureUserReferralCode(profileClient, user.id, existingProfile?.referral_code);
+    const referral = submittedReferralCode
+      ? await applyReferralAttribution(supabase, user.id, submittedReferralCode, "link")
+      : { applied: false, reason: "missing" as const };
+
+    return ok({
+      success: true,
+      profile: {
+        ...payload,
+        referral_code: ensuredReferralCode,
+      },
+      referral,
+    });
   } catch (error) {
     return mapRouteError(error);
   }

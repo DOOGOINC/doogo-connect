@@ -4,6 +4,7 @@ import {
   BarChart3,
   BriefcaseBusiness,
   ChevronDown,
+  Coins,
   CreditCard,
   Factory,
   FileText,
@@ -60,9 +61,7 @@ export function Sidebar({ activeTab, isManufacturer, onTabChange, viewMode, manu
           <div className="rounded-lg bg-white px-3 py-2 shadow-sm">
             <div className="flex items-center justify-between gap-3">
               <span className="truncate text-sm font-semibold text-gray-900">{roleLabel}</span>
-              <span className="rounded-md bg-[#EEF5FF] px-2 py-1 text-[11px] font-semibold text-[#0064FF]">
-                {roleBadgeLabel}
-              </span>
+              <span className="rounded-md bg-[#EEF5FF] px-2 py-1 text-[11px] font-semibold text-[#0064FF]">{roleBadgeLabel}</span>
             </div>
           </div>
         </div>
@@ -74,9 +73,7 @@ export function Sidebar({ activeTab, isManufacturer, onTabChange, viewMode, manu
           className="flex w-full items-center justify-between px-5 py-2.5 text-sm font-semibold text-gray-700 transition-colors hover:bg-gray-50"
         >
           <span>{sectionTitle}</span>
-          <ChevronDown
-            className={`h-3.5 w-3.5 text-gray-400 transition-transform duration-200 ${isQuotesOpen ? "rotate-180" : "rotate-0"}`}
-          />
+          <ChevronDown className={`h-3.5 w-3.5 text-gray-400 transition-transform duration-200 ${isQuotesOpen ? "rotate-180" : "rotate-0"}`} />
         </button>
 
         <div className={`overflow-hidden transition-all duration-300 ease-in-out ${isQuotesOpen ? "mb-4 max-h-[500px] opacity-100" : "mb-0 max-h-0 opacity-0"}`}>
@@ -100,6 +97,15 @@ export function Sidebar({ activeTab, isManufacturer, onTabChange, viewMode, manu
             <Settings className={`h-4 w-4 ${activeTab === "settings" ? "text-[#0064FF]" : "text-gray-400"}`} />
             계정 설정
           </button>
+          {viewMode === "client" ? (
+            <button
+              onClick={() => onTabChange("points")}
+              className={`flex w-full items-center gap-2.5 px-5 py-2.5 text-sm font-semibold transition-colors ${activeTab === "points" ? "bg-blue-50 font-semibold text-[#0064FF]" : "text-gray-700 hover:bg-gray-50"}`}
+            >
+              <Coins className={`h-4 w-4 ${activeTab === "points" ? "text-[#0064FF]" : "text-gray-400"}`} />
+              내 포인트
+            </button>
+          ) : null}
           <button
             onClick={() => onTabChange("payment")}
             className={`flex w-full items-center gap-2.5 px-5 py-2.5 text-sm font-semibold transition-colors ${activeTab === "payment" ? "bg-blue-50 font-semibold text-[#0064FF]" : "text-gray-700 hover:bg-gray-50"}`}

@@ -4,6 +4,7 @@ import { useState } from "react";
 import { ManufacturerAdmin } from "./_components/ManufacturerAdmin";
 import { MasterSidebar } from "./_components/MasterSidebar";
 import { MemberAdmin } from "./_components/MemberAdmin";
+import { PointSettingsAdmin } from "./_components/PointSettingsAdmin";
 import { PartnerRequestAdmin } from "./_components/PartnerRequestAdmin";
 
 export default function MasterDashboardPage() {
@@ -17,6 +18,8 @@ export default function MasterDashboardPage() {
         return <MemberAdmin />;
       case "partner-requests":
         return <PartnerRequestAdmin />;
+      case "point-settings":
+        return <PointSettingsAdmin />;
       default:
         return (
           <div className="flex flex-1 items-center justify-center bg-[#F8F9FA] font-medium text-gray-500">

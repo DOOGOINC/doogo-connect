@@ -337,10 +337,11 @@ export function ClientQuotePreviewModal({ request, open, onClose }: ClientQuoteP
       </html>
     `);
     printWindow.document.close();
-    printWindow.focus();
     printWindow.onload = () => {
-      printWindow.print();
-      printWindow.close();
+      printWindow.focus();
+      window.setTimeout(() => {
+        printWindow.print();
+      }, 150);
     };
   };
 

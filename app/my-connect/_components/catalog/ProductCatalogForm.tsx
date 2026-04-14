@@ -89,7 +89,7 @@ export function ProductCatalogForm({
     >
       <div className="grid gap-6 lg:grid-cols-[minmax(0,1fr)_320px]">
         <div className="space-y-6">
-          <section className="rounded-[24px] border border-[#E7EDF3] bg-[#FCFDFE] p-5 sm:p-6">
+          <section className="rounded-[14px] border border-[#E7EDF3] bg-[#FCFDFE] p-5 sm:p-6">
             <div className="mb-5 flex items-center gap-2 text-[15px] font-semibold text-[#191F28]">
               <Info className="h-4 w-4 text-[#3182F6]" />
               기본 정보
@@ -159,7 +159,7 @@ export function ProductCatalogForm({
             </div>
           </section>
 
-          <section className="rounded-[24px] border border-[#E7EDF3] bg-[#FCFDFE] p-5 sm:p-6">
+          <section className="rounded-[14px] border border-[#E7EDF3] bg-[#FCFDFE] p-5 sm:p-6">
             <div className="mb-5 flex items-center gap-2 text-[15px] font-semibold text-[#191F28]">
               <Settings2 className="h-4 w-4 text-[#3182F6]" />
               상세 구성
@@ -184,7 +184,7 @@ export function ProductCatalogForm({
             </div>
           </section>
 
-          <section className="rounded-[24px] border border-[#E7EDF3] bg-[#F8FAFC] p-5 sm:p-6">
+          <section className="rounded-[14px] border border-[#E7EDF3] bg-[#F8FAFC] p-5 sm:p-6">
             <div className="mb-5 flex items-center justify-between gap-3">
               <div>
                 <p className="text-[15px] font-semibold text-[#191F28]">수량별 할인 설정</p>
@@ -244,7 +244,7 @@ export function ProductCatalogForm({
         </div>
 
         <div className="space-y-6">
-          <section className="rounded-[24px] border border-[#E7EDF3] bg-[#FCFDFE] p-5">
+          <section className="rounded-[14px] border border-[#E7EDF3] bg-[#FCFDFE] p-5">
             <p className="text-[15px] font-semibold text-[#191F28]">제품 이미지</p>
             <p className="mt-1 text-[12px] leading-5 text-[#8B95A1]">권장 사이즈 1000x1000px, JPG 또는 PNG</p>
 
@@ -268,7 +268,7 @@ export function ProductCatalogForm({
             ) : null}
           </section>
 
-          <section className="rounded-[24px] border border-[#E7EDF3] bg-[#FCFDFE] p-5 sm:p-6">
+          <section className="rounded-[14px] border border-[#E7EDF3] bg-[#FCFDFE] p-5 sm:p-6">
             <div className="mb-5 flex items-center gap-2 text-[15px] font-semibold text-[#191F28]">
               <Boxes className="h-4 w-4 text-[#3182F6]" />
               연결 용기 옵션

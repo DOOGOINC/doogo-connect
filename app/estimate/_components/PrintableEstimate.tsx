@@ -44,9 +44,11 @@ export function PrintableEstimate({
   );
 
   return (
-    <div className="min-h-[1000px] bg-white p-12 text-black shadow-2xl print:p-0 print:shadow-none">
-      <div className="mb-10 flex items-start justify-between">
-        <div className="flex h-[180px] w-[250px] items-center justify-center overflow-hidden bg-white p-5">
+
+    <div className="mx-auto w-full max-w-[800px] min-h-fit bg-white p-10 text-black shadow-2xl print:p-0 print:shadow-none print:max-w-none">
+
+      <div className="mb-8 flex items-start justify-between">
+        <div className="flex h-[140px] w-[200px] items-center justify-center overflow-hidden bg-white p-2">
           {supplierLogo ? (
             <img src={supplierLogo} alt={supplierLabel} className="max-h-full max-w-full object-contain" />
           ) : (
@@ -54,67 +56,63 @@ export function PrintableEstimate({
           )}
         </div>
 
-        <div className="flex-1 text-center">
-          <h1 className="inline-block border-b-[6px] border-black px-14 pb-1 text-[30px] font-black tracking-[0.35em]">
+        <div className="flex-1 text-center pt-6">
+          <h1 className="inline-block border-b-[5px] border-black px-12 pb-1 text-[28px] font-black tracking-[0.35em]">
             견적서
           </h1>
         </div>
 
-        <div className="w-[230px]" />
+        <div className="w-[200px]" />
       </div>
 
-      <div className="mb-8 flex justify-between gap-8">
-        <div className="w-1/2 space-y-3">
-          <div className="space-y-1">
-            <p className="text-[14px] font-bold">No. {orderNumber}</p>
-            <p className="text-[14px] font-bold">Date. {orderDate}</p>
+      <div className="mb-6 flex justify-between gap-8">
+        <div className="w-1/2 space-y-2">
+          <div className="space-y-0.5">
+            <p className="text-[13px] font-bold">No. {orderNumber}</p>
+            <p className="text-[13px] font-bold">Date. {orderDate}</p>
           </div>
-          <div className="mt-10 w-4/5 border-b-2 border-black pb-2">
-            <p className="text-[20px] font-black">귀하</p>
+          <div className="mt-6 w-4/5 border-b-2 border-black pb-1">
+            <p className="text-[18px] font-black">귀하</p>
           </div>
           {recipientLines.length > 0 ? (
-            <div className="mt-4 space-y-1">
+            <div className="mt-3 space-y-0.5">
               {recipientLines.map((line) => (
-                <p key={line} className="text-[15px] font-bold text-black">
+                <p key={line} className="text-[14px] font-bold text-black">
                   {line}
                 </p>
               ))}
             </div>
           ) : null}
-          <p className="mt-4 text-[14px] font-medium leading-relaxed">아래와 같이 견적서를 제출합니다.</p>
+          <p className="mt-3 text-[13px] font-medium leading-relaxed">아래와 같이 견적서를 제출합니다.</p>
         </div>
 
-        <div className="w-[380px]">
-          <table className="w-full border-collapse border-[1.5px] border-black text-[12px]">
+        <div className="w-[360px]">
+          <table className="w-full border-collapse border-[1.5px] border-black text-[11px]">
             <tbody>
               <tr>
-                <td rowSpan={4} className="w-8 border border-black bg-gray-50 py-2 text-center font-black leading-tight">
-                  공
-                  <br />
-                  급
-                  <br />
-                  자
+                <td rowSpan={4} className="w-7 border border-black bg-gray-50 py-2 text-center font-black leading-tight text-[10px]">
+                  공<br />급<br />자
                 </td>
-                <td className="w-20 border border-black bg-gray-50 p-1.5 text-center font-bold">상호</td>
-                <td colSpan={3} className="border border-black p-1.5 text-center font-bold tracking-wider">
+                <td className="w-16 border border-black bg-gray-50 p-1 text-center font-bold">상호</td>
+                <td colSpan={3} className="border border-black p-1 text-center font-bold tracking-wider">
                   {supplierLabel}
                 </td>
               </tr>
               <tr>
-                <td className="border border-black bg-gray-50 p-1.5 text-center font-bold">담당</td>
-                <td className="border border-black p-1.5 text-center font-bold">DOOGO CONNECT</td>
-                <td className="w-12 border border-black bg-gray-50 p-1.5 text-center font-bold">구분</td>
-                <td className="border border-black p-1.5 text-center font-bold">제조사</td>
+                <td className="border border-black bg-gray-50 p-1 text-center font-bold">담당</td>
+                <td className="border border-black p-1 text-center font-bold">DOOGO CONNECT</td>
+                <td className="w-10 border border-black bg-gray-50 p-1 text-center font-bold">구분</td>
+                <td className="border border-black p-1 text-center font-bold">제조사</td>
               </tr>
               <tr>
-                <td className="border border-black bg-gray-50 p-1.5 text-center font-bold">주소</td>
-                <td colSpan={3} className="border border-black p-1.5 text-left text-[11px] leading-tight">
+                <td className="border border-black bg-gray-50 p-1 text-center font-bold">주소</td>
+                <td colSpan={3} className="border border-black p-1 text-left text-[10px] leading-tight">
                   {supplierAddressText}
                 </td>
               </tr>
               <tr>
-                <td className="border border-black bg-gray-50 p-1.5 text-center font-bold">형태/비고</td>
-                <td colSpan={3} className="border border-black p-1.5 text-center font-bold">
+                <td className="border border-black bg-gray-50 p-1 text-center font-bold">형태/비고</td>
+                <td colSpan={3} className="border border-black p-1 text-center font-bold">
                   제조 연계 공급 견적
                 </td>
               </tr>
@@ -123,69 +121,70 @@ export function PrintableEstimate({
         </div>
       </div>
 
-      <div className="mb-6 flex items-center justify-between border-[1.5px] border-black bg-gray-50 p-3.5">
-        <span className="text-[16px] font-black">총 합계금액 (VAT 별도)</span>
-        <span className="text-[22px] font-black tracking-tight">{formatCurrency(totalPrice, currencyCode)}</span>
+      <div className="mb-5 flex items-center justify-between border-[1.5px] border-black bg-gray-50 p-3">
+        <span className="text-[14px] font-black">총 합계금액 (VAT 별도)</span>
+        <span className="text-[20px] font-black tracking-tight">{formatCurrency(totalPrice, currencyCode)}</span>
       </div>
 
-      <table className="mb-8 w-full border-collapse border-[1.5px] border-black text-[13px]">
+      <table className="mb-6 w-full border-collapse border-[1.5px] border-black text-[12px]">
         <thead className="bg-gray-50">
           <tr className="border-b border-black">
-            <th className="w-12 border-r border-black p-2.5 text-center font-bold">No</th>
-            <th className="border-r border-black p-2.5 text-center font-bold">품명 및 규격</th>
-            <th className="w-20 border-r border-black p-2.5 text-center font-bold">수량</th>
-            <th className="w-16 border-r border-black p-2.5 text-center font-bold">단위</th>
-            <th className="w-36 border-r border-black p-2.5 text-center font-bold">단가 ({formatCurrencyCodeLabel(currencyCode)})</th>
-            <th className="w-40 p-2.5 text-center font-bold">금액 ({formatCurrencyCodeLabel(currencyCode)})</th>
+            <th className="w-10 border-r border-black p-2 text-center font-bold">No</th>
+            <th className="border-r border-black p-2 text-center font-bold">품명 및 규격</th>
+            <th className="w-16 border-r border-black p-2 text-center font-bold">수량</th>
+            <th className="w-14 border-r border-black p-2 text-center font-bold">단위</th>
+            <th className="w-32 border-r border-black p-2 text-center font-bold">단가 ({formatCurrencyCodeLabel(currencyCode)})</th>
+            <th className="w-36 p-2 text-center font-bold">금액 ({formatCurrencyCodeLabel(currencyCode)})</th>
           </tr>
         </thead>
         <tbody>
           {displayRows.map((row, index) => (
-            <tr key={index} className="h-12 border-b border-gray-300 last:border-b-0">
-              <td className="border-r border-black p-2.5 text-center font-medium">{index + 1}</td>
-              <td className="border-r border-black p-2.5">
-                <p className="text-[14px] font-bold">{row.title}</p>
-                <p className="text-[11px] font-medium text-gray-500">{row.spec}</p>
+            <tr key={index} className="h-10 border-b border-gray-300 last:border-b-0">
+              <td className="border-r border-black p-2 text-center font-medium">{index + 1}</td>
+              <td className="border-r border-black p-2">
+                <p className="text-[13px] font-bold">{row.title}</p>
+                <p className="text-[10px] font-medium text-gray-500">{row.spec}</p>
               </td>
-              <td className="border-r border-black p-2.5 text-center font-medium">{row.quantity.toLocaleString()}</td>
-              <td className="border-r border-black p-2.5 text-center font-medium">{row.quantity > 1 ? "EA" : "SET"}</td>
-              <td className="border-r border-black p-2.5 pr-4 text-right font-medium">{formatCurrency(row.unitPrice, currencyCode)}</td>
-              <td className="p-2.5 pr-4 text-right font-bold">{formatCurrency(row.amount, currencyCode)}</td>
+              <td className="border-r border-black p-2 text-center font-medium">{row.quantity.toLocaleString()}</td>
+              <td className="border-r border-black p-2 text-center font-medium">{row.quantity > 1 ? "EA" : "SET"}</td>
+              <td className="border-r border-black p-2 pr-3 text-right font-medium">{formatCurrency(row.unitPrice, currencyCode)}</td>
+              <td className="p-2 pr-3 text-right font-bold">{formatCurrency(row.amount, currencyCode)}</td>
             </tr>
           ))}
-          {Array.from({ length: Math.max(0, 8 - displayRows.length) }).map((_, i) => (
-            <tr key={`empty-${i}`} className="h-12 border-b border-gray-100 last:border-b-0">
-              <td className="border-r border-black p-2.5 text-center"></td>
-              <td className="border-r border-black p-2.5"></td>
-              <td className="border-r border-black p-2.5 text-center"></td>
-              <td className="border-r border-black p-2.5 text-center"></td>
-              <td className="border-r border-black p-2.5 pr-4 text-right"></td>
-              <td className="p-2.5 pr-4 text-right"></td>
+
+          {Array.from({ length: Math.max(0, 6 - displayRows.length) }).map((_, i) => (
+            <tr key={`empty-${i}`} className="h-10 border-b border-gray-100 last:border-b-0">
+              <td className="border-r border-black p-2 text-center"></td>
+              <td className="border-r border-black p-2"></td>
+              <td className="border-r border-black p-2 text-center"></td>
+              <td className="border-r border-black p-2 text-center"></td>
+              <td className="border-r border-black p-2 pr-3 text-right"></td>
+              <td className="p-2 pr-3 text-right"></td>
             </tr>
           ))}
         </tbody>
         <tfoot className="border-t-[1.5px] border-black bg-gray-50">
-          <tr className="h-14">
-            <td colSpan={5} className="p-2.5 text-center text-[15px] font-black">
+          <tr className="h-12">
+            <td colSpan={5} className="p-2 text-center text-[14px] font-black">
               총계
             </td>
-            <td className="p-2.5 pr-4 text-right text-[16px] font-black">{formatCurrency(totalPrice, currencyCode)}</td>
+            <td className="p-2 pr-3 text-right text-[15px] font-black">{formatCurrency(totalPrice, currencyCode)}</td>
           </tr>
         </tfoot>
       </table>
 
-      <div className="space-y-3 border-[1.5px] border-black bg-gray-50/50 p-6">
-        <p className="mb-3 text-[14px] font-black underline underline-offset-4">[ 안내사항 ]</p>
-        <div className="space-y-1.5 px-1">
-          <p className="text-[12px] font-medium leading-relaxed">1. 본 견적서는 발행일로부터 7일간 유효하며, 협의에 따라 조정될 수 있습니다.</p>
-          <p className="text-[12px] font-medium leading-relaxed">2. 실제 제조 공정은 정식 계약 체결 및 착수금 확인 후 진행됩니다.</p>
-          <p className="text-[12px] font-medium leading-relaxed">3. 재료 수급 상황 및 환율 변동에 따라 최종 공급가는 일부 변동될 수 있습니다.</p>
-          <p className="text-[12px] font-medium leading-relaxed">4. 기타 상세 문의는 담당 매니저를 통해 안내받으실 수 있습니다.</p>
+      <div className="space-y-2 border-[1.5px] border-black bg-gray-50/50 p-5">
+        <p className="mb-2 text-[13px] font-black underline underline-offset-4">[ 안내사항 ]</p>
+        <div className="space-y-1 px-1">
+          <p className="text-[11px] font-medium leading-relaxed">1. 본 견적서는 발행일로부터 7일간 유효하며, 협의에 따라 조정될 수 있습니다.</p>
+          <p className="text-[11px] font-medium leading-relaxed">2. 실제 제조 공정은 정식 계약 체결 및 착수금 확인 후 진행됩니다.</p>
+          <p className="text-[11px] font-medium leading-relaxed">3. 재료 수급 상황 및 환율 변동에 따라 최종 공급가는 일부 변동될 수 있습니다.</p>
+          <p className="text-[11px] font-medium leading-relaxed">4. 기타 상세 문의는 담당 매니저를 통해 안내받으실 수 있습니다.</p>
         </div>
       </div>
 
-      <div className="mt-14 text-center">
-        <p className="text-[16px] font-black italic tracking-[0.2em] opacity-30">{supplierLabel}</p>
+      <div className="mt-10 text-center">
+        <p className="text-[14px] font-black italic tracking-[0.2em] opacity-30">{supplierLabel}</p>
       </div>
     </div>
   );

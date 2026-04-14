@@ -154,9 +154,9 @@ export function ContainerCatalogManager({ manufacturerId, currencyCode }: { manu
     const result = isEdit
       ? await supabase.from("manufacturer_container_options").update(payload).eq("id", editingId)
       : await supabase.from("manufacturer_container_options").insert({
-          id: nextId,
-          ...payload,
-        });
+        id: nextId,
+        ...payload,
+      });
     setSaving(false);
 
     if (result.error) {
@@ -285,7 +285,7 @@ export function ContainerCatalogManager({ manufacturerId, currencyCode }: { manu
             </div>
           </div>
 
-          <div className="rounded-[24px] border border-[#E7EDF3] bg-[#FCFDFE] p-5">
+          <div className="rounded-[14px] border border-[#E7EDF3] bg-[#FCFDFE] p-5">
             <p className="text-[15px] font-semibold text-[#191F28]">용기 이미지</p>
             <p className="mt-1 text-[12px] leading-5 text-[#8B95A1]">권장 사이즈 800x800px, JPG 또는 PNG</p>
 

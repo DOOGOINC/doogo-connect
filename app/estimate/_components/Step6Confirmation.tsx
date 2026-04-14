@@ -1,10 +1,10 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import { 
-  Check, 
-  Download, 
-  RotateCcw, 
+import {
+  Check,
+  Download,
+  RotateCcw,
   ChevronRight,
   X,
   Printer
@@ -171,7 +171,7 @@ export function Step6Confirmation({
 
         <div className="grid gap-6 lg:grid-cols-[1fr_320px]">
           <div className="space-y-5">
-            <div className="rounded-[24px] border border-[#f2f4f6] bg-white p-6 shadow-[0_2px_10px_rgba(0,0,0,0.03)]">
+            <div className="rounded-[14px] border border-[#f2f4f6] bg-white p-6 shadow-[0_2px_10px_rgba(0,0,0,0.03)]">
               <h3 className="mb-6 text-[17px] font-extrabold text-[#191f28]">가견적 상세 내역</h3>
               <div className="space-y-5">
                 {displayRows.map((row, index) => (
@@ -199,7 +199,7 @@ export function Step6Confirmation({
               </div>
             </div>
 
-            <div className="rounded-[24px] border border-[#f2f4f6] bg-white p-6 shadow-[0_2px_10px_rgba(0,0,0,0.03)]">
+            <div className="rounded-[14px] border border-[#f2f4f6] bg-white p-6 shadow-[0_2px_10px_rgba(0,0,0,0.03)]">
               <h3 className="mb-4 text-[16px] font-bold text-[#191f28]">주문 정보</h3>
               <div className="flex items-center justify-between py-1">
                 <span className="text-[14px] font-medium text-[#8b95a1]">견적 접수일</span>
@@ -207,7 +207,7 @@ export function Step6Confirmation({
               </div>
             </div>
 
-            <div className="rounded-[24px] bg-[#f0f2ff] p-6">
+            <div className="rounded-[14px] bg-[#f0f2ff] p-6">
               <h3 className="mb-4 text-[15px] font-bold text-[#193cb8]">주문 및 제조 안내</h3>
               <ul className="grid gap-3">
                 {[
@@ -267,13 +267,13 @@ export function Step6Confirmation({
             <div className="sticky top-0 z-[110] flex items-center justify-between rounded-t-2xl bg-[#191f28] px-6 py-4 text-white print:hidden">
               <h4 className="text-[15px] font-bold">견적서 미리보기</h4>
               <div className="flex items-center gap-3">
-                <button 
+                <button
                   onClick={handlePrint}
                   className="flex items-center gap-2 rounded-lg bg-[#3182f6] px-4 py-2 text-[13px] font-bold transition-colors hover:bg-[#1b64da]"
                 >
                   <Printer className="h-4 w-4" /> 인쇄 및 저장 (PDF)
                 </button>
-                <button 
+                <button
                   onClick={() => setShowPrintPopup(false)}
                   className="rounded-lg p-2 text-white/60 transition-colors hover:bg-white/10 hover:text-white"
                 >
@@ -284,7 +284,7 @@ export function Step6Confirmation({
 
             {/* 인쇄 전용 표 형식 견적서 본문 분리 컴포넌트 - 내부 스크롤 적용 */}
             <div className="flex-1 overflow-y-auto max-h-[calc(90vh-120px)] print:max-h-none print:overflow-visible">
-              <PrintableEstimate 
+              <PrintableEstimate
                 orderNumber={orderNumber}
                 orderDate={orderDate}
                 totalPrice={est.totalPrice}
@@ -296,7 +296,7 @@ export function Step6Confirmation({
                 recipientBrandName={reviewForm.brandName}
                 recipientContactName={reviewForm.contactName}
               />
-              
+
               {/* 팝업 하단 (인쇄 시 숨김) */}
               <div className="bg-[#f9fafb] px-6 py-4 border-t border-gray-100 print:hidden text-center">
                 <p className="text-[12px] text-gray-500 font-medium">위 양식은 표준 견적서 양식으로 출력됩니다.</p>

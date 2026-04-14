@@ -24,7 +24,7 @@ export function Section06() {
           {processCards.map((card) => (
             <article
               key={card.id}
-              className="flex flex-col rounded-[24px] bg-white p-6 hover:shadow-[0_6px_10px_rgba(0,0,0,0.1)]"
+              className="flex flex-col rounded-[14px] bg-white p-6 hover:shadow-[0_6px_10px_rgba(0,0,0,0.1)]"
             >
               <div className="flex items-center gap-2.5">
                 <span className={`h-2.5 w-2.5 rounded-full ${card.bulletColor}`} />
