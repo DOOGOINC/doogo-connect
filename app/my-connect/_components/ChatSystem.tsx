@@ -245,7 +245,7 @@ export function ChatSystem({
         };
       }
 
-      const manufacturer = manufacturerMap.get(room.manufacturer_id);
+      const manufacturer = typeof room.manufacturer_id === "number" ? manufacturerMap.get(room.manufacturer_id) : undefined;
       const ownerProfile = manufacturer?.owner_id ? profileMap.get(manufacturer.owner_id) : null;
 
       return {
