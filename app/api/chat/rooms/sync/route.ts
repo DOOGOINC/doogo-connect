@@ -27,7 +27,10 @@ export async function POST(request: Request) {
     }
 
     const ownerMap = new Map((manufacturers || []).map((row) => [row.id, row.owner_id]));
-    const roomPairs = new Map<string, { client_id: string; manufacturer_id: number }>();
+    const roomPairs = new Map<
+      string,
+      { client_id: string; manufacturer_id: number; room_type: "manufacturer"; approval_status: "approved" }
+    >();
     (data || []).forEach((row) => {
       if (!row.client_id || !row.manufacturer_id) return;
       if (ownerMap.get(row.manufacturer_id) === row.client_id) return;
@@ -35,6 +38,8 @@ export async function POST(request: Request) {
       roomPairs.set(`${row.client_id}-${row.manufacturer_id}`, {
         client_id: row.client_id,
         manufacturer_id: row.manufacturer_id,
+        room_type: "manufacturer",
+        approval_status: "approved",
       });
     });
 

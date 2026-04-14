@@ -5,40 +5,33 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { authFetch } from "@/lib/client/auth-fetch";
 import { buildStorageObjectUrl, CHAT_FILE_BUCKET } from "@/lib/storage";
 import { supabase } from "@/lib/supabase";
+import { SupportHeaderActions } from "./support/SupportHeaderActions";
+import { SupportRequestComposer } from "./support/SupportRequestComposer";
+import { SupportStatusNotice } from "./support/SupportStatusNotice";
 import { ChatMessagePanel } from "./chat/ChatMessagePanel";
 import { ChatRoomSidebar } from "./chat/ChatRoomSidebar";
-import type {
-  ChatMessageRow,
-  ChatMessageView,
-  ChatRoomRow,
-  ChatRoomView,
-  ManufacturerRow,
-  ProfileRow,
-  ViewMode,
-} from "./chat/types";
+import type { ChatMessageRow, ChatMessageView, ChatRoomRow, ChatRoomView, ProfileRow } from "./chat/types";
 import { formatMessageTime, formatRelativeTime, getAvatarInitial, getPresenceLabel, getProfileDisplayName, isRecentlyOnline } from "./chat/utils";
 
-type SendMessagePayload = {
-  content: string;
-  file?: File | null;
+type SupportChatSystemProps = {
+  userId: string;
+  isMaster?: boolean;
 };
 
-export function ChatSystem({
-  userId,
-  viewMode,
-}: {
-  userId: string;
-  viewMode: ViewMode;
-}) {
+export function SupportChatSystem({ userId, isMaster = false }: SupportChatSystemProps) {
   const [rooms, setRooms] = useState<ChatRoomView[]>([]);
   const [selectedRoomId, setSelectedRoomId] = useState("");
   const [messages, setMessages] = useState<ChatMessageView[]>([]);
   const [messageInput, setMessageInput] = useState("");
+  const [requestInput, setRequestInput] = useState("");
+  const [isCreatingNewRequest, setIsCreatingNewRequest] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
   const [roomFilter, setRoomFilter] = useState<"all" | "unread" | "active">("all");
   const [isSending, setIsSending] = useState(false);
   const [isUploading, setIsUploading] = useState(false);
-  const [manufacturerId, setManufacturerId] = useState<number | null>(null);
+  const [isCreatingRoom, setIsCreatingRoom] = useState(false);
+  const [isApprovingRoom, setIsApprovingRoom] = useState(false);
+  const [isClosingRoom, setIsClosingRoom] = useState(false);
 
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const messageListRef = useRef<HTMLDivElement>(null);
@@ -133,84 +126,33 @@ export function ChatSystem({
     };
   }, [touchPresence]);
 
-  useEffect(() => {
-    const bootstrapManufacturer = async () => {
-      if (viewMode !== "manufacturer") return;
-
-      const { data: manufacturer } = await supabase.from("manufacturers").select("id").eq("owner_id", userId).maybeSingle();
-      setManufacturerId(manufacturer?.id ?? null);
-    };
-
-    void bootstrapManufacturer();
-  }, [userId, viewMode]);
-
   const refreshRooms = useCallback(async () => {
-    let effectiveManufacturerId = manufacturerId;
-
-    if (viewMode === "manufacturer" && !effectiveManufacturerId) {
-      const { data: manufacturer } = await supabase.from("manufacturers").select("id").eq("owner_id", userId).maybeSingle();
-      effectiveManufacturerId = manufacturer?.id ?? null;
-
-      if (effectiveManufacturerId) {
-        setManufacturerId(effectiveManufacturerId);
-      }
-    }
-
-    const syncResponse = await authFetch("/api/chat/rooms/sync", {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({ viewMode }),
-    });
-
-    if (!syncResponse.ok) {
-      console.error("Failed to sync chat rooms");
-    }
-
-    const roomQuery =
-      viewMode === "manufacturer" && effectiveManufacturerId
-        ? supabase
-            .from("chat_rooms")
-            .select("*")
-            .eq("manufacturer_id", effectiveManufacturerId)
-            .or("room_type.is.null,room_type.eq.manufacturer")
-        : supabase
-            .from("chat_rooms")
-            .select("*")
-            .eq("client_id", userId)
-            .or("room_type.is.null,room_type.eq.manufacturer");
+    const roomQuery = isMaster
+      ? supabase.from("chat_rooms").select("*").eq("room_type", "support")
+      : supabase.from("chat_rooms").select("*").eq("room_type", "support").eq("client_id", userId);
 
     const { data: roomRows, error: roomError } = await roomQuery.order("updated_at", { ascending: false });
     if (roomError) {
-      console.error("Failed to load chat rooms:", roomError.message);
+      console.error("Failed to load support rooms:", roomError.message);
       return;
     }
 
-    const roomsData = ((roomRows as ChatRoomRow[] | null) || []).filter(
-      (room): room is ChatRoomRow => Boolean(room) && (!room.room_type || room.room_type === "manufacturer")
-    );
+    const roomsData = ((roomRows as ChatRoomRow[] | null) || []).filter(Boolean);
     if (!roomsData.length) {
       setRooms([]);
       setSelectedRoomId("");
       return;
     }
 
-    const clientIds = Array.from(new Set(roomsData.map((room) => room.client_id)));
-    const manufacturerIds = Array.from(
-      new Set(roomsData.map((room) => room.manufacturer_id).filter((id): id is number => typeof id === "number"))
+    const profileIds = Array.from(
+      new Set(
+        roomsData.flatMap((room) => [room.client_id, room.master_profile_id].filter((value): value is string => Boolean(value)))
+      )
     );
-
-    const { data: manufacturers } = await supabase.from("manufacturers").select("id, name, owner_id, image, logo").in("id", manufacturerIds);
-
-    const manufacturerRows = ((manufacturers as ManufacturerRow[] | null) || []).filter(Boolean);
-    const manufacturerMap = new Map(manufacturerRows.map((manufacturer) => [manufacturer.id, manufacturer]));
-    const ownerIds = manufacturerRows.map((manufacturer) => manufacturer.owner_id).filter((id): id is string => Boolean(id));
-    const profileIds = Array.from(new Set([...clientIds, ...ownerIds]));
 
     const [{ data: profiles }, { data: unreadMessages }] = await Promise.all([
       profileIds.length
-        ? supabase.from("profiles").select("id, full_name, email, last_seen_at").in("id", profileIds)
+        ? supabase.from("profiles").select("id, full_name, email, last_seen_at, role").in("id", profileIds)
         : Promise.resolve({ data: [] }),
       supabase
         .from("chat_messages")
@@ -228,42 +170,56 @@ export function ChatSystem({
     });
 
     const nextRooms: ChatRoomView[] = roomsData.map((room) => {
-      if (viewMode === "manufacturer") {
-        const clientProfile = profileMap.get(room.client_id);
-        const counterpartName = getProfileDisplayName(clientProfile, "의뢰자");
+      const clientProfile = profileMap.get(room.client_id);
+      const masterProfile = room.master_profile_id ? profileMap.get(room.master_profile_id) : null;
+      const approvalStatus = room.approval_status || "pending";
 
-        return {
-          id: room.id,
-          counterpartName,
-          counterpartSubtitle: "의뢰자",
-          avatar: `initial:${getAvatarInitial(counterpartName)}`,
-          unreadCount: unreadMap.get(room.id) || 0,
-          lastMessage: room.last_message || "상담이 시작되었습니다.",
-          lastTime: room.last_message_at ? formatRelativeTime(room.last_message_at) : "",
-          isOnline: isRecentlyOnline(clientProfile?.last_seen_at || null),
-          lastSeenLabel: getPresenceLabel(clientProfile?.last_seen_at || null),
-        };
-      }
+      // 상대방 이름 처리
+      const counterpartName = isMaster
+        ? getProfileDisplayName(clientProfile, "고객")
+        : approvalStatus === "approved" || approvalStatus === "closed"
+          ? getProfileDisplayName(masterProfile, "고객센터")
+          : "고객센터";
 
-      const manufacturer = manufacturerMap.get(room.manufacturer_id);
-      const ownerProfile = manufacturer?.owner_id ? profileMap.get(manufacturer.owner_id) : null;
+      // 상대방 서브타이틀(역할/상태) 처리
+      const counterpartSubtitle = isMaster
+        ? clientProfile?.role === "manufacturer"
+          ? "제조사"
+          : "의뢰자"
+        : approvalStatus === "approved"
+          ? "마스터 상담"
+          : approvalStatus === "closed"
+            ? "상담 종료"
+            : "승인 대기";
+
+      const counterpartProfile = isMaster ? clientProfile : masterProfile;
 
       return {
         id: room.id,
-        counterpartName: manufacturer?.name || "제조사",
-        counterpartSubtitle: "제조사",
-        avatar: manufacturer?.logo || manufacturer?.image || `initial:${getAvatarInitial(manufacturer?.name || "제조사")}`,
+        counterpartName,
+        counterpartSubtitle,
+        avatar: `initial:${getAvatarInitial(counterpartName)}`,
         unreadCount: unreadMap.get(room.id) || 0,
-        lastMessage: room.last_message || "상담이 시작되었습니다.",
+        // 마지막 메시지 기본값
+        lastMessage: room.last_message || room.support_request_message || "상담 요청이 접수되었습니다.",
         lastTime: room.last_message_at ? formatRelativeTime(room.last_message_at) : "",
-        isOnline: isRecentlyOnline(ownerProfile?.last_seen_at || null),
-        lastSeenLabel: getPresenceLabel(ownerProfile?.last_seen_at || null),
+        isOnline: approvalStatus === "approved" ? isRecentlyOnline(counterpartProfile?.last_seen_at || null) : false,
+        // 상태 라벨
+        lastSeenLabel:
+          approvalStatus === "pending"
+            ? "수락 대기 중"
+            : approvalStatus === "closed"
+              ? "상담 종료"
+              : getPresenceLabel(counterpartProfile?.last_seen_at || null),
+        roomType: "support",
+        approvalStatus,
+        requestMessage: room.support_request_message || "",
       };
     });
 
     setRooms(nextRooms);
     setSelectedRoomId((prev) => (nextRooms.some((room) => room.id === prev) ? prev : nextRooms[0]?.id || ""));
-  }, [manufacturerId, userId, viewMode]);
+  }, [isMaster, userId]);
 
   const refreshMessages = useCallback(
     async (roomId: string) => {
@@ -275,7 +231,7 @@ export function ChatSystem({
         .order("created_at", { ascending: true });
 
       if (error) {
-        console.error("Failed to load messages:", error.message);
+        console.error("Failed to load support messages:", error.message);
         return;
       }
 
@@ -322,13 +278,13 @@ export function ChatSystem({
       }, 0);
 
       return () => window.clearTimeout(timer);
-    } else {
-      const timer = window.setTimeout(() => {
-        setMessages([]);
-      }, 0);
-
-      return () => window.clearTimeout(timer);
     }
+
+    const timer = window.setTimeout(() => {
+      setMessages([]);
+    }, 0);
+
+    return () => window.clearTimeout(timer);
   }, [refreshMessages, selectedRoomId]);
 
   useEffect(() => {
@@ -340,7 +296,7 @@ export function ChatSystem({
     };
 
     const channel = supabase
-      .channel(`chat-system-${userId}-${viewMode}`)
+      .channel(`support-chat-${userId}-${isMaster ? "master" : "client"}`)
       .on("postgres_changes", { event: "*", schema: "public", table: "chat_messages" }, refreshAll)
       .on("postgres_changes", { event: "*", schema: "public", table: "chat_rooms" }, refreshAll)
       .on("postgres_changes", { event: "*", schema: "public", table: "profiles" }, () => {
@@ -354,22 +310,22 @@ export function ChatSystem({
       window.clearInterval(polling);
       void supabase.removeChannel(channel);
     };
-  }, [refreshMessages, refreshRooms, userId, viewMode]);
+  }, [isMaster, refreshMessages, refreshRooms, userId]);
 
-  const sendMessage = async (payload: SendMessagePayload & { file?: File | null }) => {
+  const sendMessage = async (content: string, file?: File | null) => {
     if (!selectedRoomId) return;
 
-    const content = payload.content.trim();
-    if (!content && !payload.file) return;
+    const trimmedContent = content.trim();
+    if (!trimmedContent && !file) return;
 
     setIsSending(true);
     shouldScrollToBottomRef.current = true;
 
     const formData = new FormData();
     formData.append("roomId", selectedRoomId);
-    formData.append("content", content);
-    if (payload.file) {
-      formData.append("file", payload.file);
+    formData.append("content", trimmedContent);
+    if (file) {
+      formData.append("file", file);
     }
 
     const response = await authFetch("/api/chat/messages", {
@@ -379,7 +335,7 @@ export function ChatSystem({
     const result = (await response.json()) as { error?: string };
 
     if (!response.ok) {
-      alert(`메시지 전송 실패: ${result.error || "알 수 없는 오류"}`);
+      alert(result.error || "메시지 전송에 실패했습니다.");
       setIsSending(false);
       return;
     }
@@ -398,12 +354,111 @@ export function ChatSystem({
 
     setIsUploading(true);
     shouldScrollToBottomRef.current = true;
-    await sendMessage({
-      content: file.name,
-      file,
-    });
+    await sendMessage(file.name, file);
     setIsUploading(false);
   };
+
+  const handleCreateRequest = async () => {
+    const requestMessage = requestInput.trim();
+    if (!requestMessage) {
+      alert("상담 요청 내용을 입력해 주세요.");
+      return;
+    }
+
+    setIsCreatingRoom(true);
+
+    const response = await authFetch("/api/support/rooms", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({ requestMessage }),
+    });
+    const result = (await response.json()) as { error?: string; data?: { id?: string } };
+
+    if (!response.ok) {
+      alert(result.error || "상담 요청 생성에 실패했습니다.");
+      setIsCreatingRoom(false);
+      return;
+    }
+
+    setRequestInput("");
+    await refreshRooms();
+    if (result.data?.id) {
+      setSelectedRoomId(result.data.id);
+    }
+    setIsCreatingNewRequest(false);
+    setIsCreatingRoom(false);
+  };
+
+  const handleApproveRoom = async () => {
+    if (!selectedRoomId) return;
+
+    setIsApprovingRoom(true);
+
+    const response = await authFetch(`/api/support/rooms/${selectedRoomId}/approve`, {
+      method: "POST",
+    });
+    const result = (await response.json()) as { error?: string };
+
+    if (!response.ok) {
+      alert(result.error || "상담 요청 수락에 실패했습니다.");
+      setIsApprovingRoom(false);
+      return;
+    }
+
+    await refreshRooms();
+    await refreshMessages(selectedRoomId);
+    setIsApprovingRoom(false);
+  };
+
+  const handleCloseRoom = async () => {
+    if (!selectedRoomId) return;
+
+    setIsClosingRoom(true);
+
+    const response = await authFetch(`/api/support/rooms/${selectedRoomId}/close`, {
+      method: "POST",
+    });
+    const result = (await response.json()) as { error?: string };
+
+    if (!response.ok) {
+      alert(result.error || "상담 종료에 실패했습니다.");
+      setIsClosingRoom(false);
+      return;
+    }
+
+    await refreshRooms();
+    await refreshMessages(selectedRoomId);
+    setIsClosingRoom(false);
+  };
+
+  const openNewRequestForm = () => {
+    setRequestInput("");
+    setIsCreatingNewRequest(true);
+  };
+
+  const statusNotice = selectedRoom?.requestMessage ? (
+    <SupportStatusNotice
+      requestMessage={selectedRoom.requestMessage}
+      approvalStatus={selectedRoom.approvalStatus || "pending"}
+      isMaster={isMaster}
+      onCreateNewRequest={openNewRequestForm}
+    />
+  ) : null;
+
+  if (!isMaster && (!rooms.length || isCreatingNewRequest)) {
+    return (
+      <SupportRequestComposer
+        hasExistingRooms={rooms.length > 0}
+        requestInput={requestInput}
+        isCreatingRoom={isCreatingRoom}
+        onRequestInputChange={setRequestInput}
+        onSubmit={() => void handleCreateRequest()}
+        onBackToRoom={() => setIsCreatingNewRequest(false)}
+      />
+    );
+  }
 
   return (
     <div className="flex h-full min-h-0 w-full flex-1 overflow-hidden bg-[#F8F9FA]">
@@ -417,6 +472,10 @@ export function ChatSystem({
         onFilterChange={setRoomFilter}
         onSearchChange={setSearchQuery}
         onRoomSelect={setSelectedRoomId}
+        title={isMaster ? "고객센터 요청" : "고객센터"}
+        searchPlaceholder={isMaster ? "요청 검색..." : "상담 내역 검색..."}
+        emptyLabel={isMaster ? "접수된 고객센터 요청이 없습니다." : "상담 내역이 없습니다."}
+        showActiveFilter
       />
 
       <ChatMessagePanel
@@ -428,8 +487,37 @@ export function ChatSystem({
         messageListRef={messageListRef}
         messagesEndRef={messagesEndRef}
         onInputChange={setMessageInput}
-        onSend={() => void sendMessage({ content: messageInput })}
+        onSend={() => void sendMessage(messageInput)}
         onFileClick={() => fileInputRef.current?.click()}
+
+        title={isMaster ? selectedRoom?.counterpartName || "고객 문의" : "고객센터"}
+        statusNotice={selectedRoom ? statusNotice : null}
+        inputDisabled={!selectedRoom || selectedRoom.approvalStatus !== "approved"}
+
+        inputPlaceholder={
+          selectedRoom?.approvalStatus === "approved"
+            ? "메시지를 입력해 주세요..."
+            : "고객센터 담당자 수락 후 메시지를 보낼 수 있습니다."
+        }
+
+        composerHint={
+          selectedRoom?.approvalStatus === "approved"
+            ? "Shift + Enter로 줄바꿈"
+            : selectedRoom?.approvalStatus === "closed"
+              ? "종료된 고객센터 대화입니다."
+              : "상담 요청이 승인되면 채팅이 열립니다."
+        }
+        headerAction={
+          <SupportHeaderActions
+            isMaster={isMaster}
+            selectedRoom={selectedRoom}
+            isApprovingRoom={isApprovingRoom}
+            isClosingRoom={isClosingRoom}
+            onApprove={() => void handleApproveRoom()}
+            onClose={() => void handleCloseRoom()}
+            onCreateNewRequest={openNewRequestForm}
+          />
+        }
       />
     </div>
   );

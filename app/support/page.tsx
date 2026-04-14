@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { useState } from "react";
 import { ChevronDown, MessageCircle, Mail, Phone, Clock, Send, ArrowRight } from "lucide-react";
 
@@ -47,23 +48,23 @@ export default function SupportPage() {
 
   return (
     <main className="min-h-screen bg-white">
-      {/* 1. Hero Section - Gradient Background (Dark Left, Bright Right) */}
-      <section className="bg-gradient-to-r from-[#1b3e7a] to-[#235bd4] pt-20 pb-20 text-center text-white md:pt-30 md:pb-16">
-        <div className="mx-auto max-w-[1000px] px-6" >
-          <span className="inline-block rounded-full bg-white/20 px-4 py-1 text-xs font-semibold backdrop-blur-sm">
+      {/* 1. Hero Section */}
+      <section className="bg-gradient-to-r from-[#1b3e7a] to-[#235bd4] pt-24 pb-16 text-center text-white md:pt-32 md:pb-24">
+        <div className="mx-auto max-w-[1000px] px-6">
+          <span className="inline-block rounded-full bg-white/20 px-4 py-1 text-[11px] md:text-xs font-semibold backdrop-blur-sm">
             고객 지원
           </span>
-          <h1 className="mt-4 text-4xl font-extrabold tracking-tight md:text-5xl leading-tight">
-            두고커넥트와 함께<br className="" /> 브랜드를 만드는 이야기
+          <h1 className="mt-4 text-3xl sm:text-4xl md:text-5xl font-extrabold tracking-tight leading-tight md:leading-tight">
+            두고커넥트와 함께<br className="sm:hidden" /> 브랜드를 만드는 이야기
           </h1>
-          <p className="mt-4 text-lg font-medium text-white/80 ">
+          <p className="mt-4 text-base sm:text-lg font-medium text-white/80 max-w-[700px] mx-auto">
             전 세계 12개국의 200개 이상의 건강식품 브랜드가 두고커넥트와 함께 시작했습니다.<br className="hidden md:block" />
             궁금한 점이 있으시면 언제든지 문의하세요.
           </p>
 
-          {/* Floating Cards inside Section Flow */}
-          <div className="mt-6 grid grid-cols-1 gap-4 md:grid-cols-3">
-            <div className="flex flex-col items-center rounded-2xl bg-white/10 p-6 backdrop-blur-md transition-transform hover:scale-[1.02]">
+          {/* Floating Cards */}
+          <div className="mt-10 grid grid-cols-1 gap-4 sm:grid-cols-2 md:grid-cols-3">
+            <div className="flex flex-col items-center rounded-2xl bg-white/10 p-6 backdrop-blur-md transition-transform hover:scale-[1.02] border border-white/5">
               <Phone className="h-6 w-6 text-yellow-400" />
               <span className="mt-3 text-sm font-medium text-white/70">전화 문의</span>
               <span className="mt-1 text-lg font-bold text-white">+1 (800) DUGO-OEM</span>
@@ -72,10 +73,10 @@ export default function SupportPage() {
             <div className="flex flex-col items-center rounded-2xl bg-white/10 p-6 backdrop-blur-md border border-white/20 transition-transform hover:scale-[1.02]">
               <Mail className="h-6 w-6 text-blue-300" />
               <span className="mt-3 text-sm font-medium text-white/70">이메일 문의</span>
-              <span className="mt-1 text-lg font-bold text-white">hello@dugo-connect.com</span>
+              <span className="mt-1 text-lg font-bold text-white break-all">hello@dugo-connect.com</span>
               <span className="mt-1 text-xs text-white/50">24시간 접수 가능</span>
             </div>
-            <div className="flex flex-col items-center rounded-2xl bg-white/10 p-6 backdrop-blur-md transition-transform hover:scale-[1.02]">
+            <div className="flex flex-col items-center rounded-2xl bg-white/10 p-6 backdrop-blur-md transition-transform hover:scale-[1.02] border border-white/5 sm:col-span-2 md:col-span-1">
               <MessageCircle className="h-6 w-6 text-green-400" />
               <span className="mt-3 text-sm font-medium text-white/70">카카오톡 채널</span>
               <span className="mt-1 text-lg font-bold text-white">@두고커넥트</span>
@@ -85,9 +86,9 @@ export default function SupportPage() {
         </div>
       </section>
 
-      {/* 2. Contact Inquiry Section - Properly Separated */}
-      <section className="bg-[#f8fafc] px-6 py-20">
-        <div className="mx-auto flex max-w-[1000px] flex-col gap-8 md:flex-row">
+      {/* 2. Contact Inquiry Section */}
+      <section className="bg-[#f8fafc] px-6 py-16 md:py-24">
+        <div className="mx-auto flex max-w-[1000px] flex-col gap-10 md:flex-row">
           {/* Info Cards Column */}
           <div className="flex flex-col gap-4 md:w-1/3">
             {[
@@ -97,24 +98,28 @@ export default function SupportPage() {
               { icon: Clock, color: "text-orange-500", bg: "bg-orange-50", title: "운영 시간", text1: "평일 09:00 - 18:00", text2: "(주말, 공휴일 휴무)" },
             ].map((item, i) => (
               <div key={i} className="flex items-center gap-4 rounded-3xl border border-slate-100 bg-white p-5 shadow-sm transition-all hover:shadow-md">
-                <div className={`flex h-12 w-12 items-center justify-center rounded-2xl ${item.bg}`}>
+                <div className={`flex h-12 w-12 items-center justify-center rounded-2xl ${item.bg} shrink-0`}>
                   <item.icon className={`h-6 w-6 ${item.color}`} />
                 </div>
                 <div>
                   <h4 className="text-[15px] font-bold text-slate-900">{item.title}</h4>
                   <p className="text-sm text-slate-500">{item.text1}</p>
                   <p className="text-sm text-slate-400">{item.text2}</p>
-                  {item.link && <button className="mt-1 text-sm font-bold text-blue-600 hover:underline">{item.link}</button>}
+                  {item.link ? (
+                    <Link href="/my-connect?tab=support" className="mt-1 inline-block text-sm font-bold text-blue-600 hover:underline">
+                      {item.link}
+                    </Link>
+                  ) : null}
                 </div>
               </div>
             ))}
           </div>
 
           {/* Form Column */}
-          <div className="flex-1 rounded-[32px] border border-slate-100 bg-white p-8 shadow-sm md:p-10">
+          <div className="flex-1 rounded-[24px] md:rounded-[32px] border border-slate-100 bg-white p-6 sm:p-8 md:p-10 shadow-sm">
             <h3 className="mb-8 text-xl font-bold text-slate-900">문의하기</h3>
             <form onSubmit={handleSubmit} className="space-y-6">
-              <div className="grid grid-cols-1 gap-6 md:grid-cols-2">
+              <div className="grid grid-cols-1 gap-6 sm:grid-cols-2">
                 <div className="space-y-2">
                   <label className="text-sm font-bold text-slate-700">이름 *</label>
                   <input
@@ -168,11 +173,11 @@ export default function SupportPage() {
       </section>
 
       {/* 3. FAQ Section */}
-      <section className="bg-white px-6 py-24">
+      <section className="bg-white px-6 py-16 md:py-24">
         <div className="mx-auto max-w-[1000px]">
           <div className="mb-12 text-center">
-            <h2 className="text-3xl font-extrabold text-slate-900">자주 묻는 질문</h2>
-            <p className="mt-4 text-slate-500">
+            <h2 className="text-2xl md:text-3xl font-extrabold text-slate-900">자주 묻는 질문</h2>
+            <p className="mt-4 text-sm md:text-base text-slate-500">
               두고커넥트 이용에 대한 자주 묻는 질문들을 모았습니다.
             </p>
           </div>
@@ -185,9 +190,9 @@ export default function SupportPage() {
               >
                 <button
                   onClick={() => setOpenIdx(openIdx === idx ? null : idx)}
-                  className="flex w-full items-center justify-between p-6 text-left focus:outline-none"
+                  className="flex w-full items-center justify-between p-5 md:p-6 text-left focus:outline-none"
                 >
-                  <span className={`text-[16px] font-bold transition-colors ${openIdx === idx ? "text-blue-600" : "text-slate-800"}`}>
+                  <span className={`text-sm md:text-[16px] font-bold transition-colors ${openIdx === idx ? "text-blue-600" : "text-slate-800"}`}>
                     {faq.question}
                   </span>
                   <ChevronDown
@@ -202,7 +207,7 @@ export default function SupportPage() {
                     }`}
                 >
                   <div className="overflow-hidden">
-                    <p className="px-6 pb-6 text-[15px] leading-relaxed text-slate-500">
+                    <p className="px-5 md:px-6 pb-5 md:pb-6 text-sm md:text-[15px] leading-relaxed text-slate-500">
                       {faq.answer}
                     </p>
                   </div>

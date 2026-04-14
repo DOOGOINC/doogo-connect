@@ -34,13 +34,28 @@ export async function GET(request: Request) {
 
     if (bucket === CHAT_FILE_BUCKET) {
       const roomId = path.split("/")[0];
-      const { data: room } = await supabase.from("chat_rooms").select("client_id, manufacturer_id").eq("id", roomId).maybeSingle();
+      const { data: room } = await supabase
+        .from("chat_rooms")
+        .select("client_id, manufacturer_id, master_profile_id")
+        .eq("id", roomId)
+        .maybeSingle();
       if (!room) {
         return fail("파일을 찾을 수 없습니다.", 404);
       }
 
-      const { data: manufacturer } = await supabase.from("manufacturers").select("owner_id").eq("id", room.manufacturer_id).maybeSingle();
-      const canAccess = room.client_id === user.id || manufacturer?.owner_id === user.id;
+      const [{ data: profile }, { data: manufacturer }] = await Promise.all([
+        supabase.from("profiles").select("role").eq("id", user.id).maybeSingle(),
+        room.manufacturer_id
+          ? supabase.from("manufacturers").select("owner_id").eq("id", room.manufacturer_id).maybeSingle()
+          : Promise.resolve({ data: null }),
+      ]);
+
+      const canAccess =
+        room.client_id === user.id ||
+        room.master_profile_id === user.id ||
+        manufacturer?.owner_id === user.id ||
+        profile?.role === "master";
+
       if (!canAccess) {
         return fail("권한이 없습니다.", 403);
       }

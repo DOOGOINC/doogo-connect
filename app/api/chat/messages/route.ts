@@ -18,6 +18,10 @@ export async function POST(request: Request) {
       throw new Error("채팅방을 찾을 수 없습니다.");
     }
 
+    if (room.room_type === "support" && room.approval_status !== "approved") {
+      throw new Error("상담 요청을 수락한 뒤에 메시지를 보낼 수 있습니다.");
+    }
+
     let filePath: string | null = null;
     let fileName: string | null = null;
     let fileSize: number | null = null;

@@ -34,14 +34,10 @@ export function Section09() {
         {/* --- 성공사례 카드 그리드 --- */}
         <div className="grid grid-cols-1 gap-6 md:grid-cols-2 lg:grid-cols-3">
           {SUCCESS_STORIES.map((story, index) => {
-            // 원형 아바타 색상 설정
             const avatarColors = ["bg-[#0064FF]", "bg-[#374151]", "bg-[#047857]"];
             const avatarColor = avatarColors[index % avatarColors.length];
 
-            // 제조사 이름 정제 (상단 텍스트용)
             const manufacturerClean = story.manufacturer.split(' · ')[0];
-
-            // 출시 국가 정보 (태그용)
             const regionMap: Record<string, string> = {
               NZ: "뉴질랜드 출시",
               JP: "한국 출시",

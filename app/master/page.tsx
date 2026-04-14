@@ -6,6 +6,7 @@ import { MasterSidebar } from "./_components/MasterSidebar";
 import { MemberAdmin } from "./_components/MemberAdmin";
 import { PointSettingsAdmin } from "./_components/PointSettingsAdmin";
 import { PartnerRequestAdmin } from "./_components/PartnerRequestAdmin";
+import { SupportCenterAdmin } from "./_components/SupportCenterAdmin";
 
 export default function MasterDashboardPage() {
   const [activeTab, setActiveTab] = useState("manufacturers");
@@ -20,6 +21,8 @@ export default function MasterDashboardPage() {
         return <PartnerRequestAdmin />;
       case "point-settings":
         return <PointSettingsAdmin />;
+      case "support":
+        return <SupportCenterAdmin />;
       default:
         return (
           <div className="flex flex-1 items-center justify-center bg-[#F8F9FA] font-medium text-gray-500">

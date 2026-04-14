@@ -8,6 +8,7 @@ import {
   CreditCard,
   Factory,
   FileText,
+  Headset,
   LayoutDashboard,
   Map,
   PackagePlus,
@@ -18,20 +19,22 @@ import {
 import { useState } from "react";
 
 const CLIENT_SIDEBAR_ITEMS = [
-  { id: "dashboard", label: "대시보드", icon: LayoutDashboard },
-  { id: "project", label: "프로젝트", icon: FileText },
-  { id: "delivery", label: "제조 진행", icon: Map },
-  { id: "activity", label: "활동 로그", icon: BarChart3 },
-  { id: "chat", label: "1:1 상담", icon: Send },
+  { id: "dashboard", label: "\uB300\uC2DC\uBCF4\uB4DC", icon: LayoutDashboard },
+  { id: "project", label: "\uD504\uB85C\uC81D\uD2B8", icon: FileText },
+  { id: "delivery", label: "\uC81C\uC870 \uC9C4\uD589", icon: Map },
+  { id: "activity", label: "\uD65C\uB3D9 \uB85C\uADF8", icon: BarChart3 },
+  { id: "chat", label: "1:1 \uC0C1\uB2F4", icon: Send },
+  { id: "support", label: "\uACE0\uAC1D\uC13C\uD130", icon: Headset },
 ];
 
 const MANUFACTURER_SIDEBAR_ITEMS = [
-  { id: "rfq-inbox", label: "견적 요청", icon: FileText },
-  { id: "orders", label: "수주 관리", icon: BriefcaseBusiness },
-  { id: "production", label: "제조 관리", icon: Factory },
-  { id: "product-registration", label: "제조사 카탈로그", icon: PackagePlus },
-  { id: "chat", label: "1:1 상담", icon: Send },
-  { id: "transactions", label: "거래/정산", icon: Receipt },
+  { id: "rfq-inbox", label: "\uACAC\uC801 \uC694\uCCAD", icon: FileText },
+  { id: "orders", label: "\uC218\uC8FC \uAD00\uB9AC", icon: BriefcaseBusiness },
+  { id: "production", label: "\uC81C\uC870 \uAD00\uB9AC", icon: Factory },
+  { id: "product-registration", label: "\uC81C\uC870\uC0AC \uCE74\uD0C8\uB85C\uADF8", icon: PackagePlus },
+  { id: "chat", label: "1:1 \uC0C1\uB2F4", icon: Send },
+  { id: "support", label: "\uACE0\uAC1D\uC13C\uD130", icon: Headset },
+  { id: "transactions", label: "\uAC70\uB798/\uC815\uC0B0", icon: Receipt },
 ];
 
 interface SidebarProps {
@@ -46,14 +49,14 @@ export function Sidebar({ activeTab, isManufacturer, onTabChange, viewMode, manu
   const [isQuotesOpen, setIsQuotesOpen] = useState(true);
 
   const sidebarItems = viewMode === "manufacturer" ? MANUFACTURER_SIDEBAR_ITEMS : CLIENT_SIDEBAR_ITEMS;
-  const sectionTitle = viewMode === "manufacturer" ? "제조 운영" : "의뢰 관리";
-  const roleLabel = viewMode === "manufacturer" ? manufacturerName?.trim() || "제조사" : "의뢰자";
-  const roleBadgeLabel = isManufacturer ? "제조사" : "의뢰자";
+  const sectionTitle = viewMode === "manufacturer" ? "\uC81C\uC870 \uC6B4\uC601" : "\uC758\uB8B0 \uAD00\uB9AC";
+  const roleLabel = viewMode === "manufacturer" ? manufacturerName?.trim() || "\uC81C\uC870\uC0AC" : "\uC758\uB8B0\uC790";
+  const roleBadgeLabel = isManufacturer ? "\uC81C\uC870\uC0AC" : "\uC758\uB8B0\uC790";
 
   return (
     <aside className="flex min-h-screen w-56 flex-shrink-0 flex-col border-r border-gray-200 bg-white">
       <div className="border-b border-gray-100 px-5 py-5">
-        <h2 className="text-base font-bold text-gray-900">마이커넥트</h2>
+        <h2 className="text-base font-bold text-gray-900">{"\uB9C8\uC774\uCEE4\uB125\uD2B8"}</h2>
       </div>
 
       <div className="border-b border-gray-100 px-4 py-3">
@@ -76,7 +79,7 @@ export function Sidebar({ activeTab, isManufacturer, onTabChange, viewMode, manu
           <ChevronDown className={`h-3.5 w-3.5 text-gray-400 transition-transform duration-200 ${isQuotesOpen ? "rotate-180" : "rotate-0"}`} />
         </button>
 
-        <div className={`overflow-hidden transition-all duration-300 ease-in-out ${isQuotesOpen ? "mb-4 max-h-[500px] opacity-100" : "mb-0 max-h-0 opacity-0"}`}>
+        <div className={`overflow-hidden transition-all duration-300 ease-in-out ${isQuotesOpen ? "mb-4 max-h-[560px] opacity-100" : "mb-0 max-h-0 opacity-0"}`}>
           {sidebarItems.map((item) => (
             <button
               key={item.id}
@@ -95,7 +98,7 @@ export function Sidebar({ activeTab, isManufacturer, onTabChange, viewMode, manu
             className={`flex w-full items-center gap-2.5 px-5 py-2.5 text-sm font-semibold transition-colors ${activeTab === "settings" ? "bg-blue-50 font-semibold text-[#0064FF]" : "text-gray-700 hover:bg-gray-50"}`}
           >
             <Settings className={`h-4 w-4 ${activeTab === "settings" ? "text-[#0064FF]" : "text-gray-400"}`} />
-            계정 설정
+            {"\uACC4\uC815 \uC124\uC815"}
           </button>
           {viewMode === "client" ? (
             <button
@@ -103,7 +106,7 @@ export function Sidebar({ activeTab, isManufacturer, onTabChange, viewMode, manu
               className={`flex w-full items-center gap-2.5 px-5 py-2.5 text-sm font-semibold transition-colors ${activeTab === "points" ? "bg-blue-50 font-semibold text-[#0064FF]" : "text-gray-700 hover:bg-gray-50"}`}
             >
               <Coins className={`h-4 w-4 ${activeTab === "points" ? "text-[#0064FF]" : "text-gray-400"}`} />
-              내 포인트
+              {"\uB0B4 \uD3EC\uC778\uD2B8"}
             </button>
           ) : null}
           <button
@@ -111,7 +114,7 @@ export function Sidebar({ activeTab, isManufacturer, onTabChange, viewMode, manu
             className={`flex w-full items-center gap-2.5 px-5 py-2.5 text-sm font-semibold transition-colors ${activeTab === "payment" ? "bg-blue-50 font-semibold text-[#0064FF]" : "text-gray-700 hover:bg-gray-50"}`}
           >
             <CreditCard className={`h-4 w-4 ${activeTab === "payment" ? "text-[#0064FF]" : "text-gray-400"}`} />
-            결제 관리
+            {"\uACB0\uC81C \uAD00\uB9AC"}
           </button>
         </div>
       </nav>

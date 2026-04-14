@@ -3,11 +3,16 @@ export type ViewMode = "client" | "manufacturer";
 export type ChatRoomRow = {
   id: string;
   client_id: string;
-  manufacturer_id: number;
+  manufacturer_id: number | null;
   last_message: string | null;
   last_message_at: string | null;
   created_at: string;
   updated_at: string;
+  room_type?: "manufacturer" | "support" | null;
+  approval_status?: "pending" | "approved" | "closed" | null;
+  master_profile_id?: string | null;
+  support_request_message?: string | null;
+  approved_at?: string | null;
 };
 
 export type ChatMessageRow = {
@@ -28,6 +33,7 @@ export type ProfileRow = {
   full_name: string | null;
   email: string | null;
   last_seen_at: string | null;
+  role?: string | null;
 };
 
 export type ManufacturerRow = {
@@ -48,6 +54,9 @@ export type ChatRoomView = {
   lastTime: string;
   isOnline: boolean;
   lastSeenLabel: string;
+  roomType?: "manufacturer" | "support";
+  approvalStatus?: "pending" | "approved" | "closed";
+  requestMessage?: string;
 };
 
 export type ChatMessageView = ChatMessageRow & {

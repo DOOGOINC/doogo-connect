@@ -93,7 +93,6 @@ export function PointSettingsAdmin() {
       <div className="mx-auto w-full max-w-[1100px]">
         <div className="mb-8">
           <h1 className="text-[28px] font-bold text-[#191F28]">포인트 설정</h1>
-          <p className="mt-2 text-sm text-[#667085]">추천 성공 시 지급할 포인트 기준을 마스터 권한으로만 관리합니다.</p>
         </div>
 
         <div className="grid gap-4 md:grid-cols-3">

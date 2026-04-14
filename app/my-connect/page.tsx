@@ -19,6 +19,7 @@ import { ProductRegistration } from "./_components/ProductRegistration";
 import { ProjectList } from "./_components/ProjectList";
 import { RfqInboxDetail } from "./_components/RfqInboxDetail";
 import { Sidebar } from "./_components/Sidebar";
+import { SupportChatSystem } from "./_components/SupportChatSystem";
 import { TransactionsSettlement } from "./_components/TransactionsSettlement";
 
 type UserRole = "member" | "manufacturer" | "master";
@@ -38,6 +39,8 @@ export default function MyConnectPage() {
 
   useEffect(() => {
     const initializePage = async () => {
+      const params = new URLSearchParams(window.location.search);
+      const requestedTab = params.get("tab");
       const {
         data: { session },
       } = await supabase.auth.getSession();
@@ -69,13 +72,13 @@ export default function MyConnectPage() {
 
       if (nextRole === "manufacturer" && hasLinkedManufacturer) {
         setViewMode("manufacturer");
-        setActiveTab("rfq-inbox");
+        setActiveTab(requestedTab === "support" ? "support" : "rfq-inbox");
 
         setManufacturerId(manufacturer?.id ?? null);
         setManufacturerName(manufacturer?.name || "");
       } else {
         setViewMode("client");
-        setActiveTab("dashboard");
+        setActiveTab(requestedTab === "support" ? "support" : "dashboard");
         setManufacturerId(null);
         setManufacturerName("");
       }
@@ -307,6 +310,8 @@ export default function MyConnectPage() {
       switch (activeTab) {
         case "chat":
           return <ChatSystem userId={userId} viewMode={viewMode} />;
+        case "support":
+          return <SupportChatSystem userId={userId} />;
         case "rfq-inbox":
           return renderManufacturerRfqInbox();
         case "orders":
@@ -345,6 +350,8 @@ export default function MyConnectPage() {
         return <ClientActivityBoard requests={rfqRequests} />;
       case "chat":
         return <ChatSystem userId={userId} viewMode={viewMode} />;
+      case "support":
+        return <SupportChatSystem userId={userId} />;
       case "payment":
         return <ClientPaymentManagement requests={rfqRequests} />;
       case "settings":

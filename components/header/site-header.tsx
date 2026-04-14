@@ -23,6 +23,7 @@ export function SiteHeader() {
   const [session, setSession] = useState<Session | null>(null);
   const [displayName, setDisplayName] = useState("");
   const [userRole, setUserRole] = useState("");
+  const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
 
   const pathname = usePathname();
   const router = useRouter();
@@ -179,12 +180,17 @@ export function SiteHeader() {
     };
   }, []);
 
+  useEffect(() => {
+    setIsMobileMenuOpen(false);
+  }, [pathname]);
+
   const handleLogout = async () => {
     await supabase.auth.signOut();
     window.location.href = "/";
   };
 
   const handleNavClick = async (href: string) => {
+    setIsMobileMenuOpen(false);
     if (href === "/my-connect") {
       router.push(href);
       return;
@@ -216,14 +222,13 @@ export function SiteHeader() {
   return (
     <>
       <header
-        className={`fixed top-0 z-50 w-full transition-all duration-500 ${
-          isWhiteHeader ? "h-16 border-b border-slate-200/80 bg-white/95 backdrop-blur-sm" : "h-20 bg-transparent"
-        }`}
+        className={`fixed top-0 z-50 w-full transition-all duration-500 ${isWhiteHeader || isMobileMenuOpen ? "h-16 border-b border-slate-200/80 bg-white/95 backdrop-blur-sm" : "h-20 bg-transparent"
+          }`}
       >
         <div className="mx-auto flex h-full w-full max-w-7xl items-center justify-between px-6">
           <Link href="/" className="flex items-center">
             <Image
-              src={isWhiteHeader ? "/image/doogo_logo_full.png" : "/image/doogo_logo_white.png"}
+              src={isWhiteHeader || isMobileMenuOpen ? "/image/doogo_logo_full.png" : "/image/doogo_logo_white.png"}
               alt="DOGO CONNECT"
               width={140}
               height={40}
@@ -231,10 +236,10 @@ export function SiteHeader() {
             />
           </Link>
 
+          {/* Desktop Nav */}
           <nav
-            className={`hidden items-center gap-10 text-[14px] font-semibold transition-colors duration-500 lg:flex ${
-              isWhiteHeader ? "text-slate-700" : "text-white/95"
-            }`}
+            className={`hidden items-center gap-10 text-[14px] font-semibold transition-colors duration-500 lg:flex ${isWhiteHeader ? "text-slate-700" : "text-white/95"
+              }`}
           >
             {navItems.map((item) => {
               const isActive = pathname === item.href && item.href !== "/";
@@ -244,9 +249,8 @@ export function SiteHeader() {
                   key={item.label}
                   type="button"
                   onClick={() => handleNavClick(item.href)}
-                  className={`cursor-pointer text-left transition-colors duration-300 ${
-                    isActive ? "text-[#0064FF]" : ""
-                  } ${isWhiteHeader ? "hover:text-[#0064FF]" : "hover:text-white"} ${!isWhiteHeader && !isActive ? "opacity-90" : ""}`}
+                  className={`cursor-pointer text-left transition-colors duration-300 ${isActive ? "text-[#0064FF]" : ""
+                    } ${isWhiteHeader ? "hover:text-[#0064FF]" : "hover:text-white"} ${!isWhiteHeader && !isActive ? "opacity-90" : ""}`}
                 >
                   {item.label}
                 </button>
@@ -255,82 +259,132 @@ export function SiteHeader() {
           </nav>
 
           <div className="flex items-center gap-3">
-            {session ? (
-              <>
-                {userRole === "master" ? (
+            {/* Desktop Auth */}
+            <div className="hidden items-center gap-3 lg:flex">
+              {session ? (
+                <>
+                  {userRole === "master" ? (
+                    <button
+                      type="button"
+                      onClick={() => handleNavClick("/master")}
+                      className={`mr-2 flex cursor-pointer items-center gap-1.5 text-sm font-semibold transition-colors duration-300 ${isWhiteHeader ? "text-slate-700 hover:text-[#0064FF]" : "text-white/90 hover:text-white"
+                        }`}
+                    >
+                      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                        <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"></path>
+                      </svg>
+                      <span>마스터</span>
+                    </button>
+                  ) : null}
+
                   <button
                     type="button"
-                    onClick={() => handleNavClick("/master")}
-                    className={`mr-2 flex cursor-pointer items-center gap-1.5 text-sm font-semibold transition-colors duration-300 ${
-                      isWhiteHeader ? "text-slate-700 hover:text-[#0064FF]" : "text-white/90 hover:text-white"
-                    }`}
+                    onClick={() => handleNavClick("/my-connect")}
+                    className={`mr-2 flex cursor-pointer items-center gap-1.5 text-sm font-semibold transition-colors duration-300 ${isWhiteHeader ? "text-slate-700 hover:text-[#0064FF]" : "text-white/90 hover:text-white"
+                      }`}
                   >
                     <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                      <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"></path>
+                      <rect x="3" y="3" width="7" height="7"></rect>
+                      <rect x="14" y="3" width="7" height="7"></rect>
+                      <rect x="14" y="14" width="7" height="7"></rect>
+                      <rect x="3" y="14" width="7" height="7"></rect>
                     </svg>
-                    <span>마스터</span>
+                    <span>마이커넥트</span>
                   </button>
-                ) : null}
 
-                <button
-                  type="button"
-                  onClick={() => handleNavClick("/my-connect")}
-                  className={`mr-2 flex cursor-pointer items-center gap-1.5 text-sm font-semibold transition-colors duration-300 ${
-                    isWhiteHeader ? "text-slate-700 hover:text-[#0064FF]" : "text-white/90 hover:text-white"
-                  }`}
-                >
-                  <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                    <rect x="3" y="3" width="7" height="7"></rect>
-                    <rect x="14" y="3" width="7" height="7"></rect>
-                    <rect x="14" y="14" width="7" height="7"></rect>
-                    <rect x="3" y="14" width="7" height="7"></rect>
-                  </svg>
-                  <span>마이커넥트</span>
-                </button>
+                  <span className={`text-sm font-medium ${isWhiteHeader ? "text-slate-600" : "text-white/80"}`}>
+                    {displayName || getDisplayName(session)}님
+                  </span>
 
-                <span className={`text-sm font-medium ${isWhiteHeader ? "text-slate-600" : "text-white/80"}`}>
-                  {displayName || getDisplayName(session)}님
-                </span>
+                  <button
+                    type="button"
+                    onClick={handleLogout}
+                    className={`inline-flex cursor-pointer items-center rounded-full px-5 text-sm font-semibold transition-all duration-500 ${isWhiteHeader ? "h-10 bg-slate-950 text-white" : "h-10 bg-white text-slate-950"
+                      }`}
+                  >
+                    로그아웃
+                  </button>
+                </>
+              ) : (
+                <>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setAuthMode("login");
+                      setIsAuthModalOpen(true);
+                    }}
+                    className={`hidden cursor-pointer text-base font-medium transition-colors duration-500 md:inline-flex ${isWhiteHeader ? "text-slate-600" : "text-white/80"
+                      }`}
+                  >
+                    로그인
+                  </button>
 
-                <button
-                  type="button"
-                  onClick={handleLogout}
-                  className={`inline-flex cursor-pointer items-center rounded-full px-5 text-sm font-semibold transition-all duration-500 ${
-                    isWhiteHeader ? "h-10 bg-slate-950 text-white" : "h-10 bg-white text-slate-950"
-                  }`}
-                >
-                  로그아웃
-                </button>
-              </>
-            ) : (
-              <>
-                <button
-                  type="button"
-                  onClick={() => {
-                    setAuthMode("login");
-                    setIsAuthModalOpen(true);
-                  }}
-                  className={`hidden cursor-pointer text-base font-medium transition-colors duration-500 md:inline-flex ${
-                    isWhiteHeader ? "text-slate-600" : "text-white/80"
-                  }`}
-                >
-                  로그인
-                </button>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setAuthMode("signup");
+                      setIsAuthModalOpen(true);
+                    }}
+                    className={`inline-flex cursor-pointer items-center rounded-full px-5 text-sm font-semibold transition-all duration-500 ${isWhiteHeader ? "h-10 bg-slate-950 text-white" : "h-10 bg-white text-slate-950"
+                      }`}
+                  >
+                    회원가입
+                  </button>
+                </>
+              )}
+            </div>
 
+            {/* Hamburger Button */}
+            <button
+              type="button"
+              className="lg:hidden p-2"
+              onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)}
+            >
+              <div className="w-6 flex flex-col gap-1.5">
+                <span className={`block h-0.5 w-full transition-all duration-300 ${isWhiteHeader || isMobileMenuOpen ? "bg-slate-900" : "bg-white"} ${isMobileMenuOpen ? "translate-y-2 rotate-45" : ""}`} />
+                <span className={`block h-0.5 w-full transition-all duration-300 ${isWhiteHeader || isMobileMenuOpen ? "bg-slate-900" : "bg-white"} ${isMobileMenuOpen ? "opacity-0" : ""}`} />
+                <span className={`block h-0.5 w-full transition-all duration-300 ${isWhiteHeader || isMobileMenuOpen ? "bg-slate-900" : "bg-white"} ${isMobileMenuOpen ? "-translate-y-2 -rotate-45" : ""}`} />
+              </div>
+            </button>
+          </div>
+        </div>
+
+        {/* Mobile Menu */}
+        <div
+          className={`fixed inset-x-0 top-16 bottom-0 z-[49] bg-white transition-all duration-300 lg:hidden ${isMobileMenuOpen ? "opacity-100 pointer-events-auto" : "opacity-0 pointer-events-none -translate-y-4"
+            }`}
+        >
+          <div className="flex flex-col p-6 gap-8 bg-white">
+            <nav className="flex flex-col gap-6">
+              {navItems.map((item) => (
                 <button
+                  key={item.label}
                   type="button"
-                  onClick={() => {
-                    setAuthMode("signup");
-                    setIsAuthModalOpen(true);
-                  }}
-                  className={`inline-flex cursor-pointer items-center rounded-full px-5 text-sm font-semibold transition-all duration-500 ${
-                    isWhiteHeader ? "h-10 bg-slate-950 text-white" : "h-10 bg-white text-slate-950"
-                  }`}
+                  onClick={() => handleNavClick(item.href)}
+                  className={`text-left text-lg font-bold ${pathname === item.href ? "text-[#0064FF]" : "text-slate-800"}`}
                 >
-                  회원가입
+                  {item.label}
                 </button>
-              </>
-            )}
+              ))}
+            </nav>
+            <div className="h-px bg-slate-100" />
+            <div className="flex flex-col gap-4">
+              {session ? (
+                <>
+                  <div className="text-sm font-medium text-slate-500 mb-2">
+                    {displayName || getDisplayName(session)}님 환영합니다
+                  </div>
+                  <button onClick={() => handleNavClick("/my-connect")} className="text-left text-base font-semibold text-slate-700">마이커넥트</button>
+                  {userRole === "master" && <button onClick={() => handleNavClick("/master")} className="text-left text-base font-semibold text-slate-700">마스터 관리</button>}
+                  <button onClick={handleLogout} className="mt-4 h-12 rounded-xl bg-[#0064FF] text-[#fff] font-bold">로그아웃</button>
+                </>
+              ) : (
+                <>
+                  <button onClick={() => { setAuthMode("login"); setIsAuthModalOpen(true); setIsMobileMenuOpen(false); }} className="h-12 rounded-xl border border-slate-400 text-slate-900 font-bold">로그인</button>
+                  <button onClick={() => { setAuthMode("signup"); setIsAuthModalOpen(true); setIsMobileMenuOpen(false); }} className="h-12 rounded-xl bg-[#0064FF] text-white font-bold">회원가입</button>
+                </>
+              )}
+            </div>
           </div>
         </div>
       </header>
