@@ -1,13 +1,32 @@
 import { CHAT_FILE_BUCKET } from "@/lib/storage";
 import { mapRouteError, ok } from "@/lib/server/http";
-import { requireServerUser } from "@/lib/server/supabase";
+import { createServiceRoleClient, requireServerUser } from "@/lib/server/supabase";
+
+const ALLOWED_CHAT_FILE_TYPES = new Set(["image/jpeg", "image/png", "application/pdf"]);
+const ALLOWED_CHAT_FILE_EXTENSIONS = new Set(["jpg", "jpeg", "png", "pdf"]);
+
+function isAllowedChatFile(file: File) {
+  const normalizedName = file.name.toLowerCase();
+  const extension = normalizedName.includes(".") ? normalizedName.split(".").pop() || "" : "";
+
+  if (file.type && ALLOWED_CHAT_FILE_TYPES.has(file.type)) {
+    return true;
+  }
+
+  return ALLOWED_CHAT_FILE_EXTENSIONS.has(extension);
+}
 
 export async function POST(request: Request) {
   try {
     const { supabase, user } = await requireServerUser(request);
+    const admin = createServiceRoleClient();
     const formData = await request.formData();
     const roomId = String(formData.get("roomId") || "").trim();
     const content = String(formData.get("content") || "").trim();
+
+    if (!admin) {
+      throw new Error("SERVER_CONFIG_MISSING");
+    }
 
     if (!roomId) {
       throw new Error("채팅방 정보가 없습니다.");
@@ -29,13 +48,17 @@ export async function POST(request: Request) {
 
     const file = formData.get("file");
     if (file instanceof File && file.size > 0) {
+      if (!isAllowedChatFile(file)) {
+        throw new Error("채팅 첨부파일은 JPG, PNG, PDF만 전송할 수 있습니다.");
+      }
+
       const safeName = file.name.replace(/\s+/g, "-").replace(/[^a-zA-Z0-9._-]/g, "-");
       filePath = `${roomId}/${Date.now()}-${safeName}`;
       fileName = file.name;
       fileSize = file.size;
       messageType = "file";
 
-      const { error: uploadError } = await supabase.storage.from(CHAT_FILE_BUCKET).upload(filePath, file, {
+      const { error: uploadError } = await admin.storage.from(CHAT_FILE_BUCKET).upload(filePath, file, {
         upsert: false,
         contentType: file.type || undefined,
       });
@@ -49,7 +72,7 @@ export async function POST(request: Request) {
       throw new Error("메시지 내용이 없습니다.");
     }
 
-    const { data: inserted, error } = await supabase
+    const { data: inserted, error } = await admin
       .from("chat_messages")
       .insert({
         room_id: roomId,
@@ -68,7 +91,7 @@ export async function POST(request: Request) {
       throw new Error(error.message);
     }
 
-    const { error: roomUpdateError } = await supabase
+    const { error: roomUpdateError } = await admin
       .from("chat_rooms")
       .update({
         last_message: content || `${fileName || "파일"} 첨부`,

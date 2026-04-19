@@ -1,9 +1,8 @@
 import "server-only";
 
 import { createClient as createSupabaseClient, type SupabaseClient, type User } from "@supabase/supabase-js";
+import type { AppRole } from "@/lib/auth/roles";
 import { createClient as createServerCookieClient } from "@/utils/supabase/server";
-
-export type AppRole = "member" | "manufacturer" | "master";
 
 function createBearerClient(token: string) {
   return createSupabaseClient(process.env.NEXT_PUBLIC_SUPABASE_URL!, process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!, {
@@ -96,14 +95,22 @@ export async function userOwnsManufacturer(
 }
 
 export async function requireMasterUser(request?: Request) {
+  return requireRoleUser(["master"], request);
+}
+
+export async function requirePartnerUser(request?: Request) {
+  return requireRoleUser(["partner"], request);
+}
+
+export async function requireRoleUser(allowedRoles: AppRole[], request?: Request) {
   const { supabase, user } = await requireServerUser(request);
   const role = await getProfileRole(supabase, user.id);
 
-  if (role !== "master") {
+  if (!allowedRoles.includes(role)) {
     throw new Error("FORBIDDEN");
   }
 
-  return { supabase, user };
+  return { supabase, user, role };
 }
 
 export function isAuthError(error: unknown) {

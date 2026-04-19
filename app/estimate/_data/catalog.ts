@@ -24,6 +24,9 @@ export interface Product {
   directions?: string[];
   cautions?: string[];
   containerIds: string[];
+  designServiceIds?: string[] | null;
+  designPackageIds?: string[] | null;
+  designExtraIds?: string[] | null;
 }
 
 export interface ContainerOption {
@@ -33,6 +36,7 @@ export interface ContainerOption {
   description: string;
   addPrice: number;
   image: string;
+  paymentCurrency?: CurrencyCode;
 }
 
 export interface DesignOption {
@@ -49,6 +53,7 @@ export interface DesignServiceItem {
   name: string;
   description?: string;
   price: number;
+  paymentCurrency?: CurrencyCode;
 }
 
 export interface DesignPackageItem {
@@ -59,6 +64,7 @@ export interface DesignPackageItem {
   description?: string;
   price: number;
   included: string[];
+  paymentCurrency?: CurrencyCode;
 }
 
 export interface DesignExtraItem {
@@ -67,6 +73,7 @@ export interface DesignExtraItem {
   name: string;
   description: string;
   price: number;
+  paymentCurrency?: CurrencyCode;
 }
 
 export interface DiscountRow {
@@ -143,7 +150,9 @@ export const getContainerById = (containers: ContainerOption[], containerId: str
 
 export const getContainersByProduct = (containers: ContainerOption[], product: Product | null): ContainerOption[] => {
   if (!product) return [];
-  return containers.filter((container) => product.containerIds.includes(container.id));
+  return containers.filter(
+    (container) => product.containerIds.includes(container.id) && (!container.paymentCurrency || container.paymentCurrency === product.paymentCurrency)
+  );
 };
 
 export const getDefaultDesignOption = (designOptions: DesignOption[]): DesignOption | null => {

@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import { Coins, Gift, Loader2, Save, Users } from "lucide-react";
 import { authFetch } from "@/lib/client/auth-fetch";
+import { MasterLoadingState } from "./MasterLoadingState";
 
 type PointSettingsResponse = {
   settings: {
@@ -81,11 +82,7 @@ export function PointSettingsAdmin() {
   };
 
   if (loading) {
-    return (
-      <div className="flex flex-1 items-center justify-center bg-[#F8F9FA]">
-        <Loader2 className="h-8 w-8 animate-spin text-[#0064FF]" />
-      </div>
-    );
+    return <MasterLoadingState />;
   }
 
   return (

@@ -21,23 +21,21 @@ export function SupportRequestComposer({
 }: SupportRequestComposerProps) {
   return (
     <div className="flex h-full min-h-0 w-full flex-1 overflow-hidden bg-[#F8F9FA] p-6">
-      <div className="mx-auto flex w-full max-w-[760px] flex-col rounded-[28px] border border-[#E5E7EB] bg-white p-8 shadow-sm">
-        <div className="flex h-14 w-14 items-center justify-center rounded-2xl bg-[#EEF5FF] text-[#2563EB]">
-          <Headset className="h-7 w-7" />
-        </div>
+      <div className="mx-auto flex w-full flex-col ">
+
         <h2 className="mt-6 text-2xl font-bold text-[#111827]">고객센터 상담 요청</h2>
         <p className="mt-2 text-sm leading-6 text-[#6B7280]">
-          문의 내용을 남겨주시면 마스터가 확인 후 상담 요청을 수락합니다. 수락 이후에는 기존 1:1 상담과 같은 방식으로 채팅할 수 있습니다.
+          문의 내용을 남겨주시면 관리자가 확인 후 상담 요청을 수락합니다. 수락 이후에는 기존 1:1 상담과 같은 방식으로 채팅할 수 있습니다.
         </p>
 
-        <div className="mt-6 rounded-2xl border border-[#E5E7EB] bg-[#F9FAFB] p-4">
+        <div className="mt-6  p-4">
           <label className="mb-3 block text-sm font-semibold text-[#111827]">요청 내용</label>
           <textarea
             value={requestInput}
             onChange={(event) => onRequestInputChange(event.target.value)}
             rows={7}
             placeholder="문의하실 내용을 자세히 적어 주세요."
-            className="w-full resize-none rounded-2xl border border-[#D0D5DD] bg-white px-4 py-3 text-sm leading-6 text-[#111827] outline-none transition focus:border-[#3182F6]"
+            className="w-full resize-none rounded-[14px] border border-[#D0D5DD] bg-white px-4 py-3 text-sm leading-6 text-[#111827] outline-none transition focus:border-[#3182F6]"
           />
         </div>
 
@@ -47,7 +45,7 @@ export function SupportRequestComposer({
               <button
                 type="button"
                 onClick={onBackToRoom}
-                className="inline-flex items-center gap-2 rounded-2xl border border-[#D0D5DD] bg-white px-5 py-3 text-sm font-semibold text-[#344054] transition hover:bg-[#F9FAFB]"
+                className="inline-flex items-center gap-2 rounded-[14px] border border-[#D0D5DD] bg-white px-5 py-3 text-sm font-semibold text-[#344054] transition hover:bg-[#F9FAFB]"
               >
                 이전 대화 보기
               </button>
@@ -56,7 +54,7 @@ export function SupportRequestComposer({
               type="button"
               onClick={onSubmit}
               disabled={isCreatingRoom}
-              className="inline-flex items-center gap-2 rounded-2xl bg-[#3182F6] px-5 py-3 text-sm font-semibold text-white transition hover:bg-[#1F6FE5] disabled:cursor-not-allowed disabled:bg-[#AFCBFA]"
+              className="inline-flex items-center gap-2 rounded-[14px] bg-[#1d4ed8] px-5 py-3 text-sm font-semibold text-white transition hover:bg-[#1F6FE5] disabled:cursor-not-allowed disabled:bg-[#AFCBFA]"
             >
               {isCreatingRoom ? <Loader2 className="h-4 w-4 animate-spin" /> : <CheckCircle2 className="h-4 w-4" />}
               상담 요청 보내기

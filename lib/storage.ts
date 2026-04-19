@@ -19,3 +19,19 @@ export const buildStorageObjectUrl = (bucket: string, pathOrUrl: string | null |
 
   return `/api/storage/object?${params.toString()}`;
 };
+
+export const buildPublicStorageUrl = (bucket: string, pathOrUrl: string | null | undefined) => {
+  if (!pathOrUrl) return "";
+  if (isExternalUrl(pathOrUrl)) return pathOrUrl;
+
+  const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
+  if (!supabaseUrl) return "";
+
+  const normalizedBaseUrl = supabaseUrl.replace(/\/$/, "");
+  const encodedPath = pathOrUrl
+    .split("/")
+    .map((segment) => encodeURIComponent(segment))
+    .join("/");
+
+  return `${normalizedBaseUrl}/storage/v1/object/public/${bucket}/${encodedPath}`;
+};

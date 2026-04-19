@@ -1,15 +1,17 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import Image from "next/image";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import type { Session } from "@supabase/supabase-js";
 import { AuthModal } from "@/components/AuthModal";
+import { getPortalHomeByRole } from "@/lib/auth/roles";
 import { supabase } from "@/lib/supabase";
+import { UserRound } from "lucide-react";
 
 const navItems = [
-  { label: "커넥트 홈", href: "/" },
+  { label: "커넥트란?", href: "/guide" },
   { label: "제조 견적", href: "/estimate" },
   { label: "제조사 목록", href: "/manufacturers" },
   { label: "성공사례", href: "/success-stories" },
@@ -29,8 +31,9 @@ export function SiteHeader() {
   const router = useRouter();
   const observerRef = useRef<IntersectionObserver | null>(null);
   const isMainPage = pathname === "/";
+  const isMasterPage = pathname?.startsWith("/master");
 
-  const getDisplayName = (currentSession: Session | null) => {
+  const getDisplayName = useCallback((currentSession: Session | null) => {
     const metadataName =
       currentSession?.user?.user_metadata?.full_name ||
       currentSession?.user?.user_metadata?.name ||
@@ -44,9 +47,9 @@ export function SiteHeader() {
 
     const email = currentSession?.user?.email || "";
     return typeof email === "string" && email.includes("@") ? email.split("@")[0] : email;
-  };
+  }, []);
 
-  const applySessionState = (nextSession: Session | null) => {
+  const applySessionState = useCallback((nextSession: Session | null) => {
     setSession(nextSession);
 
     if (!nextSession) {
@@ -62,9 +65,9 @@ export function SiteHeader() {
 
     const metadataRole = nextSession.user?.user_metadata?.role;
     setUserRole((prev) => (typeof metadataRole === "string" && metadataRole.trim() ? metadataRole : prev));
-  };
+  }, [getDisplayName]);
 
-  const syncProfile = async (userId: string) => {
+  const syncProfile = useCallback(async (userId: string) => {
     const { data, error } = await supabase.from("profiles").select("full_name, role").eq("id", userId).maybeSingle();
 
     if (error) {
@@ -77,7 +80,7 @@ export function SiteHeader() {
     }
 
     setUserRole(typeof data?.role === "string" ? data.role : "");
-  };
+  }, []);
 
   useEffect(() => {
     const checkHeaderStatus = () => {
@@ -178,11 +181,7 @@ export function SiteHeader() {
       mounted = false;
       subscription.unsubscribe();
     };
-  }, []);
-
-  useEffect(() => {
-    setIsMobileMenuOpen(false);
-  }, [pathname]);
+  }, [applySessionState, syncProfile]);
 
   const handleLogout = async () => {
     await supabase.auth.signOut();
@@ -192,11 +191,16 @@ export function SiteHeader() {
   const handleNavClick = async (href: string) => {
     setIsMobileMenuOpen(false);
     if (href === "/my-connect") {
+      router.push(getPortalHomeByRole(userRole === "master" || userRole === "partner" ? userRole : "member"));
+      return;
+    }
+
+    if (href === "/master") {
       router.push(href);
       return;
     }
 
-    const needAuth = ["/estimate", "/master"].includes(href);
+    const needAuth = ["/estimate"].includes(href);
     const {
       data: { session: liveSession },
     } = await supabase.auth.getSession();
@@ -219,6 +223,10 @@ export function SiteHeader() {
 
   const isWhiteHeader = !isMainPage || isScrolledPastHero;
 
+  if (isMasterPage) {
+    return null;
+  }
+
   return (
     <>
       <header
@@ -232,6 +240,7 @@ export function SiteHeader() {
               alt="DOGO CONNECT"
               width={140}
               height={40}
+              style={{ width: "auto", height: "auto" }}
               priority
             />
           </Link>
@@ -263,32 +272,13 @@ export function SiteHeader() {
             <div className="hidden items-center gap-3 lg:flex">
               {session ? (
                 <>
-                  {userRole === "master" ? (
-                    <button
-                      type="button"
-                      onClick={() => handleNavClick("/master")}
-                      className={`mr-2 flex cursor-pointer items-center gap-1.5 text-sm font-semibold transition-colors duration-300 ${isWhiteHeader ? "text-slate-700 hover:text-[#0064FF]" : "text-white/90 hover:text-white"
-                        }`}
-                    >
-                      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                        <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"></path>
-                      </svg>
-                      <span>마스터</span>
-                    </button>
-                  ) : null}
-
                   <button
                     type="button"
                     onClick={() => handleNavClick("/my-connect")}
                     className={`mr-2 flex cursor-pointer items-center gap-1.5 text-sm font-semibold transition-colors duration-300 ${isWhiteHeader ? "text-slate-700 hover:text-[#0064FF]" : "text-white/90 hover:text-white"
                       }`}
                   >
-                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                      <rect x="3" y="3" width="7" height="7"></rect>
-                      <rect x="14" y="3" width="7" height="7"></rect>
-                      <rect x="14" y="14" width="7" height="7"></rect>
-                      <rect x="3" y="14" width="7" height="7"></rect>
-                    </svg>
+                    <UserRound className="h-4 w-4" />
                     <span>마이커넥트</span>
                   </button>
 
@@ -313,7 +303,10 @@ export function SiteHeader() {
                       setAuthMode("login");
                       setIsAuthModalOpen(true);
                     }}
-                    className={`hidden cursor-pointer text-base font-medium transition-colors duration-500 md:inline-flex ${isWhiteHeader ? "text-slate-600" : "text-white/80"
+                    className={`hidden cursor-pointer text-base font-medium transition-all duration-300 md:inline-flex px-4 py-2 rounded-lg 
+    ${isWhiteHeader
+                        ? "text-slate-600 hover:bg-[#f9fafc]"
+                        : "text-white/80 hover:bg-white/10 hover:text-white"
                       }`}
                   >
                     로그인
@@ -325,7 +318,7 @@ export function SiteHeader() {
                       setAuthMode("signup");
                       setIsAuthModalOpen(true);
                     }}
-                    className={`inline-flex cursor-pointer items-center rounded-full px-5 text-sm font-semibold transition-all duration-500 ${isWhiteHeader ? "h-10 bg-slate-950 text-white" : "h-10 bg-white text-slate-950"
+                    className={`inline-flex cursor-pointer items-center rounded-[12px] px-5 text-sm font-semibold transition-all duration-500 ${isWhiteHeader ? "h-10 bg-slate-950 text-white" : "h-10 bg-[#2563eb] text-[#fff]"
                       }`}
                   >
                     회원가입

@@ -6,8 +6,8 @@ import { AuthModal } from "@/components/AuthModal";
 import { HeroGraphic } from "./HeroGraphic";
 import { supabase } from "@/lib/supabase";
 
-const heroVideoSrc = "https://capa.ai/static/landing_video_desktop.mp4";
-//player.vimeo.com/video/1182417429?autoplay=1&muted=1&loop=1&background=1&quality=1080p&dnt=1
+const heroVideoSrc = "https://player.vimeo.com/video/1182508631?background=1&autoplay=1&loop=1&muted=1&autopause=0&quality=1080p";
+
 
 function useCountUp(endValue: number, duration: number = 2000, start: boolean = true) {
   const [count, setCount] = useState(0);
@@ -74,12 +74,16 @@ export function HeroSection() {
 
   return (
     <section id="hero-section" className="relative w-full h-[100dvh] min-h-[700px] overflow-hidden bg-[#191f28]">
-      <video
-        className="absolute top-1/2 left-1/2 min-w-full min-h-full -translate-x-1/2 -translate-y-1/2 object-cover"
-        autoPlay muted loop playsInline suppressHydrationWarning
-      >
-        <source src={heroVideoSrc} type="video/mp4" />
-      </video>
+      <div className="absolute top-0 left-0 w-full h-full overflow-hidden pointer-events-none">
+        <iframe
+          src={heroVideoSrc}
+          className="absolute top-1/2 left-1/2 w-screen h-[56.25vw] min-h-full min-w-[177.78vh] -translate-x-1/2 -translate-y-1/2"
+          frameBorder="0"
+          allow="autoplay; fullscreen"
+          allowFullScreen
+          title="Hero Background Video"
+        ></iframe>
+      </div>
 
       <div className="absolute inset-0 z-[10] flex items-center justify-center bg-[#191f28]/40 px-6 ">
         <div className="mx-auto flex w-full max-w-6xl flex-col items-center justify-center gap-10 lg:flex-row lg:justify-between lg:gap-20">

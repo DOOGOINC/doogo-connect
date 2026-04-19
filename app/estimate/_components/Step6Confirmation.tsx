@@ -1,5 +1,6 @@
 "use client";
 
+import { useRouter } from "next/navigation";
 import { useEffect, useMemo, useState } from "react";
 import {
   Check,
@@ -50,6 +51,7 @@ export function Step6Confirmation({
   reviewForm: ReviewFormValues;
   onReset: () => void;
 }) {
+  const router = useRouter();
   const [showPrintPopup, setShowPrintPopup] = useState(false);
 
   // ESC 키로 팝업 닫기 처리
@@ -155,13 +157,13 @@ export function Step6Confirmation({
 
   return (
     <div className="mx-auto max-w-[940px] animate-in fade-in slide-in-from-bottom-4 duration-700">
-      {/* 화면용 UI (인쇄 시 숨김) */}
+
       <div className="print:hidden">
         <div className="mb-8 flex flex-col items-center text-center">
-          <div className="mb-4 flex h-12 w-12 items-center justify-center rounded-full bg-[#3182f6]">
+          <div className="mb-4 flex h-12 w-12 items-center justify-center rounded-full bg-[#1652b2]">
             <Check className="h-6 w-6 text-white" />
           </div>
-          <h2 className="text-[24px] font-black tracking-tight text-[#191f28]">견적 내역 확인</h2>
+          <h2 className="text-[24px] font-bold tracking-tight text-[#191f28]">견적 내역 확인</h2>
           <div className="mt-2.5 flex items-center gap-2.5 text-[14px] font-medium text-[#8b95a1]">
             <span>주문번호: <span className="font-bold text-[#191f28]">{orderNumber}</span></span>
             <span className="h-3 w-[1px] bg-[#e5e8eb]" />
@@ -190,8 +192,8 @@ export function Step6Confirmation({
 
                 <div className="mt-6 rounded-[16px] bg-[#f9fafb] p-5">
                   <div className="flex items-center justify-between">
-                    <p className="text-[14px] font-bold text-[#4e5968]">최종 합계 <span className="text-[12px] font-normal opacity-70">(VAT 별도)</span></p>
-                    <p className="text-[22px] font-black text-[#3182f6] tracking-tight tabular-nums">
+                    <p className="text-[18px] font-bold text-[#4e5968]">최종 합계 <span className="text-[12px] font-normal opacity-70">(VAT 별도)</span></p>
+                    <p className="text-[22px] font-bold text-[#193cb8] tracking-tight tabular-nums">
                       {formatCurrency(est.totalPrice, est.selectedProduct?.paymentCurrency)}
                     </p>
                   </div>
@@ -229,30 +231,22 @@ export function Step6Confirmation({
             <div className="sticky top-6 space-y-3">
               <button
                 onClick={() => setShowPrintPopup(true)}
-                className="flex w-full items-center justify-center gap-2 rounded-[16px] bg-[#3182f6] py-4 text-[14px] font-extrabold text-white shadow-[0_4px_12px_rgba(49,130,246,0.12)] transition-all hover:bg-[#1b64da] hover:shadow-[0_4px_15px_rgba(49,130,246,0.2)] active:scale-[0.98]"
+                className="flex w-full items-center justify-center gap-2 rounded-[16px] bg-[#005adb] py-4 text-[14px] font-extrabold text-white shadow-[0_4px_12px_rgba(49,130,246,0.12)] transition-all hover:bg-[#1b64da] active:scale-[0.98]"
               >
                 <Download className="h-4.5 w-4.5" />
                 견적서 다운로드 (PDF)
               </button>
-              <button
-                onClick={onReset}
-                className="flex w-full items-center justify-center gap-2 rounded-[16px] bg-[#f2f4f6] py-3.5 text-[13px] font-bold text-[#4e5968] transition-all hover:bg-[#e5e8eb] active:scale-[0.98]"
-              >
-                <RotateCcw className="h-4 w-4" />
-                주문 취소 / 다시하기
-              </button>
-
-              <div className="mt-6 pt-5 border-t border-[#f2f4f6]">
-                <button className="group relative overflow-hidden flex w-full items-center justify-center gap-2 rounded-[20px] bg-[#191f28] py-5 text-[16px] font-black text-white transition-all hover:bg-[#000] active:scale-[0.97]">
+              <div className="border-t border-[#f2f4f6]">
+                <button
+                  type="button"
+                  onClick={() => router.push("/my-connect?tab=delivery")}
+                  className="group relative overflow-hidden flex w-full items-center justify-center gap-2 rounded-[16px] bg-[#191f28] py-4 text-[16px] font-bold text-white transition-all hover:bg-[#000] active:scale-[0.97]"
+                >
                   <span className="relative z-10 flex items-center gap-2">
-                    주문 결제하기
-                    <span className="text-[11px] font-medium opacity-50 uppercase tracking-tighter">Utransfer</span>
+                    견적 내용 확인하기
                     <ChevronRight className="h-4.5 w-4.5 transition-transform group-hover:translate-x-1" />
                   </span>
                 </button>
-                <p className="mt-3.5 text-center text-[12px] font-medium text-[#4e5968]">
-                  최종 확인 후 결제를 진행해주세요
-                </p>
               </div>
             </div>
           </div>

@@ -1,6 +1,12 @@
 export type CurrencyCode = "KRW" | "NZD" | "USD";
 
-export const CURRENCY_OPTIONS: CurrencyCode[] = ["KRW", "NZD", "USD"];
+export const CURRENCY_OPTIONS: CurrencyCode[] = ["USD", "NZD", "KRW"];
+
+export const CURRENCY_LABELS: Record<CurrencyCode, string> = {
+  USD: "USD",
+  NZD: "NZD (뉴질랜드 달러)",
+  KRW: "KRW",
+};
 
 const CURRENCY_LOCALES: Record<CurrencyCode, string> = {
   KRW: "ko-KR",

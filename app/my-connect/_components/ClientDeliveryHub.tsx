@@ -17,8 +17,8 @@ const CLIENT_PROGRESS_TABS: Array<{ id: ClientProgressTab; label: string }> = [
   { id: "request-history", label: "요청 내역" },
   { id: "approved", label: "승인 완료" },
   { id: "manufacturing", label: "제조 진행" },
-  { id: "rejected-projects", label: "거절된 프로젝트" },
   { id: "completed-projects", label: "완료 프로젝트" },
+  { id: "rejected-projects", label: "거절된 프로젝트" },
 ];
 
 const CLIENT_PROGRESS_STATUS_MAP: Record<ClientProgressTab, RfqRequestRow["status"][]> = {
@@ -261,11 +261,16 @@ export function ClientDeliveryHub({ requests, onRequestSelect, onTabChange }: Cl
 
                     <div className="mt-5 flex flex-col gap-3 border-t border-[#eef2f6] pt-5 xl:flex-row xl:items-center xl:justify-between">
                       <div className="flex flex-wrap items-center gap-2.5">
-                        {activeTab === "request-history" && request.status === "pending" ? (
+                        {activeTab === "request-history" ? (
                           <button
                             type="button"
                             onClick={() => handleRequestCancel(request)}
-                            className="inline-flex h-11 items-center justify-center rounded-[14px] border border-[#fecaca] bg-white px-4 text-[14px] font-semibold text-[#dc2626] shadow-sm transition hover:bg-[#fff5f5]"
+                            disabled={request.status !== "pending"}
+                            className={`inline-flex h-11 items-center justify-center rounded-[14px] border px-4 text-[14px] font-semibold shadow-sm transition ${
+                              request.status === "pending"
+                                ? "border-[#fecaca] bg-white text-[#dc2626] hover:bg-[#fff5f5]"
+                                : "cursor-not-allowed border-[#e5e7eb] bg-[#f8fafc] text-[#98a2b3]"
+                            }`}
                           >
                             요청 취소
                           </button>
@@ -279,7 +284,7 @@ export function ClientDeliveryHub({ requests, onRequestSelect, onTabChange }: Cl
                             견적서 보기
                           </button>
                         ) : null}
-                        {activeTab === "request-history" && (request.status === "reviewing" || request.status === "quoted") ? (
+                        {activeTab === "approved" ? (
                           <button
                             type="button"
                             onClick={() => handlePaymentProceed(request.id)}

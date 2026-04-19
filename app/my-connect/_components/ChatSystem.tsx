@@ -6,6 +6,7 @@ import { authFetch } from "@/lib/client/auth-fetch";
 import { buildStorageObjectUrl, CHAT_FILE_BUCKET } from "@/lib/storage";
 import { supabase } from "@/lib/supabase";
 import { ChatMessagePanel } from "./chat/ChatMessagePanel";
+import { CHAT_FILE_ACCEPT, getChatFileValidationMessage, isAllowedChatFile } from "./chat/fileConstraints";
 import { ChatRoomSidebar } from "./chat/ChatRoomSidebar";
 import type {
   ChatMessageRow,
@@ -395,6 +396,10 @@ export function ChatSystem({
     event.target.value = "";
 
     if (!file || !selectedRoomId) return;
+    if (!isAllowedChatFile(file)) {
+      alert(getChatFileValidationMessage());
+      return;
+    }
 
     setIsUploading(true);
     shouldScrollToBottomRef.current = true;
@@ -407,7 +412,7 @@ export function ChatSystem({
 
   return (
     <div className="flex h-full min-h-0 w-full flex-1 overflow-hidden bg-[#F8F9FA]">
-      <input ref={fileInputRef} type="file" hidden onChange={handleFileSelect} />
+      <input ref={fileInputRef} type="file" hidden accept={CHAT_FILE_ACCEPT} onChange={handleFileSelect} />
 
       <ChatRoomSidebar
         rooms={filteredRooms}

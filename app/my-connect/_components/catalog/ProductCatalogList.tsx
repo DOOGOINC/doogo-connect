@@ -1,146 +1,179 @@
 /* eslint-disable @next/next/no-img-element */
-import { Edit3, Image as ImageIcon, Power, Trash2 } from "lucide-react";
-import { formatCurrency, normalizeCurrencyCode } from "@/lib/currency";
-import { getCatalogImageUrl } from "@/lib/catalogImageUpload";
-
+import { Edit3, Image as ImageIcon, Power, Trash2, Box, PenTool, Layout, PlusCircle, type LucideIcon } from "lucide-react";
+import { formatCurrency, normalizeCurrencyCode, type CurrencyCode } from "@/lib/currency";
 import { ProductForm, ProductRow } from "./productCatalogShared";
 
 type ProductCatalogListProps = {
   items: ProductRow[];
+  currencyCode: CurrencyCode;
   containerNames: Record<string, string>;
+  serviceNames: Record<string, string>;
+  packageNames: Record<string, string>;
+  extraNames: Record<string, string>;
   onEdit: (form: ProductForm) => void;
   onDelete: (id: string) => void;
   onToggleActive: (item: ProductRow) => void;
   mapItemToForm: (item: ProductRow) => ProductForm;
+  resolveImageUrl: (pathOrUrl: string | null | undefined) => string;
 };
+
+function OptionSummary({ 
+  icon: Icon, 
+  label, 
+  ids, 
+  names 
+}: { 
+  icon: LucideIcon,
+  label: string, 
+  ids: string[] | null | undefined, 
+  names: Record<string, string> 
+}) {
+  const count = ids?.length || 0;
+  const activeNames = ids?.map(id => names[id]).filter(Boolean) || [];
+  
+  if (count === 0) return null;
+
+  return (
+    <div className="flex items-center gap-1.5 rounded-md bg-[#F8F9FA] px-2 py-1 text-[11px] text-[#4E5968]">
+      <Icon className="h-3 w-3 text-[#8B95A1]" />
+      <span className="font-medium">{label}</span>
+      <span className="font-bold text-[#3182F6]">{count}</span>
+      <div className="ml-1 h-3 w-[1px] bg-[#E5E8EB]" />
+      <span className="max-w-[120px] truncate text-[#8B95A1]">{activeNames.join(", ")}</span>
+    </div>
+  );
+}
 
 export function ProductCatalogList({
   items,
+  currencyCode,
   containerNames,
+  serviceNames,
+  packageNames,
+  extraNames,
   onEdit,
   onDelete,
   onToggleActive,
   mapItemToForm,
+  resolveImageUrl,
 }: ProductCatalogListProps) {
+  if (items.length === 0) {
+    return (
+      <div className="flex flex-col items-center justify-center rounded-[16px] border border-dashed border-[#E5E8EB] bg-white py-20">
+        <div className="flex h-16 w-16 items-center justify-center rounded-full bg-[#F8F9FA]">
+          <Box className="h-8 w-8 text-[#ADB5BD]" />
+        </div>
+        <p className="mt-4 text-[15px] font-medium text-[#8B95A1]">
+          {currencyCode} 통화로 등록된 상품이 없습니다.
+        </p>
+      </div>
+    );
+  }
+
   return (
-    <div className="overflow-x-auto">
-      <table className="w-full">
-        <thead>
-          <tr className="border-b-2 border-[#F2F4F6] text-left">
-            <th className="pb-4 pl-2 text-[13px] font-semibold text-[#8B95A1]">상품 ID / 이름</th>
-            <th className="hidden pb-4 text-[13px] font-semibold text-[#8B95A1] lg:table-cell">카테고리 / 연결 용기</th>
-            <th className="hidden pb-4 text-[13px] font-semibold text-[#8B95A1] md:table-cell">상세 설명</th>
-            <th className="pb-4 text-right text-[13px] font-semibold text-[#8B95A1]">기본 가격</th>
-            <th className="pb-4 text-center text-[13px] font-semibold text-[#8B95A1]">관리</th>
-          </tr>
-        </thead>
-        <tbody className="divide-y divide-[#F2F4F6]">
-          {items.length === 0 ? (
-            <tr>
-              <td colSpan={5} className="py-20 text-center text-[14px] text-[#8B95A1]">
-                등록된 상품이 없습니다.
-              </td>
-            </tr>
-          ) : (
-            items.map((item) => (
-              <tr key={item.id} className={`group hover:bg-[#F9FAFB] ${item.is_active === false ? "bg-[#FCFCFD]" : ""}`}>
-                <td className="py-4 pl-2">
-                  <div className="flex items-center gap-3">
-                    <div className="relative h-12 w-12 shrink-0 overflow-hidden rounded-[10px] border border-[#F2F4F6] bg-[#F7F9FA]">
-                      {item.image ? (
-                        <img src={getCatalogImageUrl(item.image)} className="h-full w-full object-cover" alt="" />
-                      ) : (
-                        <ImageIcon className="absolute left-1/2 top-1/2 h-5 w-5 -translate-x-1/2 -translate-y-1/2 text-[#ADB5BD]" />
-                      )}
-                    </div>
-                    <div className="min-w-0">
-                      <div className="truncate text-[12px] font-medium text-[#8B95A1]">{item.id}</div>
-                      <div className="flex items-center gap-2">
-                        <div className="truncate text-[15px] font-bold text-[#191F28]">{item.name}</div>
-                        <span
-                          className={`inline-flex items-center gap-1.5 rounded-[999px] px-2.5 py-1 text-[10px] font-semibold ${
-                            item.is_active === false
-                              ? "bg-[#F2F4F6] text-[#667085]"
-                              : "bg-[#ECFDF3] text-[#027A48]"
-                          }`}
-                        >
-                          <span
-                            className={`h-1.5 w-1.5 rounded-full ${
-                              item.is_active === false ? "bg-[#98A2B3]" : "bg-[#12B76A]"
-                            }`}
-                          />
-                          {item.is_active === false ? "비활성화됨" : "활성화됨"}
-                        </span>
-                      </div>
-                    </div>
+    <div className="grid gap-4">
+      {items.map((item) => (
+        <div
+          key={item.id} 
+          className={`group relative flex flex-col gap-6 rounded-[16px] border border-[#E5E8EB] bg-white p-5 transition-all hover:border-[#3182F6] hover:shadow-[0_8px_24px_rgba(49,130,246,0.08)] sm:flex-row ${
+            item.is_active === false ? "opacity-75" : ""
+          }`}
+        >
+          {/* Image Section */}
+          <div className="relative h-40 w-full shrink-0 overflow-hidden rounded-[12px] border border-[#F2F4F6] bg-[#F9FAFB] sm:h-32 sm:w-32">
+            {resolveImageUrl(item.image) ? (
+              <img src={resolveImageUrl(item.image)} className="h-full w-full object-cover transition-transform group-hover:scale-105" alt="" />
+            ) : (
+              <div className="flex h-full w-full items-center justify-center">
+                <ImageIcon className="h-8 w-8 text-[#D1D5DB]" />
+              </div>
+            )}
+            <div className="absolute left-2 top-2">
+              <span
+                className={`inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[10px] font-bold shadow-sm ${
+                  item.is_active === false ? "bg-white text-[#667085]" : "bg-[#3182F6] text-white"
+                }`}
+              >
+                {item.is_active === false ? "비활성" : "활성"}
+              </span>
+            </div>
+          </div>
+
+          {/* Info Section */}
+          <div className="flex flex-1 flex-col justify-between">
+            <div className="min-w-0">
+              <div className="flex items-start justify-between gap-4">
+                <div>
+                  <div className="flex items-center gap-2 text-[12px] font-semibold text-[#3182F6]">
+                    <span>{item.category}</span>
+                    <span className="h-3 w-[1px] bg-[#D1D5DB]" />
+                    <span className="text-[#8B95A1]">{item.id}</span>
                   </div>
-                </td>
-
-                <td className="hidden py-4 lg:table-cell">
-                  <div className="min-w-[180px]">
-                    <div className="text-[12px] font-semibold text-[#3182F6]">{item.category}</div>
-                    <div className="mt-1 flex flex-wrap gap-1.5">
-                      {(item.container_ids || []).length > 0 ? (
-                        (item.container_ids || []).map((containerId) => (
-                          <span
-                            key={containerId}
-                            className="rounded-[999px] bg-[#F2F4F6] px-2.5 py-1 text-[11px] font-medium text-[#6B7684]"
-                          >
-                            {containerNames[containerId] || containerId}
-                          </span>
-                        ))
-                      ) : (
-                        <span className="text-[12px] text-[#98A2B3]">연결 용기 없음</span>
-                      )}
-                    </div>
-                  </div>
-                </td>
-
-                <td className="hidden max-w-xs py-4 text-[14px] text-[#4E5968] md:table-cell">
-                  <p className="truncate">{item.description || "-"}</p>
-                </td>
-
-                <td className="py-4 text-right">
-                  <span className="text-[15px] font-bold text-[#3182F6]">
+                  <h3 className="mt-1 truncate text-[18px] font-bold text-[#191F28]">{item.name}</h3>
+                </div>
+                <div className="text-right">
+                  <div className="text-[20px] font-extrabold text-[#191F28]">
                     {formatCurrency(item.base_price, normalizeCurrencyCode(item.payment_currency))}
-                  </span>
-                </td>
-
-                <td className="py-4 text-center">
-                  <div className="flex justify-center gap-1 opacity-0 transition-opacity group-hover:opacity-100">
-                    <button
-                      type="button"
-                      onClick={() => onToggleActive(item)}
-                      className={`flex h-8 items-center justify-center gap-1 rounded-[8px] px-2 text-[11px] font-semibold transition ${
-                        item.is_active === false
-                          ? "text-[#1570EF] hover:bg-[#EFF8FF]"
-                          : "text-[#F04452] hover:bg-red-50"
-                      }`}
-                    >
-                      <Power className="h-3.5 w-3.5" />
-                      {item.is_active === false ? "활성화" : "비활성화"}
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => onEdit(mapItemToForm(item))}
-                      className="flex h-8 w-8 items-center justify-center rounded-[8px] text-[#4E5968] hover:bg-[#E5E8EB] hover:text-[#191F28]"
-                    >
-                      <Edit3 className="h-4 w-4" />
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => onDelete(item.id)}
-                      className="flex h-8 w-8 items-center justify-center rounded-[8px] text-[#F04452] hover:bg-red-50"
-                    >
-                      <Trash2 className="h-4 w-4" />
-                    </button>
                   </div>
-                </td>
-              </tr>
-            ))
-          )}
-        </tbody>
-      </table>
+                  <div className="text-[12px] font-medium text-[#8B95A1]">기본가</div>
+                </div>
+              </div>
+
+              {/* Linked Options Summary */}
+              <div className="mt-4 flex flex-wrap gap-2">
+                <OptionSummary icon={Box} label="용기" ids={item.container_ids} names={containerNames} />
+                <OptionSummary icon={PenTool} label="서비스" ids={item.design_service_ids} names={serviceNames} />
+                <OptionSummary icon={Layout} label="패키지" ids={item.design_package_ids} names={packageNames} />
+                <OptionSummary icon={PlusCircle} label="추가" ids={item.design_extra_ids} names={extraNames} />
+                
+                {(!item.container_ids?.length && !item.design_service_ids?.length && !item.design_package_ids?.length && !item.design_extra_ids?.length) && (
+                  <span className="text-[12px] text-[#98A2B3]">연결된 옵션이 없습니다.</span>
+                )}
+              </div>
+            </div>
+
+            {/* Action Buttons */}
+            <div className="mt-6 flex items-center justify-between border-t border-[#F2F4F6] pt-4">
+              <div className="flex items-center gap-4 text-[12px] text-[#8B95A1]">
+                <span className="flex items-center gap-1">
+                  결제통화: <strong className="text-[#4E5968]">{normalizeCurrencyCode(item.payment_currency)}</strong>
+                </span>
+              </div>
+              
+              <div className="flex items-center gap-2">
+                <button
+                  type="button"
+                  onClick={() => onToggleActive(item)}
+                  className={`flex h-9 items-center justify-center gap-1.5 rounded-[8px] px-3 text-[13px] font-semibold transition ${
+                    item.is_active === false 
+                      ? "bg-[#F2F8FF] text-[#3182F6] hover:bg-[#E1EFFF]" 
+                      : "bg-[#FFF0F0] text-[#F04452] hover:bg-[#FFE5E5]"
+                  }`}
+                >
+                  <Power className="h-3.5 w-3.5" />
+                  {item.is_active === false ? "활성화" : "비활성화"}
+                </button>
+                <button
+                  type="button"
+                  onClick={() => onEdit(mapItemToForm(item))}
+                  className="flex h-9 items-center justify-center gap-1.5 rounded-[8px] border border-[#E5E8EB] bg-white px-3 text-[13px] font-semibold text-[#4E5968] transition hover:bg-[#F8F9FA] hover:text-[#191F28]"
+                >
+                  <Edit3 className="h-3.5 w-3.5" />
+                  수정
+                </button>
+                <button
+                  type="button"
+                  onClick={() => onDelete(item.id)}
+                  className="flex h-9 w-9 items-center justify-center rounded-[8px] border border-[#FFE5E5] bg-white text-[#F04452] transition hover:bg-[#FFF0F0]"
+                  aria-label="삭제"
+                >
+                  <Trash2 className="h-4 w-4" />
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      ))}
     </div>
   );
 }

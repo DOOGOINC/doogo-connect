@@ -3,10 +3,12 @@
 
 import { useCallback, useEffect, useRef, useState } from "react";
 import { Edit, Factory, Loader2, MapPin, Package, Plus, Tag, Trash2, Upload } from "lucide-react";
+import type { AppRole } from "@/lib/auth/roles";
 import { authFetch } from "@/lib/client/auth-fetch";
 import { supabase } from "@/lib/supabase";
 import { CatalogModal } from "@/app/my-connect/_components/catalog/CatalogModal";
 import { CatalogToast } from "@/app/my-connect/_components/catalog/CatalogToast";
+import { MasterLoadingState } from "./MasterLoadingState";
 
 interface Manufacturer {
   id?: number;
@@ -26,7 +28,7 @@ interface OwnerProfile {
   id: string;
   email: string | null;
   full_name: string | null;
-  role: "master" | "manufacturer" | "member";
+  role: AppRole;
 }
 
 type UploadError = {
@@ -266,11 +268,11 @@ export function ManufacturerAdmin() {
     <div className="flex-1 overflow-y-auto bg-[#F8F9FA] p-8">
       {toastMessage ? <CatalogToast message={toastMessage} onClose={() => setToastMessage("")} /> : null}
 
-      <div className="mx-auto max-w-[1100px] space-y-8">
+      <div className="max-w-[1100px] space-y-8">
         <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
           <div>
-            <h1 className="text-2xl font-bold text-[#191F28]">제조사 관리</h1>
-            <p className="mt-1 text-sm text-[#4E5968]">제조사 등록, 수정, 계정 연결을 한 곳에서 관리합니다.</p>
+            <h1 className="text-[20px] font-bold text-[#191F28]">제조사 관리</h1>
+            <p className="mt-1 text-[14px] text-[#4E5968]">제조사 등록, 수정, 계정 연결을 한 곳에서 관리합니다.</p>
           </div>
           <button
             type="button"
@@ -446,9 +448,7 @@ export function ManufacturerAdmin() {
         </CatalogModal>
 
         {loading ? (
-          <div className="flex flex-1 items-center justify-center rounded-[14px] border border-[#F2F4F6] bg-white py-24">
-            <Loader2 className="h-8 w-8 animate-spin text-[#0064FF]" />
-          </div>
+          <MasterLoadingState variant="panel" />
         ) : (
           <div className="grid gap-4">
             {manufacturers.length === 0 ? (
@@ -459,7 +459,7 @@ export function ManufacturerAdmin() {
               manufacturers.map((manufacturer) => (
                 <div
                   key={manufacturer.id}
-                  className="group flex items-center justify-between rounded-2xl border border-[#F2F4F6] bg-white p-6 shadow-sm transition-all hover:shadow-md"
+                  className="group flex items-center justify-between rounded-[14px] border border-[#F2F4F6] bg-white p-6 shadow-sm transition-all hover:shadow-md"
                 >
                   <div className="flex items-center gap-5">
                     <div className="flex h-16 w-16 items-center justify-center overflow-hidden rounded-xl border border-gray-100 bg-[#F8F9FA] p-2">

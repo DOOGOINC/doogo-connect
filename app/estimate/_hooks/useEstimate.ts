@@ -1,7 +1,7 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useSearchParams } from "next/navigation";
+import { collectCatalogImagePaths, fetchCatalogSignedUrls, resolveCatalogImageUrl } from "@/lib/catalogImageUrls";
 import { normalizeCurrencyCode, type CurrencyCode } from "@/lib/currency";
-import { getCatalogImageUrl } from "@/lib/catalogImageUpload";
 import { supabase } from "@/lib/supabase";
 import { MANUFACTURERS as FALLBACK_MANUFACTURERS } from "../_data/constants";
 import {
@@ -46,6 +46,9 @@ type ProductRow = {
   directions: string[] | null;
   cautions: string[] | null;
   container_ids: string[] | null;
+  design_service_ids: string[] | null;
+  design_package_ids: string[] | null;
+  design_extra_ids: string[] | null;
 };
 
 type ContainerRow = {
@@ -55,6 +58,7 @@ type ContainerRow = {
   description: string | null;
   add_price: number;
   image: string | null;
+  payment_currency: CurrencyCode | null;
 };
 
 type DesignOptionRow = {
@@ -71,6 +75,7 @@ type DesignServiceRow = {
   name: string;
   description: string | null;
   price: number;
+  payment_currency: CurrencyCode | null;
 };
 
 type DesignPackageRow = {
@@ -81,6 +86,7 @@ type DesignPackageRow = {
   description: string | null;
   price: number;
   included: string[] | null;
+  payment_currency: CurrencyCode | null;
 };
 
 type DesignExtraRow = {
@@ -89,34 +95,53 @@ type DesignExtraRow = {
   name: string;
   description: string | null;
   price: number;
+  payment_currency: CurrencyCode | null;
 };
 
-const mapProduct = (row: ProductRow, currencyCode?: CurrencyCode | null): Product => ({
+type CatalogSnapshot = {
+  manufacturerCurrency: CurrencyCode | null;
+  productRows: ProductRow[];
+  containerRows: ContainerRow[];
+  designOptionRows: DesignOptionRow[];
+  designServiceRows: DesignServiceRow[];
+  designPackageRows: DesignPackageRow[];
+  designExtraRows: DesignExtraRow[];
+};
+
+const mapProduct = (
+  row: ProductRow,
+  signedUrls: Record<string, string>,
+  currencyCode?: CurrencyCode | null
+): Product => ({
   id: row.id,
   manufacturerId: row.manufacturer_id,
   category: row.category,
   name: row.name,
   description: row.description || "",
-  paymentCurrency: normalizeCurrencyCode(currencyCode || row.payment_currency || "USD"),
+  paymentCurrency: normalizeCurrencyCode(row.payment_currency || currencyCode || "USD"),
   basePrice: row.base_price,
   discountConfig: Object.fromEntries(
     Object.entries(row.discount_config || {}).map(([qty, discount]) => [Number(qty), Number(discount)])
   ),
-  image: getCatalogImageUrl(row.image),
+  image: resolveCatalogImageUrl(row.image, signedUrls),
   keyFeatures: row.key_features || [],
   ingredients: row.ingredients || [],
   directions: row.directions || [],
   cautions: row.cautions || [],
   containerIds: row.container_ids || [],
+  designServiceIds: row.design_service_ids,
+  designPackageIds: row.design_package_ids,
+  designExtraIds: row.design_extra_ids,
 });
 
-const mapContainer = (row: ContainerRow): ContainerOption => ({
+const mapContainer = (row: ContainerRow, signedUrls: Record<string, string>): ContainerOption => ({
   id: row.id,
   manufacturerId: row.manufacturer_id,
   name: row.name,
   description: row.description || "",
   addPrice: row.add_price,
-  image: getCatalogImageUrl(row.image),
+  image: resolveCatalogImageUrl(row.image, signedUrls),
+  paymentCurrency: normalizeCurrencyCode(row.payment_currency || "USD"),
 });
 
 const mapDesignOption = (row: DesignOptionRow): DesignOption => ({
@@ -133,6 +158,7 @@ const mapDesignService = (row: DesignServiceRow): DesignServiceItem => ({
   name: row.name,
   description: row.description || undefined,
   price: row.price,
+  paymentCurrency: normalizeCurrencyCode(row.payment_currency || "USD"),
 });
 
 const mapDesignPackage = (row: DesignPackageRow): DesignPackageItem => ({
@@ -143,6 +169,7 @@ const mapDesignPackage = (row: DesignPackageRow): DesignPackageItem => ({
   description: row.description || undefined,
   price: row.price,
   included: row.included || [],
+  paymentCurrency: normalizeCurrencyCode(row.payment_currency || "USD"),
 });
 
 const mapDesignExtra = (row: DesignExtraRow): DesignExtraItem => ({
@@ -151,6 +178,7 @@ const mapDesignExtra = (row: DesignExtraRow): DesignExtraItem => ({
   name: row.name,
   description: row.description || "",
   price: row.price,
+  paymentCurrency: normalizeCurrencyCode(row.payment_currency || "USD"),
 });
 
 export const useEstimate = () => {
@@ -170,6 +198,8 @@ export const useEstimate = () => {
   const [designServices, setDesignServices] = useState<DesignServiceItem[]>([]);
   const [designPackages, setDesignPackages] = useState<DesignPackageItem[]>([]);
   const [designExtras, setDesignExtras] = useState<DesignExtraItem[]>([]);
+  const catalogCacheRef = useRef(new Map<number, CatalogSnapshot>());
+  const signedUrlCacheRef = useRef<Record<string, string>>({});
   const [selection, setSelection] = useState({
     manufacturer: initialManufacturerId as number | null,
     product: null as string | null,
@@ -198,6 +228,18 @@ export const useEstimate = () => {
 
   useEffect(() => {
     const manufacturerId = selection.manufacturer;
+    let ignore = false;
+
+    const applyCatalogSnapshot = (snapshot: CatalogSnapshot) => {
+      const signedUrls = signedUrlCacheRef.current;
+      setProducts(snapshot.productRows.map((row) => mapProduct(row, signedUrls, snapshot.manufacturerCurrency)));
+      setContainers(snapshot.containerRows.map((row) => mapContainer(row, signedUrls)));
+      setDesignOptions(snapshot.designOptionRows.map(mapDesignOption));
+      setDesignServices(snapshot.designServiceRows.map(mapDesignService));
+      setDesignPackages(snapshot.designPackageRows.map(mapDesignPackage));
+      setDesignExtras(snapshot.designExtraRows.map(mapDesignExtra));
+    };
+
     const fetchCatalog = async () => {
       setCatalogLoading(true);
 
@@ -212,65 +254,107 @@ export const useEstimate = () => {
         return;
       }
 
-      const manufacturerCurrency =
-        manufacturers.find((manufacturer) => manufacturer.id === manufacturerId)?.catalog_currency || null;
+      let snapshot = catalogCacheRef.current.get(manufacturerId);
+      if (!snapshot) {
+        const manufacturerCurrency =
+          manufacturers.find((manufacturer) => manufacturer.id === manufacturerId)?.catalog_currency || null;
 
-      const [
-        productsResult,
-        containersResult,
-        designOptionsResult,
-        designServicesResult,
-        designPackagesResult,
-        designExtrasResult,
-      ] = await Promise.all([
-        supabase
-          .from("manufacturer_products")
-          .select("*")
-          .eq("manufacturer_id", manufacturerId)
-          .eq("is_active", true)
-          .order("name", { ascending: true }),
-        supabase
-          .from("manufacturer_container_options")
-          .select("*")
-          .eq("manufacturer_id", manufacturerId)
-          .eq("is_active", true)
-          .order("sort_order", { ascending: true }),
-        supabase
-          .from("manufacturer_design_options")
-          .select("*")
-          .eq("manufacturer_id", manufacturerId)
-          .eq("is_active", true)
-          .order("sort_order", { ascending: true }),
-        supabase
-          .from("manufacturer_design_services")
-          .select("*")
-          .eq("manufacturer_id", manufacturerId)
-          .eq("is_active", true)
-          .order("sort_order", { ascending: true }),
-        supabase
-          .from("manufacturer_design_packages")
-          .select("*")
-          .eq("manufacturer_id", manufacturerId)
-          .eq("is_active", true)
-          .order("sort_order", { ascending: true }),
-        supabase
-          .from("manufacturer_design_extras")
-          .select("*")
-          .eq("manufacturer_id", manufacturerId)
-          .eq("is_active", true)
-          .order("sort_order", { ascending: true }),
-      ]);
+        const [
+          productsResult,
+          containersResult,
+          designOptionsResult,
+          designServicesResult,
+          designPackagesResult,
+          designExtrasResult,
+        ] = await Promise.all([
+          supabase
+            .from("manufacturer_products")
+            .select("*")
+            .eq("manufacturer_id", manufacturerId)
+            .eq("is_active", true)
+            .order("name", { ascending: true }),
+          supabase
+            .from("manufacturer_container_options")
+            .select("*")
+            .eq("manufacturer_id", manufacturerId)
+            .eq("is_active", true)
+            .order("sort_order", { ascending: true }),
+          supabase
+            .from("manufacturer_design_options")
+            .select("*")
+            .eq("manufacturer_id", manufacturerId)
+            .eq("is_active", true)
+            .order("sort_order", { ascending: true }),
+          supabase
+            .from("manufacturer_design_services")
+            .select("*")
+            .eq("manufacturer_id", manufacturerId)
+            .eq("is_active", true)
+            .order("sort_order", { ascending: true }),
+          supabase
+            .from("manufacturer_design_packages")
+            .select("*")
+            .eq("manufacturer_id", manufacturerId)
+            .eq("is_active", true)
+            .order("sort_order", { ascending: true }),
+          supabase
+            .from("manufacturer_design_extras")
+            .select("*")
+            .eq("manufacturer_id", manufacturerId)
+            .eq("is_active", true)
+            .order("sort_order", { ascending: true }),
+        ]);
 
-      setProducts(((productsResult.data as ProductRow[] | null) || []).map((row) => mapProduct(row, manufacturerCurrency)));
-      setContainers(((containersResult.data as ContainerRow[] | null) || []).map(mapContainer));
-      setDesignOptions(((designOptionsResult.data as DesignOptionRow[] | null) || []).map(mapDesignOption));
-      setDesignServices(((designServicesResult.data as DesignServiceRow[] | null) || []).map(mapDesignService));
-      setDesignPackages(((designPackagesResult.data as DesignPackageRow[] | null) || []).map(mapDesignPackage));
-      setDesignExtras(((designExtrasResult.data as DesignExtraRow[] | null) || []).map(mapDesignExtra));
+        snapshot = {
+          manufacturerCurrency,
+          productRows: (productsResult.data as ProductRow[] | null) || [],
+          containerRows: (containersResult.data as ContainerRow[] | null) || [],
+          designOptionRows: (designOptionsResult.data as DesignOptionRow[] | null) || [],
+          designServiceRows: (designServicesResult.data as DesignServiceRow[] | null) || [],
+          designPackageRows: (designPackagesResult.data as DesignPackageRow[] | null) || [],
+          designExtraRows: (designExtrasResult.data as DesignExtraRow[] | null) || [],
+        };
+        catalogCacheRef.current.set(manufacturerId, snapshot);
+      }
+
+      if (ignore) return;
+
+      applyCatalogSnapshot(snapshot);
       setCatalogLoading(false);
+
+      const missingPaths = collectCatalogImagePaths([
+        ...snapshot.productRows.map((row) => row.image),
+        ...snapshot.containerRows.map((row) => row.image),
+      ]).filter((path) => !signedUrlCacheRef.current[path]);
+
+      if (missingPaths.length === 0) {
+        return;
+      }
+
+      try {
+        const nextSignedImageUrls = await fetchCatalogSignedUrls(missingPaths);
+        if (ignore || Object.keys(nextSignedImageUrls).length === 0) {
+          return;
+        }
+
+        signedUrlCacheRef.current = {
+          ...signedUrlCacheRef.current,
+          ...nextSignedImageUrls,
+        };
+
+        if (selection.manufacturer === manufacturerId) {
+          applyCatalogSnapshot(snapshot);
+        }
+      } catch (error) {
+        console.error("[estimate catalog image urls]", error);
+      }
     };
 
     void fetchCatalog();
+
+    return () => {
+      ignore = true;
+    };
   }, [manufacturers, selection.manufacturer]);
 
   const selectedProduct = useMemo(() => getProductById(products, selection.product), [products, selection.product]);
@@ -284,30 +368,48 @@ export const useEstimate = () => {
     () =>
       selectedProduct
         ? getContainerById(
-            containers.filter((container) => selectedProduct.containerIds.includes(container.id)),
+            containers.filter((container) => selectedProduct.containerIds.includes(container.id) && container.paymentCurrency === selectedProduct.paymentCurrency),
             selection.container
           )
         : null,
     [containers, selectedProduct, selection.container]
   );
 
+  const availableDesignServices = useMemo(() => {
+    if (!selectedProduct) return designServices;
+    if (selectedProduct.designServiceIds == null) return designServices;
+    return designServices.filter((item) => selectedProduct.designServiceIds?.includes(item.id) && item.paymentCurrency === selectedProduct.paymentCurrency);
+  }, [designServices, selectedProduct]);
+
+  const availableDesignPackages = useMemo(() => {
+    if (!selectedProduct) return designPackages;
+    if (selectedProduct.designPackageIds == null) return designPackages;
+    return designPackages.filter((item) => selectedProduct.designPackageIds?.includes(item.id) && item.paymentCurrency === selectedProduct.paymentCurrency);
+  }, [designPackages, selectedProduct]);
+
+  const availableDesignExtras = useMemo(() => {
+    if (!selectedProduct) return designExtras;
+    if (selectedProduct.designExtraIds == null) return designExtras;
+    return designExtras.filter((item) => selectedProduct.designExtraIds?.includes(item.id) && item.paymentCurrency === selectedProduct.paymentCurrency);
+  }, [designExtras, selectedProduct]);
+
   const selectedDesign = useMemo(
     () =>
       getDesignSelectionsSummary({
         designOptions,
-        designServices,
-        designPackages,
-        designExtras,
+        designServices: availableDesignServices,
+        designPackages: availableDesignPackages,
+        designExtras: availableDesignExtras,
         design: selection.design,
         selectedServiceIds: selection.designServices,
         selectedPackageId: selection.designPackage,
         selectedExtraIds: selection.designExtras,
       }),
     [
-      designExtras,
+      availableDesignExtras,
       designOptions,
-      designPackages,
-      designServices,
+      availableDesignPackages,
+      availableDesignServices,
       selection.design,
       selection.designExtras,
       selection.designPackage,
@@ -362,9 +464,9 @@ export const useEstimate = () => {
     products,
     containers,
     designOptions,
-    designServices,
-    designPackages,
-    designExtras,
+    designServices: availableDesignServices,
+    designPackages: availableDesignPackages,
+    designExtras: availableDesignExtras,
     selectedProduct,
     selectedManufacturer,
     selectedContainer,

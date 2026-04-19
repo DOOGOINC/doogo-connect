@@ -20,6 +20,9 @@ export type ProductRow = {
   directions: string[] | null;
   cautions: string[] | null;
   container_ids: string[] | null;
+  design_service_ids?: string[] | null;
+  design_package_ids?: string[] | null;
+  design_extra_ids?: string[] | null;
 };
 
 export type ContainerRow = {
@@ -29,6 +32,7 @@ export type ContainerRow = {
   add_price?: number;
   image?: string | null;
   sort_order?: number | null;
+  payment_currency?: CurrencyCode | null;
 };
 
 export type ProductForm = {
@@ -44,6 +48,9 @@ export type ProductForm = {
   directions: string;
   cautions: string;
   containerIds: string[];
+  designServiceIds: string[];
+  designPackageIds: string[];
+  designExtraIds: string[];
   discountRows: DiscountRow[];
 };
 
@@ -66,8 +73,17 @@ export const createProductForm = (): ProductForm => ({
   directions: "",
   cautions: "",
   containerIds: [],
+  designServiceIds: [],
+  designPackageIds: [],
+  designExtraIds: [],
   discountRows: createDiscountRows(),
 });
+
+export const createCatalogEntityId = (prefix: string) => {
+  const stamp = Date.now().toString(36);
+  const random = Math.random().toString(36).slice(2, 8);
+  return `${prefix}-${stamp}-${random}`.toUpperCase();
+};
 
 export const parseLines = (value: string) =>
   value

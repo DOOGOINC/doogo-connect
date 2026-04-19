@@ -1,5 +1,5 @@
 import Image from "next/image";
-import { Check, Search } from "lucide-react";
+import { Search } from "lucide-react";
 import { formatCurrency, type CurrencyCode } from "@/lib/currency";
 
 interface ProductCardProps {
@@ -10,7 +10,6 @@ interface ProductCardProps {
   paymentCurrency: CurrencyCode;
   basePrice: number;
   image: string;
-  discountConfig: Record<number, number>;
   selected: boolean;
   onClick: () => void;
   onPreview: () => void;
@@ -19,89 +18,85 @@ interface ProductCardProps {
 export function ProductCard({
   category,
   name,
-  description,
   paymentCurrency,
   basePrice,
   image,
   selected,
-  discountConfig,
   onClick,
   onPreview,
 }: ProductCardProps) {
-  const discountValues = Object.values(discountConfig || {});
-  const maxPossibleDiscount = discountValues.length > 0 ? Math.max(...discountValues.map(Number)) : 0;
+  const imageSrc = image?.trim() || null;
 
   return (
     <div
       onClick={onClick}
-      onKeyDown={(event) => {
-        if (event.key === "Enter" || event.key === " ") {
-          event.preventDefault();
-          onClick();
-        }
-      }}
-      role="button"
-      tabIndex={0}
-      className={`group grid w-full grid-cols-[110px_1fr_auto] items-start gap-5 rounded-[12px] border p-4 text-left transition-all ${
-        selected
-          ? "border-[#3182f6] bg-[#f2f8ff] shadow-[0_4px_20px_rgba(49,130,246,0.12)]"
-          : "border-[#e5e8eb] bg-white hover:border-[#3182f6] hover:shadow-md"
-      }`}
+      className={`group relative flex flex-col w-full rounded-[14px] border bg-white text-left transition-all cursor-pointer overflow-hidden ${selected
+        ? "border-[#0052cc] ring-1 ring-[#0052cc]"
+        : "border-[#e5e8eb] border-2 hover:border-[#0052cc]"
+        }`}
     >
-      <div className="relative h-[110px] w-[110px] overflow-hidden rounded-[8px] border border-[#f2f4f6] bg-[#f7f9fa]">
-        <Image 
-          src={image} 
-          alt={name} 
-          fill 
-          className="object-cover transition-transform duration-500 group-hover:scale-105" 
-        />
-      </div>
+      <div className="relative aspect-[2.4/1] w-full bg-[#f7f9fa]">
+        {imageSrc ? (
+          <Image
+            src={imageSrc}
+            alt={name}
+            fill
+            sizes="(max-width: 768px) 100vw, 400px"
+            className="object-cover transition-transform duration-500 group-hover:scale-105"
+          />
+        ) : (
+          <div className="flex h-full w-full items-center justify-center">
+            <Search className="h-5 w-5 text-[#d1d6db]" />
+          </div>
+        )}
 
-      <div className="min-w-0 py-0.5">
-        <div className="flex items-center gap-2">
-          <span className="text-[12px] font-bold text-[#3182f6] uppercase tracking-wider">{category}</span>
-          {maxPossibleDiscount > 0 && (
-            <span className="rounded-[4px] bg-[#eaf3ff] px-1.5 py-0.5 text-[10px] font-bold text-[#3182f6]">
-              최대 {maxPossibleDiscount}% 할인
-            </span>
-          )}
+        {/* Selected Checkmark */}
+        <div
+          className={`absolute right-2 top-2 flex h-5 w-5 items-center justify-center rounded-full border transition-all ${selected
+            ? "border-[#0052cc] bg-[#0052cc]"
+            : "hidden"
+            }`}
+        >
+          <svg
+            xmlns="http://www.w3.org/2000/svg"
+            width="24"
+            height="24"
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            strokeWidth="3"
+            strokeLinecap="round"
+            strokeLinejoin="round"
+            className="h-2.5 w-2.5 text-white"
+            aria-hidden="true"
+          >
+            <path d="M20 6 9 17l-5-5"></path>
+          </svg>
         </div>
 
-        <h3 className="mt-1 text-[17px] font-bold tracking-tight text-[#191f28]">{name}</h3>
-        <p className="mt-2 line-clamp-2 text-[13px] leading-[1.5] text-[#4e5968]">{description}</p>
-
-        <div className="mt-3 flex items-center gap-4">
-          <div>
-            <span className="text-[11px] font-medium text-[#8b95a1]">최소 수량</span>
-            <p className="text-[13px] font-bold text-[#191f28]">50개</p>
-          </div>
-          <div className="h-6 w-[1px] bg-[#e5e8eb]" />
-          <div>
-            <span className="text-[11px] font-medium text-[#8b95a1]">기본 단가</span>
-            <p className="text-[13px] font-bold text-[#191f28]">{formatCurrency(basePrice, paymentCurrency)}</p>
-          </div>
-        </div>
-      </div>
-
-      <div className="flex flex-col items-end gap-3 self-center">
+        {/* Preview Button */}
         <button
           type="button"
           onClick={(event) => {
             event.stopPropagation();
             onPreview();
           }}
-          className="flex h-9 w-9 items-center justify-center rounded-full border border-[#e5e8eb] bg-white text-[#8b95a1] transition-all hover:border-[#3182f6] hover:bg-[#f2f8ff] hover:text-[#3182f6]"
+          className="absolute right-2 bottom-2 flex h-6 w-6 items-center justify-center rounded-full bg-white text-[#191f28] shadow-sm transition-all hover:bg-[#f2f8ff] hover:text-[#0052cc]"
           aria-label={`${name} details`}
         >
-          <Search className="h-4 w-4" />
+          <Search className="h-3 w-3" />
         </button>
+      </div>
 
-        <div
-          className={`flex h-6 w-6 items-center justify-center rounded-full border-2 transition-all ${
-            selected ? "border-[#3182f6] bg-[#3182f6]" : "border-[#d1d6db] bg-white"
-          }`}
-        >
-          {selected && <Check className="h-3.5 w-3.5 text-white" />}
+      <div className="flex flex-col p-3">
+        <h3 className="text-[14px] font-bold tracking-tight text-[#191f28] line-clamp-1">{name}</h3>
+        <p className="text-[11px] text-[#8b95a1] line-clamp-1">{category}</p>
+
+        <div className="mt-1.5 flex items-center gap-1">
+          <span className="text-[14px] font-bold text-[#0052cc]">
+            {formatCurrency(basePrice, paymentCurrency)}~
+          </span>
+          <span className="text-[12px] text-[#8b95a1]">/ 개</span>
         </div>
       </div>
     </div>

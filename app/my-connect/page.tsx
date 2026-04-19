@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
+import { getPortalHomeByRole, type AppRole } from "@/lib/auth/roles";
 import { authFetch } from "@/lib/client/auth-fetch";
 import type { RfqRequestRow, RfqRequestStatus } from "@/lib/rfq";
 import { supabase } from "@/lib/supabase";
@@ -9,25 +10,27 @@ import { ChatSystem } from "./_components/ChatSystem";
 import { ClientActivityBoard } from "./_components/ClientActivityBoard";
 import { ClientDashboard } from "./_components/ClientDashboard";
 import { ClientDeliveryHub } from "./_components/ClientDeliveryHub";
+import { ClientManufacturerDirectory } from "./_components/ClientManufacturerDirectory";
 import { ClientPaymentManagement } from "./_components/ClientPaymentManagement";
 import { ClientProjectDetail } from "./_components/ClientProjectDetail";
+import { ClientQuoteRequestHub } from "./_components/ClientQuoteRequestHub";
 import { EmptyState } from "./_components/EmptyState";
 import { OrdersManagement } from "./_components/OrdersManagement";
 import { PointsWallet } from "./_components/PointsWallet";
 import { ProductionManagement } from "./_components/ProductionManagement";
-import { ProductRegistration } from "./_components/ProductRegistration";
+import { ProductRegistration, type ProductManagementTab } from "./_components/ProductRegistration";
 import { ProjectList } from "./_components/ProjectList";
 import { RfqInboxDetail } from "./_components/RfqInboxDetail";
 import { Sidebar } from "./_components/Sidebar";
 import { SupportChatSystem } from "./_components/SupportChatSystem";
 import { TransactionsSettlement } from "./_components/TransactionsSettlement";
 
-type UserRole = "member" | "manufacturer" | "master";
 type ConnectViewMode = "client" | "manufacturer";
 
 export default function MyConnectPage() {
   const [userId, setUserId] = useState<string>("");
-  const [userRole, setUserRole] = useState<UserRole>("member");
+  const [displayName, setDisplayName] = useState("고객");
+  const [userRole, setUserRole] = useState<AppRole>("member");
   const [manufacturerId, setManufacturerId] = useState<number | null>(null);
   const [manufacturerName, setManufacturerName] = useState("");
   const [viewMode, setViewMode] = useState<ConnectViewMode>("client");
@@ -53,7 +56,7 @@ export default function MyConnectPage() {
       setUserId(session.user.id);
 
       const [{ data: profile, error: profileError }, { data: manufacturer, error: manufacturerError }] = await Promise.all([
-        supabase.from("profiles").select("role").eq("id", session.user.id).maybeSingle(),
+        supabase.from("profiles").select("role, full_name").eq("id", session.user.id).maybeSingle(),
         supabase.from("manufacturers").select("id, name").eq("owner_id", session.user.id).maybeSingle(),
       ]);
 
@@ -65,10 +68,29 @@ export default function MyConnectPage() {
       }
 
       const hasLinkedManufacturer = Boolean(manufacturer?.id);
-      const profileRole = (profile?.role as UserRole | undefined) || "member";
-      const nextRole: UserRole =
-        profileRole === "master" ? "master" : hasLinkedManufacturer && profileRole === "manufacturer" ? "manufacturer" : "member";
+      const profileRole = (profile?.role as AppRole | undefined) || "member";
+      const resolvedDisplayName =
+        profile?.full_name?.trim() ||
+        session.user.user_metadata?.full_name ||
+        session.user.user_metadata?.name ||
+        session.user.identities?.[0]?.identity_data?.full_name ||
+        session.user.identities?.[0]?.identity_data?.name ||
+        "고객";
+      setDisplayName(resolvedDisplayName);
+      const nextRole: AppRole =
+        profileRole === "master"
+          ? "master"
+          : profileRole === "partner"
+            ? "partner"
+            : hasLinkedManufacturer && profileRole === "manufacturer"
+              ? "manufacturer"
+              : "member";
       setUserRole(nextRole);
+
+      if (nextRole === "master" || nextRole === "partner") {
+        window.location.href = getPortalHomeByRole(nextRole);
+        return;
+      }
 
       if (nextRole === "manufacturer" && hasLinkedManufacturer) {
         setViewMode("manufacturer");
@@ -78,7 +100,13 @@ export default function MyConnectPage() {
         setManufacturerName(manufacturer?.name || "");
       } else {
         setViewMode("client");
-        setActiveTab(requestedTab === "support" ? "support" : "dashboard");
+        if (requestedTab === "support") {
+          setActiveTab("support");
+        } else if (requestedTab === "delivery") {
+          setActiveTab("delivery");
+        } else {
+          setActiveTab("dashboard");
+        }
         setManufacturerId(null);
         setManufacturerName("");
       }
@@ -210,7 +238,7 @@ export default function MyConnectPage() {
           {[
             { id: "new", label: "신규 요청", count: manufacturerInboxRequests.length },
             { id: "rejected", label: "거절 내역", count: manufacturerRejectedRequests.length },
-            { id: "expired", label: "만료된 내역", count: manufacturerExpiredRequests.length },
+            { id: "expired", label: "완료된 내역", count: manufacturerExpiredRequests.length },
           ].map((tab) => {
             const isActive = manufacturerInboxView === tab.id;
             return (
@@ -330,8 +358,9 @@ export default function MyConnectPage() {
         case "active-projects":
         case "completed-projects":
           return renderClientProjects();
-        case "product-registration":
-          return <ProductRegistration />;
+        case "product-list":
+        case "product-create":
+          return <ProductRegistration activeTab={activeTab as ProductManagementTab} onTabChange={setActiveTab} />;
         case "settings":
           return <AccountSettings />;
         default:
@@ -340,8 +369,19 @@ export default function MyConnectPage() {
     }
 
     switch (activeTab) {
+      case "quote-request":
+        return <ClientQuoteRequestHub onTabChange={setActiveTab} />;
+      case "manufacturer-list":
+        return <ClientManufacturerDirectory />;
       case "dashboard":
-        return <ClientDashboard requests={rfqRequests} onRequestSelect={setSelectedRfqId} onTabChange={setActiveTab} />;
+        return (
+          <ClientDashboard
+            displayName={displayName}
+            requests={rfqRequests}
+            onRequestSelect={setSelectedRfqId}
+            onTabChange={setActiveTab}
+          />
+        );
       case "project":
         return renderClientProjects();
       case "delivery":
@@ -368,6 +408,7 @@ export default function MyConnectPage() {
       <main className="flex min-h-0 flex-1 overflow-hidden border-t border-slate-100">
         <Sidebar
           activeTab={activeTab}
+          displayName={displayName}
           isManufacturer={isManufacturer}
           onTabChange={setActiveTab}
           viewMode={viewMode}

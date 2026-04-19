@@ -1,6 +1,38 @@
 import { mapRouteError, ok } from "@/lib/server/http";
+import type { AppRole } from "@/lib/auth/roles";
 import { applyReferralAttribution, ensureUserReferralCode, sanitizeReferralCode } from "@/lib/server/referral";
 import { createServiceRoleClient, requireServerUser } from "@/lib/server/supabase";
+
+function getProviderInfo(user: {
+  app_metadata?: { provider?: string; providers?: string[] };
+  identities?: Array<{ provider?: string | null }> | null;
+}) {
+  const providers = new Set<string>();
+
+  if (typeof user.app_metadata?.provider === "string") {
+    providers.add(user.app_metadata.provider);
+  }
+
+  if (Array.isArray(user.app_metadata?.providers)) {
+    for (const provider of user.app_metadata.providers) {
+      if (provider) providers.add(provider);
+    }
+  }
+
+  for (const identity of user.identities || []) {
+    if (identity?.provider) {
+      providers.add(identity.provider);
+    }
+  }
+
+  const providerList = [...providers];
+  const isKakao = providerList.includes("kakao");
+
+  return {
+    isKakao,
+    authProvider: isKakao ? "kakao" : providerList[0] || "email",
+  };
+}
 
 function trimOrNull(value: unknown) {
   if (typeof value !== "string") return null;
@@ -16,8 +48,10 @@ export async function POST(request: Request) {
     const profileClient = adminClient ?? supabase;
 
     const metadataRole = user.user_metadata?.role;
-    const safeRole =
-      metadataRole === "master" || metadataRole === "manufacturer" || metadataRole === "member" ? metadataRole : undefined;
+    const safeRole = (["master", "manufacturer", "member", "partner"] as const).includes(metadataRole as AppRole)
+      ? (metadataRole as AppRole)
+      : undefined;
+    const providerInfo = getProviderInfo(user);
 
     const fullName = trimOrNull(body.fullName);
     const email = trimOrNull(body.email) || user.email || null;
@@ -26,7 +60,7 @@ export async function POST(request: Request) {
 
     const { data: existingProfile, error: profileReadError } = await profileClient
       .from("profiles")
-      .select("full_name, email, phone_number, role, referral_code, referred_by_profile_id, referred_by_code")
+      .select("full_name, email, phone_number, role, referral_code, referred_by_profile_id, referred_by_code, is_kakao, auth_provider")
       .eq("id", user.id)
       .maybeSingle();
 
@@ -40,6 +74,8 @@ export async function POST(request: Request) {
       email: email ?? existingProfile?.email ?? null,
       phone_number: phoneNumber ?? existingProfile?.phone_number ?? null,
       role: safeRole ?? existingProfile?.role ?? "member",
+      is_kakao: providerInfo.isKakao,
+      auth_provider: providerInfo.authProvider,
       referral_code: existingProfile?.referral_code ?? null,
       referred_by_profile_id: existingProfile?.referred_by_profile_id ?? null,
       referred_by_code: existingProfile?.referred_by_code ?? null,

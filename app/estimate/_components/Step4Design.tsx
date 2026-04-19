@@ -162,7 +162,7 @@ export function Step4Design({
               })}
             </div>
 
-            <div className="rounded-[12px] bg-[#f7f9fa] p-5">
+            <div className="rounded-[12px] bg-[#f7f9fa]">
               <p className="mb-3 text-[14px] font-bold text-[#4e5968]">디자인 패키지 (할인 적용)</p>
               <div className="grid gap-3">
                 {designPackages.map((item) => {

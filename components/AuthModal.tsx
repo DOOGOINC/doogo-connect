@@ -3,6 +3,8 @@
 import Link from "next/link";
 import { useEffect, useState } from "react";
 import { Loader2, X } from "lucide-react";
+import type { AppRole } from "@/lib/auth/roles";
+import { getLoginEntryByRole, isPrivilegedPortalRole } from "@/lib/auth/roles";
 import { authFetch } from "@/lib/client/auth-fetch";
 import { supabase } from "@/lib/supabase";
 import { captureReferralFromLocation, clearStoredReferralCode, getStoredReferralCode } from "@/utils/referral";
@@ -13,8 +15,61 @@ interface AuthModalProps {
   initialMode?: "login" | "signup";
 }
 
+type AuthProfileRow = {
+  role: AppRole | null;
+  ban_type: "none" | "temporary" | "permanent" | null;
+  ban_expires_at: string | null;
+};
+
 function normalizePhoneNumber(value: string) {
   return value.replace(/\D/g, "").slice(0, 11);
+}
+
+function formatBanDate(value: string) {
+  const date = new Date(value);
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, "0");
+  const day = String(date.getDate()).padStart(2, "0");
+  return `${year}-${month}-${day}`;
+}
+
+function isBannedProfile(profile: Pick<AuthProfileRow, "ban_type" | "ban_expires_at"> | null | undefined) {
+  if (!profile) return false;
+  if (profile.ban_type === "permanent") return true;
+  if (profile.ban_type === "temporary" && profile.ban_expires_at) {
+    return new Date(profile.ban_expires_at).getTime() > Date.now();
+  }
+  return false;
+}
+
+function getBanLoginMessage(profile: Pick<AuthProfileRow, "ban_type" | "ban_expires_at"> | null | undefined) {
+  if (!profile) {
+    return "이 계정은 현재 제재 상태여서 로그인할 수 없습니다.";
+  }
+
+  if (profile.ban_type === "permanent") {
+    return "이 계정은 현재 영구 차단 상태여서 로그인할 수 없습니다.";
+  }
+
+  if (profile.ban_type === "temporary" && profile.ban_expires_at) {
+    return `이 계정은 현재 제재 상태여서 ${formatBanDate(profile.ban_expires_at)}까지 로그인할 수 없습니다.`;
+  }
+
+  return "이 계정은 현재 제재 상태여서 로그인할 수 없습니다.";
+}
+
+async function getAuthProfile(userId: string) {
+  const { data, error } = await supabase
+    .from("profiles")
+    .select("role, ban_type, ban_expires_at")
+    .eq("id", userId)
+    .maybeSingle<AuthProfileRow>();
+
+  if (error) {
+    throw new Error(error.message);
+  }
+
+  return data || null;
 }
 
 export function AuthModal({ isOpen, onClose, initialMode = "login" }: AuthModalProps) {
@@ -23,6 +78,7 @@ export function AuthModal({ isOpen, onClose, initialMode = "login" }: AuthModalP
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [isOtpSent, setIsOtpSent] = useState(false);
+  const [agreedToRequiredTerms, setAgreedToRequiredTerms] = useState(false);
 
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -42,6 +98,7 @@ export function AuthModal({ isOpen, onClose, initialMode = "login" }: AuthModalP
     setPhone("");
     setVerificationCode("");
     setConfirmPassword("");
+    setAgreedToRequiredTerms(false);
   }, [initialMode, isOpen]);
 
   useEffect(() => {
@@ -106,7 +163,7 @@ export function AuthModal({ isOpen, onClose, initialMode = "login" }: AuthModalP
       }
 
       setIsOtpSent(true);
-      window.alert("인증번호를 발송했습니다. 메일함을 확인해 주세요.");
+      window.alert("인증번호를 보냈습니다. 메일함을 확인해 주세요.");
     } catch (err) {
       setError(err instanceof Error ? err.message : "인증번호 발송에 실패했습니다.");
     } finally {
@@ -135,11 +192,33 @@ export function AuthModal({ isOpen, onClose, initialMode = "login" }: AuthModalP
           throw signInError;
         }
 
+        const {
+          data: { user },
+        } = await supabase.auth.getUser();
+
+        if (!user) {
+          throw new Error("로그인 세션을 확인하지 못했습니다.");
+        }
+
+        const profile = await getAuthProfile(user.id);
+        if (isBannedProfile(profile)) {
+          await supabase.auth.signOut();
+          throw new Error(getBanLoginMessage(profile));
+        }
+
+        const role = (profile?.role || "member") as AppRole;
+        if (isPrivilegedPortalRole(role)) {
+          await supabase.auth.signOut();
+          onClose();
+          window.location.href = getLoginEntryByRole(role);
+          return;
+        }
+
         onClose();
       } catch (err) {
         const message =
           err instanceof Error && err.message === "Invalid login credentials"
-            ? "이메일 또는 비밀번호가 일치하지 않습니다."
+            ? "이메일 또는 비밀번호가 올바르지 않습니다."
             : err instanceof Error
               ? err.message
               : "로그인 중 오류가 발생했습니다.";
@@ -184,13 +263,18 @@ export function AuthModal({ isOpen, onClose, initialMode = "login" }: AuthModalP
       return;
     }
 
+    if (!agreedToRequiredTerms) {
+      setError("필수 항목에 동의해야 회원가입이 가능합니다.");
+      return;
+    }
+
     if (password.length < 6) {
       setError("비밀번호는 최소 6자 이상이어야 합니다.");
       return;
     }
 
     if (password !== confirmPassword) {
-      setError("비밀번호가 일치하지 않습니다.");
+      setError("비밀번호 확인이 일치하지 않습니다.");
       return;
     }
 
@@ -270,10 +354,7 @@ export function AuthModal({ isOpen, onClose, initialMode = "login" }: AuthModalP
   }
 
   return (
-    <div
-      className="fixed inset-0 z-[100] flex animate-in items-center justify-center bg-black/60 px-6 fade-in duration-200"
-      onClick={onClose}
-    >
+    <div className="fixed inset-0 z-[100] flex animate-in items-center justify-center bg-black/60 px-6 fade-in duration-200">
       <div
         className="relative w-full max-w-[400px] animate-in rounded-[14px] bg-white p-8 shadow-2xl zoom-in-95 duration-200"
         onClick={(event) => event.stopPropagation()}
@@ -308,9 +389,9 @@ export function AuthModal({ isOpen, onClose, initialMode = "login" }: AuthModalP
         </button>
 
         <div className="relative my-6 flex items-center">
-          <div className="flex-grow border-t border-slate-100"></div>
+          <div className="flex-grow border-t border-slate-100" />
           <span className="mx-3 flex-shrink text-[12px] font-bold text-[#adb5bd]">또는 이메일</span>
-          <div className="flex-grow border-t border-slate-100"></div>
+          <div className="flex-grow border-t border-slate-100" />
         </div>
 
         <form
@@ -346,7 +427,7 @@ export function AuthModal({ isOpen, onClose, initialMode = "login" }: AuthModalP
                   disabled={loading || isOtpSent}
                   className="h-12 whitespace-nowrap rounded-xl bg-[#f2f4f6] px-4 text-[13px] font-bold text-[#4e5968] transition-all hover:bg-[#e5e8eb] disabled:opacity-50"
                 >
-                  {isOtpSent ? "발송완료" : "인증요청"}
+                  {isOtpSent ? "전송 완료" : "인증 요청"}
                 </button>
               </div>
               <input
@@ -387,14 +468,27 @@ export function AuthModal({ isOpen, onClose, initialMode = "login" }: AuthModalP
           />
 
           {mode === "signup" ? (
-            <input
-              type="password"
-              placeholder="비밀번호 확인"
-              value={confirmPassword}
-              onChange={(event) => setConfirmPassword(event.target.value)}
-              autoComplete="new-password"
-              className="h-12 w-full rounded-xl border border-slate-200 bg-white px-4 text-[14px] font-medium text-[#191f28] outline-none transition-all placeholder:text-[#adb5bd] focus:border-[#0064FF] focus:ring-4 focus:ring-[#0064FF]/5"
-            />
+            <>
+              <input
+                type="password"
+                placeholder="비밀번호 확인"
+                value={confirmPassword}
+                onChange={(event) => setConfirmPassword(event.target.value)}
+                autoComplete="new-password"
+                className="h-12 w-full rounded-xl border border-slate-200 bg-white px-4 text-[14px] font-medium text-[#191f28] outline-none transition-all placeholder:text-[#adb5bd] focus:border-[#0064FF] focus:ring-4 focus:ring-[#0064FF]/5"
+              />
+              <label className="flex items-start gap-3 rounded-xl border border-slate-200 bg-slate-50 px-4 py-3 text-[13px] text-[#4E5968]">
+                <input
+                  type="checkbox"
+                  checked={agreedToRequiredTerms}
+                  onChange={(event) => setAgreedToRequiredTerms(event.target.checked)}
+                  className="mt-0.5 h-4 w-4 rounded border-slate-300 text-[#0064FF] focus:ring-[#0064FF]"
+                />
+                <span className="leading-5">
+                  [필수] 개인정보 수집 및 이용 동의
+                </span>
+              </label>
+            </>
           ) : null}
 
           {error ? <p className="text-center text-[12px] font-medium text-[#f04452]">{error}</p> : null}
@@ -417,6 +511,7 @@ export function AuthModal({ isOpen, onClose, initialMode = "login" }: AuthModalP
                 setMode(mode === "login" ? "signup" : "login");
                 setError(null);
                 setIsOtpSent(false);
+                setAgreedToRequiredTerms(false);
               }}
               className="font-bold text-[#0064FF] hover:underline"
             >

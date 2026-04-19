@@ -17,6 +17,7 @@ import { SummaryAside } from "./_components/SummaryAside";
 import { STEPS } from "./_data/steps";
 import { useEstimate } from "./_hooks/useEstimate";
 
+
 function EstimatePageContent() {
   const est = useEstimate();
   const [isAuthModalOpen, setIsAuthModalOpen] = useState(false);
@@ -150,63 +151,71 @@ function EstimatePageContent() {
   }
 
   return (
-    <main className="min-h-screen bg-[#f7f8fa] pb-48 pt-24">
+    <main className="min-h-screen bg-[#f7f8fa] pb-48 pt-16">
       <div className="mx-auto max-w-[1280px] px-6">
         {est.currentStep < 6 ? (
-          <div className="mb-4 flex items-center justify-between">
-            <h1 className="text-2xl font-bold text-[#191f28]">Custom OEM 견적</h1>
-          </div>
-        ) : null}
+          <div className="mb-12 flex flex-col items-center justify-center gap-2">
+            <h1 className="text-[26px] py-4 font-bold tracking-tight text-[#191f28]">Custom OEM 견적</h1>
 
-        {!session ? (
-          <div className="mb-8 rounded-2xl border border-[#f2f4f6] bg-white p-8 text-center shadow-sm">
-            <p className="mb-4 text-lg font-bold text-[#4e5968]">로그인이 필요한 서비스입니다.</p>
-            <button
-              onClick={() => setIsAuthModalOpen(true)}
-              className="h-12 rounded-xl bg-[#3182f6] px-8 font-bold text-white transition-all hover:bg-[#1b64da]"
-            >
-              로그인하기
-            </button>
-          </div>
-        ) : null}
-
-        <div className={session ? "" : "pointer-events-none opacity-50 grayscale"}>
-          {est.currentStep < 6 ? (
-            <div className="no-scrollbar mb-6 flex items-center justify-between overflow-x-auto rounded-xl border border-[#f2f4f6] bg-white px-5 py-3 shadow-sm">
+            <div className="relative flex w-full max-w-[800px] items-start justify-between">
               {STEPS.map((step, idx) => {
-                const Icon = step.icon;
                 const isActive = est.currentStep === step.id;
                 const isCompleted = est.currentStep > step.id;
+                const isLast = idx === STEPS.length - 1;
 
                 return (
-                  <div key={step.id} className="flex flex-1 items-center last:flex-none">
-                    <div className={`flex items-center gap-2 transition-all duration-300 ${isActive ? "opacity-100" : "opacity-50"}`}>
-                      <div
-                        className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-lg transition-all ${
-                          isActive
-                            ? "bg-[#3182f6] text-white"
-                            : isCompleted
-                              ? "bg-[#e5f1ff] text-[#3182f6]"
-                              : "bg-[#f2f4f6] text-[#8b95a1]"
+                  <div key={step.id} className="relative flex flex-1 flex-col items-center">
+                    {/* Circle */}
+                    <div
+                      className={`z-10 flex h-9 w-9 items-center justify-center rounded-full text-[15px] font-bold transition-all duration-300 ${isActive || isCompleted
+                        ? "bg-[#0052cc] text-white shadow-sm"
+                        : "bg-[#e5e8eb] text-[#adb5bd]"
                         }`}
-                      >
-                        {isCompleted ? <CheckCircle2 className="h-4 w-4" /> : <Icon className="h-4 w-4" />}
-                      </div>
-                      <span className={`whitespace-nowrap text-[12px] font-extrabold ${isActive ? "text-[#3182f6]" : "text-[#4e5968]"}`}>
-                        {step.name}
-                      </span>
+                    >
+                      {isCompleted ? (
+                        <svg
+                          xmlns="http://www.w3.org/2000/svg"
+                          width="24"
+                          height="24"
+                          viewBox="0 0 24 24"
+                          fill="none"
+                          stroke="currentColor"
+                          strokeWidth="3"
+                          strokeLinecap="round"
+                          strokeLinejoin="round"
+                          className="h-3 w-3 text-white"
+                          aria-hidden="true"
+                        >
+                          <path d="M20 6 9 17l-5-5"></path>
+                        </svg>
+                      ) : step.id}
                     </div>
-                    {idx < STEPS.length - 1 ? (
-                      <div className="mx-3 h-[1px] min-w-[20px] flex-1 bg-[#f2f4f6]">
-                        <div className={`h-full bg-[#3182f6] transition-all duration-500 ${isCompleted ? "w-full" : "w-0"}`} />
+
+                    {/* Label */}
+                    <span
+                      className={`mt-3 whitespace-nowrap text-[12px] font-bold transition-colors duration-300 ${isActive || isCompleted ? "text-[#0052cc]" : "text-[#adb5bd]"
+                        }`}
+                    >
+                      {step.name}
+                    </span>
+
+                    {/* Segmented Line */}
+                    {!isLast && (
+                      <div className="absolute left-[calc(50%+25px)] right-[calc(-50%+25px)] top-5 h-[2px] bg-[#e5e8eb]">
+                        <div
+                          className="h-full bg-[#0052cc] transition-all duration-500"
+                          style={{ width: isCompleted ? "100%" : "0%" }}
+                        />
                       </div>
-                    ) : null}
+                    )}
                   </div>
                 );
               })}
             </div>
-          ) : null}
+          </div>
+        ) : null}
 
+        <div className={session ? "" : "pointer-events-none opacity-50 grayscale"}>
           {est.currentStep === 6 ? (
             <Step6Confirmation
               designServices={est.designServices}
@@ -228,7 +237,7 @@ function EstimatePageContent() {
                 quantity={est.selection.quantity}
               />
 
-              <div className="relative min-h-[500px] rounded-2xl border border-[#f2f4f6] bg-white p-10 shadow-sm">
+              <div className="relative min-h-[500px] p-1">
                 {est.currentStep === 1 ? (
                   <Step1Manufacturer
                     selection={est.selection}
@@ -286,10 +295,10 @@ function EstimatePageContent() {
                   {est.currentStep > 1 ? (
                     <button
                       onClick={est.handleBack}
-                      className="flex h-12 items-center gap-2 rounded-2xl bg-[#f2f4f6] px-6 font-bold text-[#4e5968] transition-all hover:bg-[#e5e8eb]"
+                      className="flex h-14 items-center gap-2 rounded-[16px] border border-[#e5e8eb] bg-white px-8 font-bold text-[#4e5968] transition-all hover:bg-[#f9fafb]"
                     >
                       <ChevronLeft className="h-5 w-5" />
-                      이전 단계
+                      이전
                     </button>
                   ) : null}
 
@@ -301,10 +310,14 @@ function EstimatePageContent() {
                       (est.currentStep === 2 && !est.selection.product) ||
                       (est.currentStep === 3 && !est.selection.container)
                     }
-                    className="flex h-12 items-center gap-2 rounded-2xl bg-[#3182f6] px-6 font-bold text-white transition-all hover:bg-[#1b64da] disabled:bg-[#e5e8eb] disabled:text-[#adb5bd]"
+                    className="flex h-14 flex-1 items-center justify-center gap-2 rounded-[16px] bg-[#0052cc] px-8 text-[18px] font-bold text-white transition-all hover:bg-[#0747a6] disabled:bg-[#e5e8eb] disabled:text-[#adb5bd]"
                   >
-                    {isSubmittingOrder ? "저장 중..." : est.currentStep === 5 ? "주문하기" : "다음 단계로"}
-                    <ChevronRight className="h-5 w-5" />
+                    {isSubmittingOrder ? "저장 중..." : est.currentStep === 5 ? "⚡ 5,000P 사용 · 견적 접수하기" : (
+                      <>
+                        다음 단계
+                        <ChevronRight className="h-5 w-5" />
+                      </>
+                    )}
                   </button>
                 </div>
               </div>

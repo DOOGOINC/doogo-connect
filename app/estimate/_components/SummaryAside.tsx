@@ -94,11 +94,11 @@ export function SummaryAside({
               <div className="border-t border-dashed border-[#e5e8eb] pt-4">
                 <div className="mb-2 flex items-center justify-between">
                   <span className="text-[14px] font-medium text-[#4e5968]">개당 예상 단가</span>
-                  <span className="text-[14px] font-bold text-[#3182f6]">{formatCurrency(unitPrice, selectedProduct.paymentCurrency)}</span>
+                  <span className="text-[14px] font-bold text-[#1652b2]">{formatCurrency(unitPrice, selectedProduct.paymentCurrency)}</span>
                 </div>
                 <div className="flex items-center justify-between">
                   <span className="text-[14px] font-bold text-[#191f28]">최종 예상 합계</span>
-                  <span className="text-[18px] font-black text-[#3182f6]">
+                  <span className="text-[18px] font-black text-[#1652b2]">
                     {formatCurrency(totalPrice, selectedProduct.paymentCurrency)}
                   </span>
                 </div>

@@ -1,6 +1,9 @@
 import { NextResponse } from "next/server";
 import { CATALOG_IMAGE_BUCKET, CHAT_FILE_BUCKET, PARTNER_REQUEST_BUCKET } from "@/lib/storage";
+import { createServiceRoleClient } from "@/lib/server/supabase";
 import { createClient } from "@/utils/supabase/server";
+
+const CHAT_FILE_EXPIRY_MS = 7 * 24 * 60 * 60 * 1000;
 
 function fail(message: string, status = 400) {
   return NextResponse.json({ error: message }, { status });
@@ -11,6 +14,7 @@ export async function GET(request: Request) {
     const url = new URL(request.url);
     const bucket = url.searchParams.get("bucket");
     const path = url.searchParams.get("path");
+    const download = url.searchParams.get("download") === "1";
 
     if (!bucket || !path) {
       return fail("잘못된 파일 요청입니다.");
@@ -33,21 +37,34 @@ export async function GET(request: Request) {
     }
 
     if (bucket === CHAT_FILE_BUCKET) {
+      const admin = createServiceRoleClient();
+      if (!admin) {
+        return fail("Server configuration is missing.", 500);
+      }
+
       const roomId = path.split("/")[0];
       const { data: room } = await supabase
         .from("chat_rooms")
         .select("client_id, manufacturer_id, master_profile_id")
         .eq("id", roomId)
         .maybeSingle();
+
       if (!room) {
-        return fail("파일을 찾을 수 없습니다.", 404);
+        return fail("Object not found", 404);
       }
 
-      const [{ data: profile }, { data: manufacturer }] = await Promise.all([
+      const [{ data: profile }, { data: manufacturer }, { data: fileMessage, error: fileMessageError }] = await Promise.all([
         supabase.from("profiles").select("role").eq("id", user.id).maybeSingle(),
         room.manufacturer_id
           ? supabase.from("manufacturers").select("owner_id").eq("id", room.manufacturer_id).maybeSingle()
           : Promise.resolve({ data: null }),
+        supabase
+          .from("chat_messages")
+          .select("created_at")
+          .eq("room_id", roomId)
+          .eq("message_type", "file")
+          .eq("file_url", path)
+          .maybeSingle(),
       ]);
 
       const canAccess =
@@ -59,6 +76,39 @@ export async function GET(request: Request) {
       if (!canAccess) {
         return fail("권한이 없습니다.", 403);
       }
+
+      if (fileMessageError || !fileMessage) {
+        return fail("Object not found", 404);
+      }
+
+      const expiresAt = new Date(fileMessage.created_at).getTime() + CHAT_FILE_EXPIRY_MS;
+      if (!Number.isNaN(expiresAt) && Date.now() > expiresAt) {
+        return fail("File expired", 410);
+      }
+
+      if (download) {
+        const { data, error } = await admin.storage.from(bucket).download(path);
+        if (error || !data) {
+          return fail(error?.message || "파일을 다운로드하지 못했습니다.", 400);
+        }
+
+        const fileName = path.split("/").pop() || "download";
+        const headers = new Headers();
+        headers.set("Content-Type", data.type || "application/octet-stream");
+        headers.set("Content-Disposition", `attachment; filename="${encodeURIComponent(fileName)}"`);
+
+        return new NextResponse(data.stream(), {
+          status: 200,
+          headers,
+        });
+      }
+
+      const { data, error } = await admin.storage.from(bucket).createSignedUrl(path, 60);
+      if (error || !data?.signedUrl) {
+        return fail(error?.message || "파일 URL을 만들지 못했습니다.", 400);
+      }
+
+      return NextResponse.redirect(data.signedUrl, { status: 302 });
     }
 
     if (bucket === CATALOG_IMAGE_BUCKET) {

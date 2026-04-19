@@ -10,6 +10,8 @@ import { clearStoredReferralCode, getStoredReferralCode } from "@/utils/referral
 type ProfileRow = {
   full_name: string | null;
   phone_number: string | null;
+  ban_type: "none" | "temporary" | "permanent" | null;
+  ban_expires_at: string | null;
 };
 
 function trimValue(value: string | null | undefined) {
@@ -18,6 +20,14 @@ function trimValue(value: string | null | undefined) {
 
 function normalizePhoneNumber(value: string) {
   return value.replace(/\D/g, "").slice(0, 11);
+}
+
+function formatBanDate(value: string) {
+  const date = new Date(value);
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, "0");
+  const day = String(date.getDate()).padStart(2, "0");
+  return `${year}-${month}-${day}`;
 }
 
 function isKakaoUser(user: User | null | undefined) {
@@ -34,6 +44,31 @@ function isKakaoUser(user: User | null | undefined) {
   return (user.identities || []).some((identity) => identity.provider === "kakao");
 }
 
+function isBannedProfile(profile: Pick<ProfileRow, "ban_type" | "ban_expires_at"> | null | undefined) {
+  if (!profile) return false;
+  if (profile.ban_type === "permanent") return true;
+  if (profile.ban_type === "temporary" && profile.ban_expires_at) {
+    return new Date(profile.ban_expires_at).getTime() > Date.now();
+  }
+  return false;
+}
+
+function getBanLoginMessage(profile: Pick<ProfileRow, "ban_type" | "ban_expires_at"> | null | undefined) {
+  if (!profile) {
+    return "이 계정은 현재 제재 상태입니다. 관리자에게 문의해 주세요.";
+  }
+
+  if (profile.ban_type === "permanent") {
+    return "이 계정은 현재 영구 차단 상태입니다. 관리자에게 문의해 주세요.";
+  }
+
+  if (profile.ban_type === "temporary" && profile.ban_expires_at) {
+    return `이 계정은 ${formatBanDate(profile.ban_expires_at)}까지 로그인할 수 없습니다.`;
+  }
+
+  return "이 계정은 현재 제재 상태입니다. 관리자에게 문의해 주세요.";
+}
+
 export function ProfileCompletionGate() {
   const [session, setSession] = useState<Session | null>(null);
   const [isChecking, setIsChecking] = useState(true);
@@ -48,7 +83,7 @@ export function ProfileCompletionGate() {
     setSession(nextSession);
     setError("");
 
-    if (!nextSession?.user || !isKakaoUser(nextSession.user)) {
+    if (!nextSession?.user) {
       setIsOpen(false);
       setIsChecking(false);
       setFullName("");
@@ -83,12 +118,32 @@ export function ProfileCompletionGate() {
 
       const { data, error: profileError } = await supabase
         .from("profiles")
-        .select("full_name, phone_number")
+        .select("full_name, phone_number, ban_type, ban_expires_at")
         .eq("id", nextSession.user.id)
         .maybeSingle<ProfileRow>();
 
       if (profileError) {
         throw new Error(profileError.message);
+      }
+
+      if (isBannedProfile(data)) {
+        setIsOpen(false);
+        setFullName("");
+        setPhoneNumber("");
+        alertedUserRef.current = null;
+        window.alert(getBanLoginMessage(data));
+        await supabase.auth.signOut();
+        window.location.href = "/?auth=login";
+        return;
+      }
+
+      if (!isKakaoUser(nextSession.user)) {
+        setIsOpen(false);
+        setIsChecking(false);
+        setFullName("");
+        setPhoneNumber("");
+        alertedUserRef.current = null;
+        return;
       }
 
       const nextFullName = trimValue(data?.full_name);

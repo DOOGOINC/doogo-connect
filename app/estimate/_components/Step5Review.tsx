@@ -1,7 +1,7 @@
 "use client";
 
 import { useMemo } from "react";
-import { CheckCircle2, Clock, LinkIcon, RotateCcw } from "lucide-react";
+import { CheckCircle2, Clock, LinkIcon, RotateCcw, Zap } from "lucide-react";
 import { formatCurrency } from "@/lib/currency";
 import type { ReviewFormValues } from "@/lib/rfq";
 import {
@@ -114,22 +114,12 @@ export function Step5Review({
 
   return (
     <div className="animate-in fade-in slide-in-from-right-4 duration-500">
-      <div className="mb-8 flex flex-col justify-between gap-4 border-b border-[#f2f4f6] pb-6 md:flex-row md:items-end">
-        <div>
-          <h2 className="text-[20px] font-bold tracking-tight text-[#191f28]">최종 주문 확인</h2>
-          <p className="mt-1 text-[14px] text-[#4e5968]">입력하신 내용을 확인하고 주문을 접수해 주세요.</p>
-        </div>
-        <button
-          onClick={onReset}
-          className="flex items-center gap-1.5 rounded-full bg-[#f2f4f6] px-3 py-2 text-[12px] font-bold text-[#4e5968] transition-colors hover:bg-[#e5e8eb]"
-        >
-          <RotateCcw className="h-3.5 w-3.5" /> 처음으로
-        </button>
+      <div className="flex flex-col justify-between gap-4 border-b border-[#f2f4f6] md:flex-row md:items-end">
       </div>
 
       <div className="space-y-10">
-        <section className="bg-white">
-          <h3 className="mb-6 text-[16px] font-bold text-[#191f28]">견적 요약</h3>
+        <section className="bg-white rounded-2xl border border-gray-100 p-5 mb-4 shadow-sm">
+          <h3 className="mb-6 text-[16px] font-bold text-[#191f28]">가견적 내용</h3>
 
           <div className="space-y-6">
             {displayRows.map((row, index) => (
@@ -154,84 +144,81 @@ export function Step5Review({
                 {formatCurrency(est.totalPrice, est.selectedProduct?.paymentCurrency)}
               </p>
             </div>
-            <div className="mb-6 mt-8 h-[2px] bg-[#f2f4f6]" />
           </div>
         </section>
 
-        <section className="space-y-4">
-          <h3 className="text-[16px] font-bold text-[#191f28]">브랜드 및 담당자 정보</h3>
-          <div className="grid gap-5 rounded-[12px] border border-[#e5e8eb] bg-white p-6 shadow-sm sm:grid-cols-2">
-            <div className="space-y-1.5">
-              <label className="text-[13px] font-bold text-[#4e5968]">브랜드명</label>
+        <section className="rounded-[16px] p-6 bg-[linear-gradient(135deg,_#eff6ff_0%,_#dbeafe_50%,_#bfdbfe_100%)]">
+          <h3 className="mb-6 text-[16px] font-bold text-[#0052cc]">브랜드 & 담당자 정보</h3>
+          <div className="grid gap-x-6 gap-y-4 sm:grid-cols-2">
+            <div className="space-y-2">
+              <label className="text-[13px] font-bold text-[#8b95a1]">브랜드명</label>
               <input
                 value={reviewForm.brandName}
                 onChange={(e) => onReviewFormChange("brandName", e.target.value)}
-                className="h-11 w-full rounded-[8px] border border-[#e5e8eb] px-4 text-[14px] outline-none transition-colors focus:border-[#3182f6]"
-                placeholder="브랜드명을 입력해 주세요"
+                className="h-12 w-full rounded-[12px] border border-[#d1d6db] bg-[#f2f8ff]/50 px-4 text-[14px] outline-none transition-all focus:border-[#0052cc] focus:bg-white"
+                placeholder="브랜드명"
               />
             </div>
-            <div className="space-y-1.5">
-              <label className="text-[13px] font-bold text-[#4e5968]">담당자명</label>
+            <div className="space-y-2">
+              <label className="text-[13px] font-bold text-[#8b95a1]">담당자명</label>
               <input
                 value={reviewForm.contactName}
                 onChange={(e) => onReviewFormChange("contactName", e.target.value)}
-                className="h-11 w-full rounded-[8px] border border-[#e5e8eb] px-4 text-[14px] outline-none transition-colors focus:border-[#3182f6]"
-                placeholder="담당자 성함을 입력해 주세요"
+                className="h-12 w-full rounded-[12px] border border-[#d1d6db] bg-[#f2f8ff]/50 px-4 text-[14px] outline-none transition-all focus:border-[#0052cc] focus:bg-white"
+                placeholder="담당자명"
               />
             </div>
-            <div className="space-y-1.5">
-              <label className="text-[13px] font-bold text-[#4e5968]">이메일 주소</label>
+            <div className="space-y-2">
+              <label className="text-[13px] font-bold text-[#8b95a1]">이메일</label>
               <input
                 type="email"
                 value={reviewForm.contactEmail}
                 onChange={(e) => onReviewFormChange("contactEmail", e.target.value)}
-                className="h-11 w-full rounded-[8px] border border-[#e5e8eb] px-4 text-[14px] outline-none transition-colors focus:border-[#3182f6]"
-                placeholder="example@brand.com"
+                className="h-12 w-full rounded-[12px] border border-[#d1d6db] bg-[#f2f8ff]/50 px-4 text-[14px] outline-none transition-all focus:border-[#0052cc] focus:bg-white"
+                placeholder="이메일"
               />
             </div>
-            <div className="space-y-1.5">
-              <label className="text-[13px] font-bold text-[#4e5968]">연락처</label>
+            <div className="space-y-2">
+              <label className="text-[13px] font-bold text-[#8b95a1]">연락처</label>
               <input
                 value={reviewForm.contactPhone}
                 onChange={(e) => onReviewFormChange("contactPhone", e.target.value)}
-                className="h-11 w-full rounded-[8px] border border-[#e5e8eb] px-4 text-[14px] outline-none transition-colors focus:border-[#3182f6]"
-                placeholder="연락 가능한 번호를 입력해 주세요"
+                className="h-12 w-full rounded-[12px] border border-[#d1d6db] bg-[#f2f8ff]/50 px-4 text-[14px] outline-none transition-all focus:border-[#0052cc] focus:bg-white"
+                placeholder="연락처"
               />
             </div>
-            <div className="space-y-1.5 sm:col-span-2">
-              <label className="text-[13px] font-bold text-[#4e5968]">요청사항</label>
+            <div className="space-y-2 sm:col-span-2">
+              <label className="text-[13px] font-bold text-[#8b95a1]">요청사항</label>
               <textarea
                 value={reviewForm.requestNote}
                 onChange={(e) => onReviewFormChange("requestNote", e.target.value)}
-                className="min-h-[100px] w-full rounded-[8px] border border-[#e5e8eb] p-4 text-[14px] outline-none transition-colors focus:border-[#3182f6]"
-                placeholder="희망 일정, 브랜드 방향성, 참고사항을 입력해 주세요"
+                className="min-h-[120px] w-full rounded-[12px] border border-[#d1d6db] bg-[#f2f8ff]/50 p-4 text-[14px] outline-none transition-all focus:border-[#0052cc] focus:bg-white"
+                placeholder="요청사항을 입력해 주세요."
               />
             </div>
           </div>
         </section>
 
-        <section className="rounded-[12px] border border-[#e5e8eb] bg-[#fff] p-8 shadow-sm">
+        <section className="rounded-[12px] border border-[#e5e8eb] bg-[#fff] p-6 shadow-sm">
           <div className="flex flex-col justify-between gap-6 md:flex-row md:items-center">
             <div>
               <h3 className="text-[16px] font-bold text-[#191f28]">디자인 파일 공유</h3>
-              <p className="mt-1 text-[14px] text-[#8b95a1]">보유 중인 디자인 파일이 있다면 링크로 전달해 주세요.</p>
+              <p className="mt-1 text-[14px] text-[#6a7282]">공유해주실 디자인 파일이 있으신가요?</p>
             </div>
             <div className="flex rounded-[8px] bg-[#f2f4f6] p-1">
               <button
                 type="button"
                 onClick={() => onReviewFormChange("hasFiles", "yes")}
-                className={`h-10 rounded-[6px] px-6 text-[12px] font-bold transition-all ${
-                  reviewForm.hasFiles === "yes" ? "bg-white text-[#3182f6] shadow-sm" : "text-[#8b95a1] hover:bg-[#f2f4f6]"
-                }`}
+                className={`h-10 rounded-[6px] px-6 text-[12px] font-bold transition-all ${reviewForm.hasFiles === "yes" ? "bg-white text-[#3182f6] shadow-sm" : "text-[#8b95a1] hover:bg-[#f2f4f6]"
+                  }`}
               >
                 네, 있습니다
               </button>
               <button
                 type="button"
                 onClick={() => onReviewFormChange("hasFiles", "no")}
-                className={`h-10 rounded-[6px] px-6 text-[12px] font-bold transition-all ${
-                  reviewForm.hasFiles === "no" ? "bg-white text-[#3182f6] shadow-sm" : "text-[#8b95a1] hover:bg-[#f2f4f6]"
-                }`}
+                className={`h-10 rounded-[6px] px-6 text-[12px] font-bold transition-all ${reviewForm.hasFiles === "no" ? "bg-white text-[#3182f6] shadow-sm" : "text-[#8b95a1] hover:bg-[#f2f4f6]"
+                  }`}
               >
                 아니요
               </button>
@@ -267,24 +254,50 @@ export function Step5Review({
               </ul>
             </div>
           ) : (
-            <div className="mt-6 flex items-start gap-3 rounded-[12px] bg-[#f2f8ff] px-5 py-4 text-[#3182f6]">
-              <CheckCircle2 className="mt-0.5 h-5 w-5 shrink-0" />
+            <div className="mt-6 flex items-start gap-3 border-amber-200 bg-amber-50 border p-4 rounded-xl bg-[#fffbeb]">
+              <span className="shrink-0 text-[18px]">⚠️</span>
               <div>
-                <p className="text-[14px] font-bold">디자인 파일이 없어도 괜찮습니다</p>
-                <p className="mt-1 text-[13px] leading-relaxed opacity-80">
+                <p className="text-[14px] font-bold text-[#973c00]">디자인 파일이 없어도 괜찮습니다</p>
+                <p className="text-[13px] leading-relaxed opacity-80 text-[#bb4d00]">
                   주문 접수 후 담당 디자이너가 배정되어 브랜드 방향성과 요구사항을 상세히 확인합니다.
                 </p>
               </div>
             </div>
           )}
+
         </section>
 
-        <div className="flex flex-col items-center justify-between gap-6 border-t border-[#f2f4f6] pt-8 md:flex-row">
-          <div className="flex items-center gap-3 text-[#3182f6]">
-            <Clock className="h-5 w-5" />
-            <p className="text-[14px] font-bold">주문 후 평균 3~4주 이내 제조가 진행됩니다.</p>
+        <section className="rounded-[14px] bg-[#fffbe6]/60 border border-[#ffeebf] p-6">
+          <div className="flex items-start gap-4 mb-4">
+            <span className="text-[20px]">⚡</span>
+            <h3 className="text-[16px] font-bold text-[#92400e]">포인트 5,000P가 차감됩니다</h3>
           </div>
-        </div>
+
+          <div className="space-y-3.5 mb-4 ml-10">
+            <div className="flex justify-between items-center">
+              <span className="text-[14px] font-medium text-[#191f28]">현재 보유 포인트</span>
+              <span className="text-[16px] font-bold text-[#191f28]">50,000P</span>
+            </div>
+            <div className="flex justify-between items-center">
+              <span className="text-[15px] font-medium text-[#191f28]">차감 포인트</span>
+              <span className="text-[16px] font-bold text-[#ef4444]">-5,000P</span>
+            </div>
+            <div className="h-[1px] bg-[#ffeebf] w-full" />
+            <div className="flex justify-between items-center pt-1">
+              <span className="text-[15px] font-bold text-[#191f28]">차감 후 잔여</span>
+              <span className="text-[18px] font-bold text-[#0052cc]">45,000P</span>
+            </div>
+          </div>
+
+          <div className="rounded-[12px] bg-white border border-[#ffeebf]/50 p-5 ml-10">
+            <p className="flex items-center gap-2 text-[14px] font-bold text-[#191f28] mb-2">
+              💡 포인트 사용 TIP
+            </p>
+            <p className="text-[14px] leading-relaxed text-[#8b95a1]">
+              제조사 재고 부족 또는 제조사 사정으로 견적이 취소될 경우, 사용된 5,000P는 자동으로 환불됩니다.
+            </p>
+          </div>
+        </section>
       </div>
     </div>
   );

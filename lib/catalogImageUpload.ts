@@ -1,4 +1,4 @@
-import { buildStorageObjectUrl, CATALOG_IMAGE_BUCKET } from "@/lib/storage";
+import { buildPublicStorageUrl, CATALOG_IMAGE_BUCKET } from "@/lib/storage";
 
 const MAX_IMAGE_SIZE = 5 * 1024 * 1024;
 
@@ -44,6 +44,7 @@ export async function uploadCatalogImage({
 
   const response = await fetch("/api/catalog/images", {
     method: "POST",
+    credentials: "include",
     body: formData,
   });
   const payload = (await response.json()) as { error?: string; path?: string };
@@ -57,4 +58,4 @@ export async function uploadCatalogImage({
 
 export { CATALOG_IMAGE_BUCKET };
 export const getCatalogImageUrl = (pathOrUrl: string | null | undefined) =>
-  buildStorageObjectUrl(CATALOG_IMAGE_BUCKET, pathOrUrl);
+  buildPublicStorageUrl(CATALOG_IMAGE_BUCKET, pathOrUrl);

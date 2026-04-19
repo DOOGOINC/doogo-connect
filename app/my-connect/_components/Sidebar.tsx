@@ -1,121 +1,268 @@
 "use client";
 
 import {
-  BarChart3,
+  BadgeCheck,
+  Banknote,
+  BellRing,
   BriefcaseBusiness,
   ChevronDown,
-  Coins,
-  CreditCard,
+  ClipboardList,
   Factory,
   FileText,
-  Headset,
+  FolderKanban,
+  Headphones,
   LayoutDashboard,
-  Map,
-  PackagePlus,
-  Receipt,
-  Send,
+  MessageSquareText,
+  PackageCheck,
   Settings,
+  ShieldCheck,
+  Sparkles,
+  UserRound,
 } from "lucide-react";
 import { useState } from "react";
 
-const CLIENT_SIDEBAR_ITEMS = [
-  { id: "dashboard", label: "\uB300\uC2DC\uBCF4\uB4DC", icon: LayoutDashboard },
-  { id: "project", label: "\uD504\uB85C\uC81D\uD2B8", icon: FileText },
-  { id: "delivery", label: "\uC81C\uC870 \uC9C4\uD589", icon: Map },
-  { id: "activity", label: "\uD65C\uB3D9 \uB85C\uADF8", icon: BarChart3 },
-  { id: "chat", label: "1:1 \uC0C1\uB2F4", icon: Send },
-  { id: "support", label: "\uACE0\uAC1D\uC13C\uD130", icon: Headset },
+type ConnectViewMode = "client" | "manufacturer";
+
+interface SidebarLeafItem {
+  id: string;
+  label: string;
+  icon: React.ComponentType<{ className?: string }>;
+}
+
+interface SidebarGroup {
+  id: string;
+  label: string;
+  icon: React.ComponentType<{ className?: string }>;
+  children: SidebarLeafItem[];
+  defaultOpen?: boolean;
+}
+const Emoji01 = () => <span>🏠</span>;
+const Emoji02 = () => <span>📝</span>;
+const Emoji03 = () => <span>🏭</span>;
+const Emoji04 = () => <span>💬</span>;
+const Emoji05 = () => <span>💰</span>;
+const Emoji06 = () => <span>⚡</span>;
+const Emoji07 = () => <span>⚙️</span>;
+
+
+const CLIENT_GROUPS: SidebarGroup[] = [
+  {
+    id: "quotes",
+    label: "견적 진행",
+    icon: Emoji02,
+    defaultOpen: true,
+    children: [
+      { id: "quote-request", label: "제조사 견적요청", icon: LayoutDashboard },
+      { id: "manufacturer-list", label: "제조사 목록", icon: Factory },
+      { id: "project", label: "프로젝트", icon: FileText },
+    ],
+  },
+  {
+    id: "production",
+    label: "생산 진행",
+    icon: Emoji03,
+    defaultOpen: true,
+    children: [
+      { id: "delivery", label: "요청 내역", icon: PackageCheck },
+      { id: "activity", label: "활동 로그", icon: BellRing },
+    ],
+  },
+  {
+    id: "communication",
+    label: "커뮤니케이션",
+    icon: Emoji04,
+    defaultOpen: true,
+    children: [
+      { id: "chat", label: "1:1 대화", icon: MessageSquareText },
+      { id: "support", label: "고객센터", icon: Headphones },
+    ],
+  },
+  {
+    id: "transaction",
+    label: "거래 관리",
+    icon: Emoji05,
+    defaultOpen: true,
+    children: [{ id: "payment", label: "결제 내역", icon: Banknote }],
+  },
 ];
 
-const MANUFACTURER_SIDEBAR_ITEMS = [
-  { id: "rfq-inbox", label: "\uACAC\uC801 \uC694\uCCAD", icon: FileText },
-  { id: "orders", label: "\uC218\uC8FC \uAD00\uB9AC", icon: BriefcaseBusiness },
-  { id: "production", label: "\uC81C\uC870 \uAD00\uB9AC", icon: Factory },
-  { id: "product-registration", label: "\uC81C\uC870\uC0AC \uCE74\uD0C8\uB85C\uADF8", icon: PackagePlus },
-  { id: "chat", label: "1:1 \uC0C1\uB2F4", icon: Send },
-  { id: "support", label: "\uACE0\uAC1D\uC13C\uD130", icon: Headset },
-  { id: "transactions", label: "\uAC70\uB798/\uC815\uC0B0", icon: Receipt },
+const MANUFACTURER_GROUPS: SidebarGroup[] = [
+  {
+    id: "quotes",
+    label: "견적 진행",
+    icon: ClipboardList,
+    defaultOpen: true,
+    children: [
+      { id: "rfq-inbox", label: "제조사 견적함", icon: FileText },
+      { id: "orders", label: "주문 관리", icon: BriefcaseBusiness },
+    ],
+  },
+  {
+    id: "production",
+    label: "생산 진행",
+    icon: Factory,
+    defaultOpen: true,
+    children: [{ id: "production", label: "생산 진행", icon: Factory }],
+  },
+  {
+    id: "catalog",
+    label: "OEM 상품 관리",
+    icon: FolderKanban,
+    defaultOpen: true,
+    children: [
+      { id: "product-list", label: "상품 리스트", icon: FolderKanban },
+      { id: "product-create", label: "상품 등록", icon: FolderKanban },
+    ],
+  },
+  {
+    id: "communication",
+    label: "커뮤니케이션",
+    icon: MessageSquareText,
+    defaultOpen: true,
+    children: [
+      { id: "chat", label: "1:1 대화", icon: MessageSquareText },
+      { id: "support", label: "고객센터", icon: Headphones },
+    ],
+  },
+  {
+    id: "transaction",
+    label: "거래 관리",
+    icon: Banknote,
+    defaultOpen: true,
+    children: [{ id: "transactions", label: "거래 통계", icon: Banknote }],
+  },
 ];
+
+const UTILITY_ITEMS_BY_MODE: Record<ConnectViewMode, SidebarLeafItem[]> = {
+  client: [
+    { id: "points", label: "포인트 관리", icon: Emoji06 },
+    { id: "settings", label: "설정", icon: Emoji07 },
+  ],
+  manufacturer: [{ id: "settings", label: "설정", icon: Settings }],
+};
 
 interface SidebarProps {
   activeTab: string;
+  displayName?: string;
   isManufacturer: boolean;
   onTabChange: (id: string) => void;
   viewMode: "client" | "manufacturer";
   manufacturerName?: string;
 }
 
-export function Sidebar({ activeTab, isManufacturer, onTabChange, viewMode, manufacturerName }: SidebarProps) {
-  const [isQuotesOpen, setIsQuotesOpen] = useState(true);
+function getInitialOpenState(groups: SidebarGroup[]) {
+  return groups.reduce<Record<string, boolean>>((acc, group) => {
+    acc[group.id] = group.defaultOpen ?? true;
+    return acc;
+  }, {});
+}
 
-  const sidebarItems = viewMode === "manufacturer" ? MANUFACTURER_SIDEBAR_ITEMS : CLIENT_SIDEBAR_ITEMS;
-  const sectionTitle = viewMode === "manufacturer" ? "\uC81C\uC870 \uC6B4\uC601" : "\uC758\uB8B0 \uAD00\uB9AC";
-  const roleLabel = viewMode === "manufacturer" ? manufacturerName?.trim() || "\uC81C\uC870\uC0AC" : "\uC758\uB8B0\uC790";
-  const roleBadgeLabel = isManufacturer ? "\uC81C\uC870\uC0AC" : "\uC758\uB8B0\uC790";
+export function Sidebar({ activeTab, displayName, isManufacturer, onTabChange, viewMode, manufacturerName }: SidebarProps) {
+  const groups = viewMode === "manufacturer" ? MANUFACTURER_GROUPS : CLIENT_GROUPS;
+  const utilityItems = UTILITY_ITEMS_BY_MODE[viewMode];
+  const [openGroups, setOpenGroups] = useState<Record<string, boolean>>(() => getInitialOpenState(groups));
+
+  const profileName = viewMode === "manufacturer" ? manufacturerName?.trim() || "제조사 계정" : `${displayName?.trim() || "고객"} 고객님`;
+  const profileTypeLabel = isManufacturer ? "제조사" : "의뢰자";
+  const profileDescription = isManufacturer ? "제조사 계정" : "의뢰자 계정";
+  const connectLabel = viewMode === "manufacturer" ? "마이커넥트(제조사)" : "마이커넥트(의뢰자)";
+  const homeTab = viewMode === "manufacturer" ? "rfq-inbox" : "dashboard";
 
   return (
-    <aside className="flex min-h-screen w-56 flex-shrink-0 flex-col border-r border-gray-200 bg-white">
-      <div className="border-b border-gray-100 px-5 py-5">
-        <h2 className="text-base font-bold text-gray-900">{"\uB9C8\uC774\uCEE4\uB125\uD2B8"}</h2>
-      </div>
-
-      <div className="border-b border-gray-100 px-4 py-3">
-        <div className="rounded-xl bg-gray-100 p-0.5">
-          <div className="rounded-lg bg-white px-3 py-2 shadow-sm">
-            <div className="flex items-center justify-between gap-3">
-              <span className="truncate text-sm font-semibold text-gray-900">{roleLabel}</span>
-              <span className="rounded-md bg-[#EEF5FF] px-2 py-1 text-[11px] font-semibold text-[#0064FF]">{roleBadgeLabel}</span>
-            </div>
+    <aside className="flex h-full w-[248px] flex-shrink-0 flex-col border-r border-[#edf0f4] bg-white">
+      <div className="border-b border-[#edf0f4] bg-[#edf3ff] px-5 py-5">
+        <div className="flex items-start gap-3">
+          <div className="flex h-11 w-11 items-center justify-center rounded-full bg-[#2f6bff] text-white">
+            <UserRound className="h-5 w-5" />
+          </div>
+          <div className="min-w-0">
+            <p className="text-xs font-medium text-[#7b8597]">{profileDescription}</p>
+            <p className="mt-1 truncate text-[14px] font-bold leading-6 text-[#2a3550]">{profileName}</p>
           </div>
         </div>
+        {/* 여기보세요 */}
+        <div className="mt-3 flex flex-wrap items-center gap-2">
+          <span className="rounded-full bg-[#2f6bff] px-3 py-1 text-[11px] font-semibold text-white">{profileTypeLabel}</span>
+          <span className="inline-flex items-center gap-1 rounded-full bg-[#ddf7e8] px-3 py-1 text-[11px] font-semibold text-[#14904c]">
+            <BadgeCheck className="h-3.5 w-3.5" />
+            인증됨
+          </span>
+        </div>
       </div>
 
-      <nav className="flex-1 overflow-y-auto py-3">
+      <div className="px-4 pb-3 pt-4">
         <button
-          onClick={() => setIsQuotesOpen(!isQuotesOpen)}
-          className="flex w-full items-center justify-between px-5 py-2.5 text-sm font-semibold text-gray-700 transition-colors hover:bg-gray-50"
+          type="button"
+          onClick={() => onTabChange(homeTab)}
+          className={`flex w-full items-center gap-3 rounded-2xl px-4 py-3 text-left text-[15px] font-semibold transition ${activeTab === homeTab ? "bg-[#2f6bff] text-white" : "bg-[#fff] text-[#37507d] hover:bg-[#f7f9fc]"
+            }`}
         >
-          <span>{sectionTitle}</span>
-          <ChevronDown className={`h-3.5 w-3.5 text-gray-400 transition-transform duration-200 ${isQuotesOpen ? "rotate-180" : "rotate-0"}`} />
+          🏠
+          <span className="truncate">{connectLabel}</span>
         </button>
+      </div>
 
-        <div className={`overflow-hidden transition-all duration-300 ease-in-out ${isQuotesOpen ? "mb-4 max-h-[560px] opacity-100" : "mb-0 max-h-0 opacity-0"}`}>
-          {sidebarItems.map((item) => (
-            <button
-              key={item.id}
-              onClick={() => onTabChange(item.id)}
-              className={`flex w-full items-center gap-2.5 px-6 py-2 text-sm transition-colors ${activeTab === item.id ? "bg-blue-50 font-semibold text-[#0064FF]" : "text-gray-600 hover:bg-gray-50"}`}
-            >
-              <item.icon className={`h-3.5 w-3.5 ${activeTab === item.id ? "text-[#0064FF]" : "text-gray-400"}`} />
-              {item.label}
-            </button>
-          ))}
-        </div>
+      <nav className="flex-1 overflow-y-auto px-3 pb-6">
+        {groups.map((group) => {
+          const hasActiveChild = group.children.some((child) => child.id === activeTab);
+          const isOpen = openGroups[group.id] ?? (hasActiveChild || group.defaultOpen === true);
 
-        <div className="mt-2 border-t border-gray-50 pt-2">
-          <button
-            onClick={() => onTabChange("settings")}
-            className={`flex w-full items-center gap-2.5 px-5 py-2.5 text-sm font-semibold transition-colors ${activeTab === "settings" ? "bg-blue-50 font-semibold text-[#0064FF]" : "text-gray-700 hover:bg-gray-50"}`}
-          >
-            <Settings className={`h-4 w-4 ${activeTab === "settings" ? "text-[#0064FF]" : "text-gray-400"}`} />
-            {"\uACC4\uC815 \uC124\uC815"}
-          </button>
-          {viewMode === "client" ? (
-            <button
-              onClick={() => onTabChange("points")}
-              className={`flex w-full items-center gap-2.5 px-5 py-2.5 text-sm font-semibold transition-colors ${activeTab === "points" ? "bg-blue-50 font-semibold text-[#0064FF]" : "text-gray-700 hover:bg-gray-50"}`}
-            >
-              <Coins className={`h-4 w-4 ${activeTab === "points" ? "text-[#0064FF]" : "text-gray-400"}`} />
-              {"\uB0B4 \uD3EC\uC778\uD2B8"}
-            </button>
-          ) : null}
-          <button
-            onClick={() => onTabChange("payment")}
-            className={`flex w-full items-center gap-2.5 px-5 py-2.5 text-sm font-semibold transition-colors ${activeTab === "payment" ? "bg-blue-50 font-semibold text-[#0064FF]" : "text-gray-700 hover:bg-gray-50"}`}
-          >
-            <CreditCard className={`h-4 w-4 ${activeTab === "payment" ? "text-[#0064FF]" : "text-gray-400"}`} />
-            {"\uACB0\uC81C \uAD00\uB9AC"}
-          </button>
+          return (
+            <div key={group.id} className="mb-2">
+              <button
+                type="button"
+                onClick={() => setOpenGroups((prev) => ({ ...prev, [group.id]: !prev[group.id] }))}
+                className="flex w-full items-center justify-between rounded-xl px-3 py-3 text-left transition hover:bg-[#f7f9fc]"
+              >
+                <span className="flex items-center gap-3">
+                  <group.icon className={`h-4 w-4 ${hasActiveChild ? "text-[#2f6bff]" : "text-[#f18b46]"}`} />
+                  <span className={`text-[15px] font-semibold ${hasActiveChild ? "text-[#23314f]" : "text-[#43506a]"}`}>{group.label}</span>
+                </span>
+                <ChevronDown className={`h-4 w-4 text-[#98a2b3] transition-transform ${isOpen ? "rotate-180" : "rotate-0"}`} />
+              </button>
+
+              <div className={`overflow-hidden transition-all duration-200 ${isOpen ? "max-h-80 opacity-100" : "max-h-0 opacity-0"}`}>
+                <div className="ml-6 border-[#eef1f5] py-1">
+                  {group.children.map((item) => {
+                    const isActive = item.id === activeTab;
+
+                    return (
+                      <button
+                        key={item.id}
+                        type="button"
+                        onClick={() => onTabChange(item.id)}
+                        className={`relative flex w-full items-center gap-3 rounded-xl py-2.5 pl-5 pr-3 text-left text-[14px] transition ${isActive ? "bg-[#eef4ff] font-semibold text-[#2f6bff]" : "text-[#7f8898] hover:bg-[#f8fafc] hover:text-[#3c4a63]"
+                          }`}
+                      >
+                        <span className={`absolute left-[-5px] h-2 w-2 rounded-full ${isActive ? "bg-[#2f6bff]" : "bg-[#d7dde6]"}`} />
+
+                        <span className="truncate">{item.label}</span>
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+            </div>
+          );
+        })}
+
+        <div className="mt-4 space-y-1 border-t border-[#eef1f5] pt-4">
+          {utilityItems.map((item) => {
+            const isActive = item.id === activeTab;
+
+            return (
+              <button
+                key={item.id}
+                type="button"
+                onClick={() => onTabChange(item.id)}
+                className={`flex w-full items-center gap-3 rounded-xl px-3 py-3 text-left text-[15px] font-semibold transition ${isActive ? "bg-[#eef4ff] text-[#2f6bff]" : "text-[#43506a] hover:bg-[#f7f9fc]"
+                  }`}
+              >
+                <item.icon className={`h-4 w-4 ${isActive ? "text-[#2f6bff]" : item.id === "points" ? "text-[#f08a47]" : "text-[#b09ad8]"}`} />
+                <span>{item.label}</span>
+              </button>
+            );
+          })}
         </div>
       </nav>
     </aside>

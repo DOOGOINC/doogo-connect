@@ -24,7 +24,6 @@ export function SiteFooter() {
   return (
     <footer className="bg-[#0a1628] py-16 lg:py-20 text-[#8b95a1]">
       <div className="mx-auto max-w-7xl px-6">
-        {/* 상단 섹션: 로고 및 메뉴 */}
         <div className="grid gap-x-8 gap-y-12 pb-16 grid-cols-2 md:grid-cols-3 lg:grid-cols-[1.5fr_1fr_1fr_1fr]">
           <div className="flex flex-col gap-5 col-span-2 md:col-span-3 lg:col-span-1">
             <div className="w-fit">
@@ -32,15 +31,17 @@ export function SiteFooter() {
                 src="/image/doogo_logo_full.png"
                 alt="DOOGO CONNECT"
                 width={160}
-                height={34}
-                className="object-contain brightness-0 invert"
+                height={40}
+                className="w-[160px] h-auto object-contain brightness-0 invert"
               />
             </div>
             <div className="text-[14px] leading-relaxed">
               <p className="font-bold text-white text-[16px] mb-2">제조를 잇다, 두고커넥트</p>
               <p className="opacity-70">
-                해외 건강식품 소량 OEM 제조를 위한<br className="hidden sm:block" />
-                실시간 견적 플랫폼
+
+
+                두고커넥트는 의뢰자와 실제 생산 가능한 공장을<br className="hidden sm:block" />
+                안전하게 매칭합니다
               </p>
             </div>
           </div>
@@ -78,13 +79,21 @@ export function SiteFooter() {
             ))}
           </nav>
         </div>
-
+        <div className="border-t border-[#2f3338] py-8 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+          <div className="flex items-center gap-6">
+            <span className="text-[14px] font-extrabold tracking-wider text-white uppercase">PARTNER</span>
+            <Link href="/master" className="text-[14px] font-medium transition hover:text-white">
+              파트너센터
+            </Link>
+          </div>
+          <span className="text-[13px] text-[#4e5968]">파트너/관리자 전용 서비스</span>
+        </div>
         {/* 하단 섹션: 사업자 정보 및 법적 고시 */}
         <div className="border-t border-[#2f3338] pt-10">
           <div className="flex flex-col lg:flex-row lg:justify-between gap-10">
             <div className="space-y-4">
               <div className="flex flex-wrap items-center gap-x-3 gap-y-2 text-[13px]">
-                <span className="font-bold text-white">(주)두고</span>
+                <span className="font-bold text-white">(주) 두고홀딩스</span>
                 <span className="text-[#2f3338]">|</span>
                 <span>대표이사 문원오</span>
                 <span className="hidden sm:inline text-[#2f3338]">|</span>

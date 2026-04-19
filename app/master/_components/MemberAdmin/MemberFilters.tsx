@@ -1,6 +1,6 @@
 "use client";
 
-import { Search, Download, Filter } from "lucide-react";
+import { Download, Filter, Search } from "lucide-react";
 import { Member } from "./index";
 
 interface Props {
@@ -12,86 +12,79 @@ interface Props {
   members: Member[];
 }
 
+function csvEscape(value: string | null | undefined) {
+  const normalized = value ?? "";
+  return `"${normalized.replace(/"/g, "\"\"")}"`;
+}
+
 export function MemberFilters({ searchTerm, setSearchTerm, roleFilter, setRoleFilter, onSearch, members }: Props) {
-  
   const downloadCSV = () => {
     if (members.length === 0) return;
-    
-    // CSV 헤더
-    const headers = ["이름", "이메일", "연락처", "권한", "가입일", "최근업데이트"];
-    
-    // 데이터 추출
-    const rows = members.map(m => [
-      m.full_name || "이름없음",
-      m.email,
-      m.phone_number || "-",
-      m.role,
-      m.created_at ? new Date(m.created_at).toLocaleDateString() : "-",
-      new Date(m.updated_at).toLocaleDateString()
+
+    const headers = ["이름", "이메일", "전화번호", "권한", "가입방식", "가입일", "수정일"];
+    const rows = members.map((member) => [
+      csvEscape(member.full_name || "이름 없음"),
+      csvEscape(member.email),
+      csvEscape(member.phone_number || "-"),
+      csvEscape(member.role === "master" ? "마스터" : member.role === "manufacturer" ? "제조사" : "의뢰자"),
+      csvEscape(member.is_kakao ? "카카오" : "이메일"),
+      csvEscape(member.created_at ? new Date(member.created_at).toLocaleDateString() : "-"),
+      csvEscape(new Date(member.updated_at).toLocaleDateString()),
     ]);
-    
-    // CSV 문자열 생성 (BOM 추가로 한글 깨짐 방지)
-    const csvContent = "\uFEFF" + [
-      headers.join(","),
-      ...rows.map(row => row.join(","))
-    ].join("\n");
-    
-    // 다운로드 실행
+
+    const csvContent = "\uFEFF" + [headers.map(csvEscape).join(","), ...rows.map((row) => row.join(","))].join("\n");
     const blob = new Blob([csvContent], { type: "text/csv;charset=utf-8;" });
     const url = URL.createObjectURL(blob);
     const link = document.createElement("a");
     link.setAttribute("href", url);
-    link.setAttribute("download", `member_list_${new Date().toISOString().slice(0,10)}.csv`);
+    link.setAttribute("download", `회원목록_${new Date().toISOString().slice(0, 10)}.csv`);
     document.body.appendChild(link);
     link.click();
     document.body.removeChild(link);
+    URL.revokeObjectURL(url);
   };
 
   return (
-    <div className="px-8 mb-6 flex flex-wrap items-center justify-between gap-4">
-      <div className="flex items-center gap-3 flex-1 min-w-[300px]">
-        {/* 검색창 */}
-        <div className="relative flex-1 max-w-sm">
-          <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-[#8B95A1]" />
-          <input 
+    <div className="mb-4 md:mb-6 flex flex-wrap items-center justify-between gap-3 px-4 md:px-8">
+      <div className="flex w-full flex-wrap items-center gap-3 md:w-auto md:flex-1">
+        <div className="relative min-w-[200px] flex-1 md:max-w-sm">
+          <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-[#8B95A1]" />
+          <input
             type="text"
             value={searchTerm}
-            onChange={(e) => setSearchTerm(e.target.value)}
-            onKeyDown={(e) => e.key === "Enter" && onSearch()}
-            placeholder="이름 또는 이메일로 검색..."
-            className="w-full h-11 pl-10 pr-4 bg-white border border-[#E5E8EB] rounded-xl text-sm outline-none focus:border-[#0064FF] transition-all"
+            onChange={(event) => setSearchTerm(event.target.value)}
+            onKeyDown={(event) => event.key === "Enter" && onSearch()}
+            placeholder="이름 또는 이메일 검색"
+            className="h-11 w-full rounded-xl border border-[#E5E8EB] bg-white pl-10 pr-4 text-sm outline-none transition-all focus:border-[#0064FF]"
           />
         </div>
 
-        {/* 역할 필터 */}
-        <div className="relative">
-          <select 
+        <div className="relative w-full sm:w-auto">
+          <select
             value={roleFilter}
-            onChange={(e) => setRoleFilter(e.target.value)}
-            className="appearance-none h-11 pl-4 pr-10 bg-white border border-[#E5E8EB] rounded-xl text-sm font-semibold text-[#4E5968] outline-none hover:bg-gray-50 cursor-pointer"
+            onChange={(event) => setRoleFilter(event.target.value)}
+            className="h-11 w-full appearance-none rounded-xl border border-[#E5E8EB] bg-white pl-4 pr-10 text-sm font-semibold text-[#4E5968] outline-none hover:bg-gray-50 sm:w-auto"
           >
-            <option value="all">전체 권한</option>
-            <option value="member">일반 회원</option>
+            <option value="all">전체</option>
+            <option value="member">의뢰자</option>
             <option value="manufacturer">제조사</option>
             <option value="master">마스터</option>
           </select>
-          <Filter className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-[#8B95A1] pointer-events-none" />
+          <Filter className="pointer-events-none absolute right-3 top-1/2 h-4 w-4 -translate-y-1/2 text-[#8B95A1]" />
         </div>
-        
-        <button 
-          onClick={onSearch}
-          className="h-11 px-6 bg-[#0064FF] text-white rounded-xl text-sm font-bold hover:bg-[#0052D4] transition-all"
-        >
+
+        <button type="button" onClick={onSearch} className="h-11 w-full rounded-xl bg-[#0064FF] px-6 text-sm font-bold text-white transition-all hover:bg-[#0052D4] sm:w-auto">
           검색
         </button>
       </div>
 
-      <button 
+      <button
+        type="button"
         onClick={downloadCSV}
-        className="flex items-center gap-2 h-11 px-5 bg-white border border-[#E5E8EB] text-[#4E5968] rounded-xl text-sm font-bold hover:bg-gray-50 transition-all shadow-sm"
+        className="flex h-11 w-full items-center justify-center gap-2 rounded-xl border border-[#E5E8EB] bg-white px-5 text-sm font-bold text-[#4E5968] shadow-sm transition-all hover:bg-gray-50 sm:w-auto"
       >
-        <Download className="w-4 h-4" />
-        엑셀(CSV)
+        <Download className="h-4 w-4" />
+        엑셀 (CSV)
       </button>
     </div>
   );

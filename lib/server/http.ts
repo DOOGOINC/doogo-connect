@@ -10,11 +10,11 @@ export function fail(message: string, status = 400) {
 
 export function mapRouteError(error: unknown) {
   if (error instanceof Error) {
-    if (error.message === "UNAUTHORIZED") return fail("로그인이 필요합니다.", 401);
-    if (error.message === "FORBIDDEN") return fail("권한이 없습니다.", 403);
-    if (error.message === "SERVER_CONFIG_MISSING") return fail("서버 포인트 설정이 누락되었습니다.", 500);
+    if (error.message === "UNAUTHORIZED") return fail("Login required.", 401);
+    if (error.message === "FORBIDDEN") return fail("Permission denied.", 403);
+    if (error.message === "SERVER_CONFIG_MISSING") return fail("Server configuration is missing.", 500);
     return fail(error.message, 400);
   }
 
-  return fail("요청을 처리하지 못했습니다.", 500);
+  return fail("Request could not be processed.", 500);
 }

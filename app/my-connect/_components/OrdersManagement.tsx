@@ -122,7 +122,7 @@ export function OrdersManagement({ requests, onStatusChange, onAdminMemoChange }
 
   const handleDownloadCsv = () => {
     const headers = [
-      "수주번호",
+      "주문번호",
       "브랜드명",
       "제품명",
       "제조사명",
@@ -191,7 +191,7 @@ export function OrdersManagement({ requests, onStatusChange, onAdminMemoChange }
       <div className="mx-auto flex w-full max-w-[1440px] flex-1 flex-col overflow-hidden rounded-[10px] border border-[#e5e8eb] bg-white shadow-sm">
         <div className="flex flex-col gap-4 border-b border-[#f2f4f6] px-8 py-7 lg:flex-row lg:items-center lg:justify-between">
           <div>
-            <h2 className="text-[20px] font-bold tracking-tight text-[#191f28]">수주 관리</h2>
+            <h2 className="text-[20px] font-bold tracking-tight text-[#191f28]">주문 관리</h2>
           </div>
           <div className="flex flex-wrap items-center gap-3">
             <div className="flex h-11 items-center gap-2 rounded-xl border border-[#e5e8eb] bg-[#f8fafc] px-3">
@@ -219,7 +219,7 @@ export function OrdersManagement({ requests, onStatusChange, onAdminMemoChange }
                 type="text"
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
-                placeholder="수주번호, 브랜드, 제품명, 담당자 검색"
+                placeholder="주문번호, 브랜드 또는 제품명, 담당자 검색"
                 className="h-11 w-full rounded-xl border border-[#e5e8eb] bg-[#f8fafc] pl-11 pr-4 text-[14px] outline-none transition-colors focus:border-[#0064ff]"
               />
             </div>
@@ -241,17 +241,19 @@ export function OrdersManagement({ requests, onStatusChange, onAdminMemoChange }
               className="inline-flex h-11 items-center justify-center gap-2 rounded-xl border border-[#dbe3ef] bg-white px-5 text-[14px] font-bold text-[#4e5968] transition-colors hover:bg-[#f8fafc] active:scale-[0.98]"
             >
               <Download className="h-4 w-4" />
-              데이터 추출
+              CSV(엑셀 추출)
             </button>
           </div>
         </div>
 
-        <div className="grid grid-cols-4 gap-4 border-b border-[#f2f4f6] bg-[#fbfcfd] px-8 py-5">
+        <div className="grid grid-cols-6 gap-4 border-b border-[#f2f4f6] bg-[#fbfcfd] px-8 py-5">
           {[
-            { label: "전체 수주", count: requests.length, color: "text-[#191f28]" },
+            { label: "전체 주문", count: requests.length, color: "text-[#191f28]" },
             { label: "검토 필요", count: requests.filter((i) => i.status === "pending" || i.status === "reviewing").length, color: "text-[#0064ff]" },
-            { label: "제조 진행", count: requests.filter((i) => i.status === "quoted" || i.status === "ordered").length, color: "text-[#191f28]" },
+            { label: "제조 대기", count: requests.filter((i) => i.status === "quoted").length, color: "text-[#191f28]" },
+            { label: "제조 진행", count: requests.filter((i) => i.status === "ordered").length, color: "text-[#191f28]" },
             { label: "제조 완료", count: requests.filter((i) => i.status === "completed").length, color: "text-[#191f28]" },
+            { label: "구매 확정", count: requests.filter((i) => i.status === "fulfilled").length, color: "text-[#191f28]" },
           ].map((stat, idx) => (
             <div key={idx} className="rounded-2xl border border-[#f2f4f6] bg-white px-6 py-4 shadow-sm">
               <p className="text-[12px] font-bold text-[#8b95a1]">{stat.label}</p>
@@ -265,7 +267,7 @@ export function OrdersManagement({ requests, onStatusChange, onAdminMemoChange }
             <thead className="sticky top-0 z-10 bg-white shadow-[0_1px_0_rgba(0,0,0,0.05)]">
               <tr className="text-left text-[11px] font-bold uppercase tracking-wider text-[#8b95a1]">
                 <th className="w-[180px] cursor-pointer px-6 py-4 transition-colors hover:bg-[#f9fafb]" onClick={() => requestSort("display_number")}>
-                  <div className="flex items-center">수주 번호 <SortIcon columnKey="display_number" /></div>
+                  <div className="flex items-center">주문 번호 <SortIcon columnKey="display_number" /></div>
                 </th>
                 <th className="w-[180px] cursor-pointer px-4 py-4 transition-colors hover:bg-[#f9fafb]" onClick={() => requestSort("brand_name")}>
                   <div className="flex items-center">브랜드명 <SortIcon columnKey="brand_name" /></div>
@@ -299,10 +301,14 @@ export function OrdersManagement({ requests, onStatusChange, onAdminMemoChange }
                       <span className="block truncate font-mono text-[12px] font-bold text-[#8b95a1]">{getDisplayOrderNumber(request)}</span>
                     </td>
                     <td className="px-4 py-5">
-                      <span className="block truncate text-[14px] font-extrabold text-[#191f28]" title={request.brand_name}>{request.brand_name}</span>
+                      <span className="block truncate text-[14px] font-extrabold text-[#191f28]" title={request.brand_name}>
+                        {request.brand_name}
+                      </span>
                     </td>
                     <td className="px-4 py-5">
-                      <span className="block truncate text-[13px] font-medium text-[#4e5968]" title={request.product_name}>{request.product_name}</span>
+                      <span className="block truncate text-[13px] font-medium text-[#4e5968]" title={request.product_name}>
+                        {request.product_name}
+                      </span>
                     </td>
                     <td className="px-4 py-5">
                       <span className="block truncate text-[13px] font-bold text-[#191f28]">{request.contact_name}</span>
@@ -352,7 +358,7 @@ export function OrdersManagement({ requests, onStatusChange, onAdminMemoChange }
                   <td colSpan={9} className="px-8 py-32 text-center">
                     <div className="flex flex-col items-center">
                       <Search className="mb-4 h-10 w-10 text-[#e5e8eb]" />
-                      <p className="text-[15px] font-bold text-[#8b95a1]">조건에 맞는 수주 데이터가 없습니다.</p>
+                      <p className="text-[15px] font-bold text-[#8b95a1]">조건에 맞는 주문 데이터가 없습니다.</p>
                       <p className="mt-1 text-[13px] text-[#adb5bd]">검색어 또는 날짜 범위를 조정해 보세요.</p>
                     </div>
                   </td>

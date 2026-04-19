@@ -18,7 +18,7 @@ export function SupportStatusNotice({
       <p className="text-[11px] font-semibold tracking-[0.08em] text-[#6B7280]">상담 요청 내용</p>
       <p className="mt-2 whitespace-pre-wrap text-sm leading-6 text-[#111827]">{requestMessage}</p>
       {approvalStatus === "pending" ? (
-        <p className="mt-3 text-xs font-medium text-[#B54708]">마스터가 요청을 수락하면 이 방에서 바로 채팅할 수 있습니다.</p>
+        <p className="mt-3 text-xs font-medium text-[#B54708]">담당자가 요청을 수락하면 이 방에서 바로 채팅할 수 있습니다.</p>
       ) : null}
       {approvalStatus === "closed" ? (
         <div className="mt-3 flex items-center justify-between gap-3">

@@ -95,7 +95,7 @@ export async function createRfqRequest(input: SubmitRfqInput, request?: Request)
     supabase.from("manufacturers").select("id, name, catalog_currency").eq("id", manufacturerId).maybeSingle(),
     supabase
       .from("manufacturer_products")
-      .select("id, name, base_price, payment_currency, container_ids, manufacturer_id, discount_config, is_active")
+      .select("id, name, base_price, payment_currency, container_ids, design_service_ids, design_package_ids, design_extra_ids, manufacturer_id, discount_config, is_active")
       .eq("id", input.productId)
       .eq("manufacturer_id", manufacturerId)
       .eq("is_active", true)
@@ -103,7 +103,7 @@ export async function createRfqRequest(input: SubmitRfqInput, request?: Request)
     input.containerId
       ? supabase
           .from("manufacturer_container_options")
-          .select("id, name, add_price, manufacturer_id, is_active")
+          .select("id, name, add_price, manufacturer_id, is_active, payment_currency")
           .eq("id", input.containerId)
           .eq("manufacturer_id", manufacturerId)
           .eq("is_active", true)
@@ -112,7 +112,7 @@ export async function createRfqRequest(input: SubmitRfqInput, request?: Request)
     input.designOptionId
       ? supabase
           .from("manufacturer_design_options")
-          .select("id, name, price, manufacturer_id, is_active")
+          .select("id, name, price, manufacturer_id, is_active, payment_currency")
           .eq("id", input.designOptionId)
           .eq("manufacturer_id", manufacturerId)
           .eq("is_active", true)
@@ -121,7 +121,7 @@ export async function createRfqRequest(input: SubmitRfqInput, request?: Request)
     input.designPackageId
       ? supabase
           .from("manufacturer_design_packages")
-          .select("id, name, price, manufacturer_id, is_active")
+          .select("id, name, price, manufacturer_id, is_active, payment_currency")
           .eq("id", input.designPackageId)
           .eq("manufacturer_id", manufacturerId)
           .eq("is_active", true)
@@ -130,7 +130,7 @@ export async function createRfqRequest(input: SubmitRfqInput, request?: Request)
     designServiceIds.length
       ? supabase
           .from("manufacturer_design_services")
-          .select("id, name, price, manufacturer_id, is_active")
+          .select("id, name, price, manufacturer_id, is_active, payment_currency")
           .eq("manufacturer_id", manufacturerId)
           .eq("is_active", true)
           .in("id", designServiceIds)
@@ -138,7 +138,7 @@ export async function createRfqRequest(input: SubmitRfqInput, request?: Request)
     designExtraIds.length
       ? supabase
           .from("manufacturer_design_extras")
-          .select("id, name, price, manufacturer_id, is_active")
+          .select("id, name, price, manufacturer_id, is_active, payment_currency")
           .eq("manufacturer_id", manufacturerId)
           .eq("is_active", true)
           .in("id", designExtraIds)
@@ -154,7 +154,10 @@ export async function createRfqRequest(input: SubmitRfqInput, request?: Request)
 
   const product = productResult.data;
   const container = containerResult.data;
-  const currencyCode = normalizeCurrencyCode(manufacturerResult.data.catalog_currency || product.payment_currency || "USD");
+  const currencyCode = normalizeCurrencyCode(product.payment_currency || manufacturerResult.data.catalog_currency || "USD");
+  if (container && normalizeCurrencyCode((container as { payment_currency?: string | null }).payment_currency || "USD") !== currencyCode) {
+    throw new Error("상품과 결제통화가 다른 용기는 선택할 수 없습니다.");
+  }
 
   if (input.containerId && (!container || !(product.container_ids || []).includes(input.containerId))) {
     throw new Error("선택한 용기를 사용할 수 없습니다.");
@@ -170,6 +173,16 @@ export async function createRfqRequest(input: SubmitRfqInput, request?: Request)
 
   if (designExtrasResult.data && designExtrasResult.data.length !== designExtraIds.length) {
     throw new Error("선택한 추가 옵션이 유효하지 않습니다.");
+  }
+
+  if (designPackageResult.data && normalizeCurrencyCode((designPackageResult.data as { payment_currency?: string | null }).payment_currency || "USD") !== currencyCode) {
+    throw new Error("상품과 결제통화가 다른 디자인 패키지는 선택할 수 없습니다.");
+  }
+  if ((designServicesResult.data || []).some((item) => normalizeCurrencyCode((item as { payment_currency?: string | null }).payment_currency || "USD") !== currencyCode)) {
+    throw new Error("상품과 결제통화가 다른 디자인 서비스는 선택할 수 없습니다.");
+  }
+  if ((designExtrasResult.data || []).some((item) => normalizeCurrencyCode((item as { payment_currency?: string | null }).payment_currency || "USD") !== currencyCode)) {
+    throw new Error("상품과 결제통화가 다른 추가 옵션은 선택할 수 없습니다.");
   }
 
   const designPrice =

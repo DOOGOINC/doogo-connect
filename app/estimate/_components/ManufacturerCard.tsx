@@ -1,62 +1,88 @@
 import Image from "next/image";
-import { Check, MapPin, Star } from "lucide-react";
+import { Check, MapPin } from "lucide-react";
 
-export function ManufacturerCard({ name, location, rating, tags, image, desc, selected, onClick }: any) {
+type ManufacturerCardProps = {
+  name: string;
+  location: string;
+  tags: string[];
+  image: string;
+  desc: string;
+  selected: boolean;
+  onClick: () => void;
+  priority?: boolean;
+};
+
+export function ManufacturerCard({ name, location, tags, image, desc, selected, onClick, priority = false }: ManufacturerCardProps) {
+  const imageSrc = typeof image === "string" ? image.trim() : "";
+
   return (
     <button
       onClick={onClick}
-      className={`group grid w-full grid-cols-[100px_1fr_auto] items-center gap-5 rounded-[10px] border p-4 text-left transition-all ${selected
-        ? "border-[#3182f6] bg-[#f2f8ff] shadow-[0_4px_20px_rgba(49,130,246,0.12)]"
-        : "border-[#e5e8eb] bg-white hover:border-[#3182f6] hover:shadow-md"
+      className={`group relative flex w-full items-start gap-6 rounded-[14px] border p-6 text-left transition-all ${selected
+        ? "border-[#3182f6] bg-white ring-2 ring-[#005adb]"
+        : "border-[#e5e8eb] border-2 bg-white hover:border-[#005adb]"
         }`}
     >
-      <div className="relative h-[100px] w-[100px] overflow-hidden rounded-[8px] border border-[#f2f4f6] bg-[#f7f9fa]">
-        <Image
-          src={image}
-          alt={name}
-          fill
-          sizes="100px"
-          className="object-cover transition-transform duration-500 group-hover:scale-105"
-        />
+      <div className="relative h-[94px] w-[94px] shrink-0 overflow-hidden rounded-[12px] border border-[#f2f4f6]">
+        {imageSrc ? (
+          <Image
+            src={imageSrc}
+            alt={name}
+            fill
+            sizes="94px"
+            priority={priority}
+            className="object-cover transition-transform duration-500 group-hover:scale-105"
+          />
+        ) : (
+          <div className="flex h-full w-full items-center justify-center bg-[#f7f9fa]">
+            <MapPin className="h-6 w-6 text-[#d1d6db]" />
+          </div>
+        )}
       </div>
 
-      <div className="min-w-0 py-1">
-        <div className="flex flex-wrap items-center gap-2">
-          <h3 className="text-[16px] font-bold tracking-tight text-[#191f28]">{name}</h3>
-          <div className="flex items-center gap-2">
-            {/* <span className="flex items-center gap-1 text-[12px] font-bold text-[#ffd400]">
-              <Star className="h-3.5 w-3.5 fill-current" />
-              {rating}
-            </span> */}
-            <span className="h-3 w-[1px] bg-[#e5e8eb]" />
-            <span className="flex items-center gap-1 text-[12px] font-medium text-[#8b95a1]">
-              <MapPin className="h-3 w-3" />
-              {location}
-            </span>
-          </div>
-        </div>
+      <div className="flex-1 min-w-0 pr-8">
+        <h3 className="text-[17px] font-bold tracking-tight text-[#191f28]">{name}</h3>
+        <p className="mt-0.5 text-[14px] text-[#8b95a1]">{location}</p>
 
-        <p className="mt-2 line-clamp-2 text-[12px] leading-[1.5] text-[#4e5968]">
+        <p className="mt-2 text-[14px] leading-[1.6] text-[#4e5968] line-clamp-2">
           {desc}
         </p>
 
-        <div className="mt-3 flex flex-wrap gap-1.5">
-          {tags.slice(0, 3).map((tag: string) => (
+        <div className="mt-3 flex flex-wrap gap-2">
+          {tags.map((tag: string) => (
             <span
               key={tag}
-              className="rounded-[4px] bg-[#f2f4f6] px-2 py-0.5 text-[11px] font-medium text-[#6b7684]"
+              className="rounded-[6px] bg-[#f2f4f6] px-2.5 py-1 text-[13px] font-medium text-[#6b7684]"
             >
-              #{tag}
+              {tag}
             </span>
           ))}
         </div>
       </div>
 
       <div
-        className={`flex h-6 w-6 items-center justify-center rounded-full border-2 transition-all ${selected ? "border-[#3182f6] bg-[#3182f6]" : "border-[#d1d6db] bg-white"
+        className={`absolute right-6 top-6 flex h-7 w-7 items-center justify-center rounded-full border transition-all ${selected
+          ? "border-[#005adb] bg-[#005adb]"
+          : "border-[#e5e8eb] border-2 bg-white hidden group-hover:flex"
           }`}
       >
-        {selected && <Check className="h-3.5 w-3.5 text-white" />}
+        {selected && (
+          <svg
+            xmlns="http://www.w3.org/2000/svg"
+            width="24"
+            height="24"
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            strokeWidth="2"
+            strokeLinecap="round"
+            strokeLinejoin="round"
+            className="h-3.5 w-3.5 text-white"
+            aria-hidden="true"
+          >
+            <path d="M20 6 9 17l-5-5"></path>
+          </svg>
+        )}
       </div>
     </button>
   );

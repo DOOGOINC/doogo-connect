@@ -3,8 +3,9 @@
 import { useState, useEffect, useCallback } from "react";
 import { authFetch } from "@/lib/client/auth-fetch";
 import { supabase } from "@/lib/supabase";
-import { Loader2, Download, Search, FileText, CheckCircle2, Clock, XCircle, Eye, X } from "lucide-react";
+import { Download, Search, FileText, CheckCircle2, Clock, XCircle, Eye, X, Filter } from "lucide-react";
 import { buildStorageObjectUrl, PARTNER_REQUEST_BUCKET } from "@/lib/storage";
+import { MasterLoadingState } from "../MasterLoadingState";
 
 interface PartnerRequest {
   id: string;
@@ -111,13 +112,7 @@ export function PartnerRequestAdmin() {
     : null;
 
   return (
-    <div className="flex-1 flex flex-col bg-[#F8F9FA] overflow-hidden">
-      <div className="p-8 pb-4">
-        <h1 className="text-2xl font-bold text-[#191F28]">입점 문의 내역</h1>
-        <p className="text-sm text-[#4E5968] mt-1">제조사 파트너로 신청한 회사들의 리스트를 관리합니다.</p>
-      </div>
-
-      {/* 필터 영역 */}
+    <div className="mt-4 flex-1 flex flex-col bg-[#F8F9FA] overflow-hidden">
       <div className="px-8 mb-6 flex items-center justify-between gap-4">
         <div className="flex items-center gap-3 flex-1 max-w-2xl">
           <div className="relative flex-1 max-w-sm">
@@ -131,17 +126,20 @@ export function PartnerRequestAdmin() {
               className="w-full h-11 pl-10 pr-4 bg-white border border-[#E5E8EB] rounded-xl text-sm outline-none focus:border-[#0064FF]"
             />
           </div>
-          <select
-            value={statusFilter}
-            onChange={(e) => setStatusFilter(e.target.value)}
-            className="h-11 px-4 bg-white border border-[#E5E8EB] rounded-xl text-sm font-semibold text-[#4E5968] outline-none cursor-pointer"
-          >
-            <option value="all">전체 상태 </option>
-            <option value="pending">대기 중</option>
-            <option value="reviewing">검토 중</option>
-            <option value="approved">승인 완료</option>
-            <option value="rejected">거절됨</option>
-          </select>
+          <div className="relative">
+            <select
+              value={statusFilter}
+              onChange={(e) => setStatusFilter(e.target.value)}
+              className="h-11 pl-4 pr-10 appearance-none bg-white border border-[#E5E8EB] rounded-xl text-sm font-semibold text-[#4E5968] outline-none cursor-pointer hover:bg-gray-50"
+            >
+              <option value="all">전체 상태</option>
+              <option value="pending">대기 중</option>
+              <option value="reviewing">검토 중</option>
+              <option value="approved">승인 완료</option>
+              <option value="rejected">거절됨</option>
+            </select>
+            <Filter className="pointer-events-none absolute right-3 top-1/2 h-4 w-4 -translate-y-1/2 text-[#8B95A1]" />
+          </div>
           <button onClick={fetchRequests} className="h-11 px-6 bg-[#0064FF] text-white rounded-xl text-sm font-bold hover:bg-[#0052D4]">검색</button>
         </div>
         <button onClick={downloadCSV} className="flex items-center gap-2 h-11 px-5 bg-white border border-[#E5E8EB] text-[#4E5968] rounded-xl text-sm font-bold hover:bg-gray-50 shadow-sm">
@@ -151,63 +149,63 @@ export function PartnerRequestAdmin() {
 
       {/* 테이블 영역 */}
       <div className="flex-1 px-8 pb-8 overflow-hidden">
-        <div className="bg-white rounded-2xl border border-[#F2F4F6] shadow-sm overflow-hidden flex flex-col h-full">
+        <div className="bg-white rounded-[14px] border border-[#F2F4F6] shadow-sm overflow-hidden flex flex-col h-full">
           <div className="overflow-auto flex-1">
-            <table className="w-full text-sm text-left">
+            <table className="min-w-[1120px] w-full text-sm text-left">
               <thead className="bg-[#F9FAFB] border-b border-[#F2F4F6] sticky top-0 z-10">
                 <tr>
-                  <th className="px-6 py-4 font-bold text-[#8B95A1] uppercase tracking-wider">회사 정보</th>
-                  <th className="px-6 py-4 font-bold text-[#8B95A1] uppercase tracking-wider">담당자 명</th>
-                  <th className="px-6 py-4 font-bold text-[#8B95A1] uppercase tracking-wider">연락처</th>
-                  <th className="px-6 py-4 font-bold text-[#8B95A1] uppercase tracking-wider">이메일</th>
-                  <th className="px-6 py-4 font-bold text-[#8B95A1] uppercase tracking-wider">상태</th>
-                  <th className="px-6 py-4 font-bold text-[#8B95A1] uppercase tracking-wider">첨부파일</th>
-                  <th className="px-6 py-4 font-bold text-[#8B95A1] uppercase tracking-wider text-right">관리</th>
+                  <th className="px-4 py-2.5 text-xs font-bold text-[#8B95A1] uppercase tracking-wider">회사 정보</th>
+                  <th className="px-4 py-2.5 text-xs font-bold text-[#8B95A1] uppercase tracking-wider">담당자</th>
+                  <th className="px-4 py-2.5 text-xs font-bold text-[#8B95A1] uppercase tracking-wider">연락처</th>
+                  <th className="px-4 py-2.5 text-xs font-bold text-[#8B95A1] uppercase tracking-wider">이메일</th>
+                  <th className="px-4 py-2.5 text-xs font-bold text-[#8B95A1] uppercase tracking-wider">상태</th>
+                  <th className="px-4 py-2.5 text-xs font-bold text-[#8B95A1] uppercase tracking-wider">첨부파일</th>
+                  <th className="px-4 py-2.5 text-xs font-bold text-[#8B95A1] uppercase tracking-wider text-right">관리</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-[#F2F4F6]">
                 {loading && requests.length === 0 ? (
-                  <tr><td colSpan={7} className="py-20 text-center"><Loader2 className="w-8 h-8 animate-spin mx-auto text-[#0064FF]" /></td></tr>
+                  <tr><td colSpan={7} className="py-20 text-center"><MasterLoadingState variant="inline" /></td></tr>
                 ) : requests.length === 0 ? (
                   <tr><td colSpan={7} className="py-20 text-center text-[#8B95A1]">문의 내역이 없습니다.</td></tr>
                 ) : (
                   requests.map((req) => (
                     <tr key={req.id} className="hover:bg-gray-50 transition-colors">
-                      <td className="px-6 py-4">
-                        <div className="font-bold text-[#191F28]">{req.company_name}</div>
-                        <div className="text-xs text-[#8B95A1] mt-0.5">사업자: {req.business_number}</div>
+                      <td className="px-4 py-3">
+                        <div className="font-semibold text-[#191F28] truncate max-w-[180px]">{req.company_name}</div>
+                        <div className="text-[11px] text-[#8B95A1] mt-0.5">사업자: {req.business_number}</div>
                       </td>
-                      <td className="px-6 py-4 font-semibold text-[#4E5968]">{req.manager_name}</td>
-                      <td className="px-6 py-4 text-[#4E5968]">{req.manager_phone}</td>
-                      <td className="px-6 py-4 text-[#4E5968]">{req.manager_email}</td>
-                      <td className="px-6 py-4">{getStatusBadge(req.status)}</td>
-                      <td className="px-6 py-4">
-                        <div className="flex items-center gap-3">
+                      <td className="px-4 py-3 font-semibold text-[#4E5968]">{req.manager_name}</td>
+                      <td className="px-4 py-3 text-[#4E5968]">{req.manager_phone}</td>
+                      <td className="px-4 py-3 text-[#4E5968]">{req.manager_email}</td>
+                      <td className="px-4 py-3">{getStatusBadge(req.status)}</td>
+                      <td className="px-4 py-3">
+                        <div className="flex items-center gap-2">
                           {req.attachment_url ? (
-                            <a href={buildStorageObjectUrl(PARTNER_REQUEST_BUCKET, req.attachment_url)} target="_blank" rel="noreferrer" className="flex items-center gap-1.5 text-[#0064FF] font-bold hover:underline">
-                              <FileText className="w-4 h-4" /> 다운로드
+                            <a href={buildStorageObjectUrl(PARTNER_REQUEST_BUCKET, req.attachment_url)} target="_blank" rel="noreferrer" className="flex items-center gap-1 text-[#0064FF] font-bold hover:underline text-[12px]">
+                              <FileText className="w-3.5 h-3.5" /> 다운
                             </a>
                           ) : <span className="text-[#ADB5BD]">-</span>}
                           <button
                             type="button"
                             onClick={() => setSelectedRequest(req)}
-                            className="inline-flex items-center gap-1.5 rounded-lg border border-[#D8E0E8] bg-white px-3 py-1.5 text-xs font-bold text-[#4E5968] transition hover:border-[#0064FF] hover:text-[#0064FF]"
+                            className="inline-flex items-center gap-1 rounded-lg border border-[#D8E0E8] bg-white px-2 py-1 text-xs font-bold text-[#4E5968] transition hover:border-[#0064FF] hover:text-[#0064FF]"
                           >
-                            <Eye className="h-3.5 w-3.5" />
-                            상세보기
+                            <Eye className="h-3 w-3" />
+                            상세
                           </button>
                         </div>
                       </td>
-                      <td className="px-6 py-4 text-right">
+                      <td className="px-4 py-3 text-right">
                         <select
                           value={req.status}
                           onChange={(e) => handleStatusChange(req.id, e.target.value)}
-                          className="text-xs font-bold bg-white border border-[#E5E8EB] rounded-lg px-2 py-1.5 outline-none hover:border-[#0064FF] cursor-pointer"
+                          className="text-xs font-bold bg-white border border-[#E5E8EB] rounded-lg px-2 py-1.5 outline-none hover:border-[#0064FF] cursor-pointer h-8"
                         >
-                          <option value="pending">대기 중</option>
-                          <option value="reviewing">검토 중</option>
-                          <option value="approved">승인 완료</option>
-                          <option value="rejected">거절됨</option>
+                          <option value="pending">대기</option>
+                          <option value="reviewing">검토</option>
+                          <option value="approved">승인</option>
+                          <option value="rejected">거절</option>
                         </select>
                       </td>
                     </tr>

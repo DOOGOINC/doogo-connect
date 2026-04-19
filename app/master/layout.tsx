@@ -1,5 +1,6 @@
 import { redirect } from "next/navigation";
 import { Loader2 } from "lucide-react";
+import { getPortalHomeByRole } from "@/lib/auth/roles";
 import { createClient } from "@/utils/supabase/server";
 
 export default async function MasterLayout({ children }: { children: React.ReactNode }) {
@@ -9,12 +10,12 @@ export default async function MasterLayout({ children }: { children: React.React
   } = await supabase.auth.getUser();
 
   if (!user) {
-    redirect("/?auth=login");
+    redirect("/partner?tab=admin");
   }
 
   const { data } = await supabase.from("profiles").select("role").eq("id", user.id).maybeSingle();
   if (data?.role !== "master") {
-    redirect("/my-connect");
+    redirect(getPortalHomeByRole(data?.role));
   }
 
   return (

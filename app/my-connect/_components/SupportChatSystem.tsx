@@ -9,6 +9,7 @@ import { SupportHeaderActions } from "./support/SupportHeaderActions";
 import { SupportRequestComposer } from "./support/SupportRequestComposer";
 import { SupportStatusNotice } from "./support/SupportStatusNotice";
 import { ChatMessagePanel } from "./chat/ChatMessagePanel";
+import { CHAT_FILE_ACCEPT, getChatFileValidationMessage, isAllowedChatFile } from "./chat/fileConstraints";
 import { ChatRoomSidebar } from "./chat/ChatRoomSidebar";
 import type { ChatMessageRow, ChatMessageView, ChatRoomRow, ChatRoomView, ProfileRow } from "./chat/types";
 import { formatMessageTime, formatRelativeTime, getAvatarInitial, getPresenceLabel, getProfileDisplayName, isRecentlyOnline } from "./chat/utils";
@@ -351,6 +352,10 @@ export function SupportChatSystem({ userId, isMaster = false }: SupportChatSyste
     event.target.value = "";
 
     if (!file || !selectedRoomId) return;
+    if (!isAllowedChatFile(file)) {
+      alert(getChatFileValidationMessage());
+      return;
+    }
 
     setIsUploading(true);
     shouldScrollToBottomRef.current = true;
@@ -462,7 +467,7 @@ export function SupportChatSystem({ userId, isMaster = false }: SupportChatSyste
 
   return (
     <div className="flex h-full min-h-0 w-full flex-1 overflow-hidden bg-[#F8F9FA]">
-      <input ref={fileInputRef} type="file" hidden onChange={handleFileSelect} />
+      <input ref={fileInputRef} type="file" hidden accept={CHAT_FILE_ACCEPT} onChange={handleFileSelect} />
 
       <ChatRoomSidebar
         rooms={filteredRooms}
