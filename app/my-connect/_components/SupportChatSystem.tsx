@@ -17,9 +17,10 @@ import { formatMessageTime, formatRelativeTime, getAvatarInitial, getPresenceLab
 type SupportChatSystemProps = {
   userId: string;
   isMaster?: boolean;
+  initialRoomId?: string;
 };
 
-export function SupportChatSystem({ userId, isMaster = false }: SupportChatSystemProps) {
+export function SupportChatSystem({ userId, isMaster = false, initialRoomId = "" }: SupportChatSystemProps) {
   const [rooms, setRooms] = useState<ChatRoomView[]>([]);
   const [selectedRoomId, setSelectedRoomId] = useState("");
   const [messages, setMessages] = useState<ChatMessageView[]>([]);
@@ -219,8 +220,11 @@ export function SupportChatSystem({ userId, isMaster = false }: SupportChatSyste
     });
 
     setRooms(nextRooms);
-    setSelectedRoomId((prev) => (nextRooms.some((room) => room.id === prev) ? prev : nextRooms[0]?.id || ""));
-  }, [isMaster, userId]);
+    setSelectedRoomId((prev) => {
+      if (initialRoomId && nextRooms.some((room) => room.id === initialRoomId)) return initialRoomId;
+      return nextRooms.some((room) => room.id === prev) ? prev : nextRooms[0]?.id || "";
+    });
+  }, [initialRoomId, isMaster, userId]);
 
   const refreshMessages = useCallback(
     async (roomId: string) => {

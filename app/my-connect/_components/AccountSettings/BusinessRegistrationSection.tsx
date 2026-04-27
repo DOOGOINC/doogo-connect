@@ -151,51 +151,59 @@ export function BusinessRegistrationSection({ onProfileRefresh, profile }: Busin
 
       {isOpen ? (
         <div className="fixed inset-0 z-[90] flex items-center justify-center bg-black/45 px-4 py-8">
-          <div className="w-full max-w-[760px] overflow-hidden rounded-[28px] bg-white shadow-[0_24px_70px_rgba(15,23,42,0.26)]">
-            <div className="flex items-center justify-between border-b border-[#edf1f5] px-7 py-6">
-              <h3 className="text-[18px] font-extrabold text-[#111827]">사업자 정보 수정</h3>
-              <button type="button" onClick={() => setIsOpen(false)} className="rounded-full p-2 text-[#98a2b3] transition hover:bg-[#f4f6f8]">
-                <X className="h-6 w-6" />
+
+          <div className="w-full max-w-[520px] overflow-hidden rounded-[22px] bg-white shadow-[0_24px_70px_rgba(15,23,42,0.26)]">
+
+            <div className="flex items-center justify-between border-b border-[#edf1f5] px-6 py-4">
+              <h3 className="text-[16px] font-extrabold text-[#111827]">사업자 정보 수정</h3>
+              <button
+                type="button"
+                onClick={() => setIsOpen(false)}
+                className="rounded-full p-1.5 text-[#98a2b3] transition hover:bg-[#f4f6f8]"
+              >
+                <X className="h-5 w-5" />
               </button>
             </div>
 
-            <div className="space-y-5 px-7 py-6">
-              {[
-                { key: "businessCompanyName", label: "법인명" },
-                { key: "businessRegistrationNumber", label: "사업자등록번호" },
-                { key: "businessOwnerName", label: "대표자명" },
-                { key: "businessType", label: "업태" },
-                { key: "businessItem", label: "종목" },
-                { key: "businessAddress", label: "사업장 소재지" },
-              ].map((field) => (
-                <div key={field.key}>
-                  <label className="mb-2 block text-[14px] font-bold text-[#8b95a1]">{field.label}</label>
-                  <input
-                    value={form[field.key as keyof BusinessFormState]}
-                    onChange={(event) =>
-                      setForm((prev) => ({
-                        ...prev,
-                        [field.key]: event.target.value,
-                      }))
-                    }
-                    className="h-12 w-full rounded-[18px] border border-[#e5e7eb] bg-white px-5 text-[15px] font-medium text-[#111827] outline-none transition focus:border-[#2f6bff] focus:ring-4 focus:ring-[#eef4ff]"
-                  />
-                </div>
-              ))}
+            <div className="space-y-4 px-6 py-5">
+              <div className="grid grid-cols-2 gap-x-4 gap-y-4">
+                {[
+                  { key: "businessCompanyName", label: "법인명" },
+                  { key: "businessRegistrationNumber", label: "사업자등록번호" },
+                  { key: "businessOwnerName", label: "대표자명" },
+                  { key: "businessType", label: "업태" },
+                  { key: "businessItem", label: "종목" },
+                  { key: "businessAddress", label: "사업장 소재지", colSpan: true },
+                ].map((field) => (
+                  <div key={field.key} className={field.colSpan ? "col-span-2" : ""}>
+                    <label className="mb-1.5 block text-[13px] font-bold text-[#8b95a1]">{field.label}</label>
+                    <input
+                      value={form[field.key as keyof BusinessFormState]}
+                      onChange={(event) =>
+                        setForm((prev) => ({
+                          ...prev,
+                          [field.key]: event.target.value,
+                        }))
+                      }
+                      className="h-10 w-full rounded-[12px] border border-[#e5e7eb] bg-white px-4 text-[14px] font-medium text-[#111827] outline-none transition focus:border-[#2f6bff] focus:ring-4 focus:ring-[#eef4ff]"
+                    />
+                  </div>
+                ))}
+              </div>
 
               <div>
-                <label className="mb-2 block text-[14px] font-bold text-[#8b95a1]">사업자등록증 첨부</label>
-                <div className="flex items-center justify-between gap-4 rounded-[20px] border border-[#a7f3c7] bg-[#effcf4] px-5 py-4">
-                  <div className="flex min-w-0 items-center gap-4">
-                    <div className="flex h-11 w-11 flex-shrink-0 items-center justify-center rounded-2xl bg-[#efe7ff] text-[#b09ad8]">
-                      <FileText className="h-5 w-5" />
+                <label className="mb-1.5 block text-[13px] font-bold text-[#8b95a1]">사업자등록증 첨부</label>
+                <div className="flex items-center justify-between gap-3 rounded-[16px] border border-[#a7f3c7] bg-[#effcf4] px-4 py-3">
+                  <div className="flex min-w-0 items-center gap-3">
+                    <div className="flex h-9 w-9 flex-shrink-0 items-center justify-center rounded-xl bg-[#efe7ff] text-[#b09ad8]">
+                      <FileText className="h-4.5 w-4.5" />
                     </div>
-                    <p className="truncate text-[15px] font-bold text-[#00a85a]">{attachmentLabel}</p>
+                    <p className="truncate text-[14px] font-bold text-[#00a85a]">{attachmentLabel}</p>
                   </div>
                   <button
                     type="button"
                     onClick={() => fileInputRef.current?.click()}
-                    className="flex-shrink-0 rounded-full border border-[#c7d7ff] bg-white px-4 py-2 text-[14px] font-bold text-[#2f6bff] transition hover:bg-[#f8fbff]"
+                    className="flex-shrink-0 rounded-full border border-[#c7d7ff] bg-white px-3 py-1.5 text-[13px] font-bold text-[#2f6bff] transition hover:bg-[#f8fbff]"
                   >
                     변경
                   </button>
@@ -209,13 +217,13 @@ export function BusinessRegistrationSection({ onProfileRefresh, profile }: Busin
                 </div>
               </div>
 
-              {error ? <p className="text-sm font-semibold text-[#e5484d]">{error}</p> : null}
+              {error ? <p className="text-xs font-semibold text-[#e5484d]">{error}</p> : null}
 
               <button
                 type="button"
                 onClick={() => void handleSave()}
                 disabled={isSaving}
-                className="mt-2 h-14 w-full rounded-[20px] bg-[#2f6bff] text-[18px] font-extrabold text-white transition hover:bg-[#1f5af0] disabled:cursor-not-allowed disabled:bg-[#aab4c8]"
+                className="mt-2 h-12 w-full rounded-[16px] bg-[#2f6bff] text-[16px] font-extrabold text-white transition hover:bg-[#1f5af0] disabled:cursor-not-allowed disabled:bg-[#aab4c8]"
               >
                 {isSaving ? "저장 중..." : "저장하기"}
               </button>

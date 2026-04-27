@@ -53,9 +53,11 @@ export async function POST(request: Request) {
       : undefined;
     const providerInfo = getProviderInfo(user);
 
-    const fullName = trimOrNull(body.fullName);
+    const metadataFullName = trimOrNull(user.user_metadata?.full_name) ?? trimOrNull(user.user_metadata?.name);
+    const metadataPhoneNumber = trimOrNull(user.user_metadata?.phone_number);
+    const submittedFullName = trimOrNull(body.fullName);
     const email = trimOrNull(body.email) || user.email || null;
-    const phoneNumber = trimOrNull(body.phoneNumber);
+    const submittedPhoneNumber = trimOrNull(body.phoneNumber);
     const submittedReferralCode = sanitizeReferralCode(body.referralCode);
 
     const { data: existingProfile, error: profileReadError } = await profileClient
@@ -67,6 +69,9 @@ export async function POST(request: Request) {
     if (profileReadError) {
       throw new Error(profileReadError.message);
     }
+
+    const fullName = submittedFullName ?? trimOrNull(existingProfile?.full_name) ?? metadataFullName;
+    const phoneNumber = submittedPhoneNumber ?? trimOrNull(existingProfile?.phone_number) ?? metadataPhoneNumber;
 
     const payload = {
       id: user.id,
@@ -87,10 +92,85 @@ export async function POST(request: Request) {
       throw new Error(error.message);
     }
 
-    const ensuredReferralCode = await ensureUserReferralCode(profileClient, user.id, existingProfile?.referral_code);
+    const resolvedRole = safeRole ?? existingProfile?.role ?? "member";
+    const ensuredReferralCode =
+      resolvedRole === "partner"
+        ? await ensureUserReferralCode(profileClient, user.id, existingProfile?.referral_code)
+        : existingProfile?.referral_code ?? null;
     const referral = submittedReferralCode
       ? await applyReferralAttribution(supabase, user.id, submittedReferralCode, "link")
       : { applied: false, reason: "missing" as const };
+
+    if (submittedReferralCode && !referral.applied && referral.reason === "already_referred") {
+      const { data: latestProfile, error: latestProfileError } = await profileClient
+        .from("profiles")
+        .select("referred_by_profile_id, referred_by_code")
+        .eq("id", user.id)
+        .maybeSingle<{
+          referred_by_profile_id: string | null;
+          referred_by_code: string | null;
+        }>();
+
+      if (latestProfileError) {
+        throw new Error(latestProfileError.message);
+      }
+
+      if (latestProfile?.referred_by_code === submittedReferralCode) {
+        return ok({
+          success: true,
+          profile: {
+            ...payload,
+            referred_by_profile_id: latestProfile.referred_by_profile_id ?? payload.referred_by_profile_id,
+            referred_by_code: latestProfile.referred_by_code ?? payload.referred_by_code,
+            referral_code: ensuredReferralCode,
+          },
+          referral: {
+            applied: true,
+            reason: "applied",
+            referrerProfileId: latestProfile.referred_by_profile_id ?? null,
+            referralCode: submittedReferralCode,
+            referrerPoints: 0,
+            refereePoints: 0,
+          },
+        });
+      }
+    }
+
+    if (
+      submittedReferralCode &&
+      !referral.applied &&
+      referral.reason === "already_referred" &&
+      existingProfile?.referred_by_code === submittedReferralCode
+    ) {
+      return ok({
+        success: true,
+        profile: {
+          ...payload,
+          referral_code: ensuredReferralCode,
+        },
+        referral: {
+          applied: true,
+          reason: "applied",
+          referrerProfileId: existingProfile?.referred_by_profile_id ?? null,
+          referralCode: submittedReferralCode,
+          referrerPoints: 0,
+          refereePoints: 0,
+        },
+      });
+    }
+
+    if (submittedReferralCode && !referral.applied) {
+      switch (referral.reason) {
+        case "already_referred":
+          throw new Error("추천인 코드는 회원가입 시 최초 1회만 적용할 수 있습니다.");
+        case "self_referral":
+          throw new Error("본인 추천인 코드는 입력할 수 없습니다.");
+        case "invalid_code":
+          throw new Error("유효한 파트너 추천인 코드가 아닙니다.");
+        default:
+          throw new Error("추천인 코드를 적용할 수 없습니다.");
+      }
+    }
 
     return ok({
       success: true,

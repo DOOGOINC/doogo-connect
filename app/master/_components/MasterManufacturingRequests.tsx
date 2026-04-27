@@ -4,6 +4,7 @@ import { useEffect, useMemo, useState } from "react";
 import { Search } from "lucide-react";
 import { supabase } from "@/lib/supabase";
 import { MasterLoadingState } from "./MasterLoadingState";
+import { MasterTablePagination } from "./MasterTablePagination";
 
 type ManufacturingRequest = {
   id: string;
@@ -27,8 +28,9 @@ const STATUS_TABS: Array<{ id: StatusFilter; label: string }> = [
   { id: "all", label: "전체" },
   { id: "new", label: "신규" },
   { id: "approved", label: "승인" },
-  { id: "rejected", label: "거절" },
+  { id: "rejected", label: "거절/요청취소" },
 ];
+const PAGE_SIZE = 10;
 
 function formatDate(value: string) {
   const date = new Date(value);
@@ -57,6 +59,13 @@ function getStatusMeta(status: string) {
     };
   }
 
+  if (status === "request_cancelled") {
+    return {
+      label: "요청취소",
+      badgeClass: "bg-[#F3F4F6] text-[#4B5563]",
+    };
+  }
+
   return {
     label: "승인",
     badgeClass: "bg-[#E7FAEC] text-[#22B35E]",
@@ -66,8 +75,8 @@ function getStatusMeta(status: string) {
 function matchesStatusFilter(status: string, filter: StatusFilter) {
   if (filter === "all") return true;
   if (filter === "new") return status === "pending";
-  if (filter === "rejected") return status === "rejected";
-  return status !== "pending" && status !== "rejected";
+  if (filter === "rejected") return status === "rejected" || status === "request_cancelled";
+  return status !== "pending" && status !== "rejected" && status !== "request_cancelled";
 }
 
 function getMonthRange(year: number, month: number) {
@@ -77,7 +86,7 @@ function getMonthRange(year: number, month: number) {
   };
 }
 
-export function MasterManufacturingRequests() {
+export function MasterManufacturingRequests({ refreshKey = 0 }: { refreshKey?: number }) {
   const today = useMemo(() => new Date(), []);
   const currentYear = today.getFullYear();
   const currentMonth = today.getMonth() + 1;
@@ -91,6 +100,7 @@ export function MasterManufacturingRequests() {
   const [startMonth, setStartMonth] = useState(1);
   const [endYear, setEndYear] = useState(currentYear);
   const [endMonth, setEndMonth] = useState(currentMonth);
+  const [currentPage, setCurrentPage] = useState(1);
   const [requests, setRequests] = useState<ManufacturingRequest[]>([]);
   const [profiles, setProfiles] = useState<ProfileRow[]>([]);
 
@@ -122,7 +132,7 @@ export function MasterManufacturingRequests() {
     };
 
     void fetchData();
-  }, []);
+  }, [refreshKey]);
 
   const profileMap = useMemo(
     () => new Map(profiles.map((profile) => [profile.id, profile.full_name?.trim() || "회원"])),
@@ -160,6 +170,13 @@ export function MasterManufacturingRequests() {
     });
   }, [endMonth, endYear, profileMap, requests, searchTerm, startMonth, startYear, statusFilter]);
 
+  const totalPages = Math.max(1, Math.ceil(filteredRequests.length / PAGE_SIZE));
+  const visiblePage = Math.min(currentPage, totalPages);
+  const paginatedRequests = useMemo(() => {
+    const startIndex = (visiblePage - 1) * PAGE_SIZE;
+    return filteredRequests.slice(startIndex, startIndex + PAGE_SIZE);
+  }, [filteredRequests, visiblePage]);
+
   return (
     <div className="flex flex-1 flex-col overflow-auto bg-[#F8FAFC] px-7 py-6">
       <div className="flex w-full flex-col gap-4">
@@ -185,7 +202,10 @@ export function MasterManufacturingRequests() {
                 <input
                   type="text"
                   value={searchTerm}
-                  onChange={(event) => setSearchTerm(event.target.value)}
+                  onChange={(event) => {
+                    setSearchTerm(event.target.value);
+                    setCurrentPage(1);
+                  }}
                   placeholder="요청번호·의뢰자·제품·제조사 검색..."
                   className="h-[42px] w-full rounded-full border border-[#E5EAF0] bg-white pl-11 pr-4 text-[14px] font-medium text-[#344054] outline-none placeholder:text-[#98A2B3]"
                 />
@@ -200,7 +220,10 @@ export function MasterManufacturingRequests() {
                 </div>
                 <select
                   value={startYear}
-                  onChange={(event) => setStartYear(Number(event.target.value))}
+                  onChange={(event) => {
+                    setStartYear(Number(event.target.value));
+                    setCurrentPage(1);
+                  }}
                   className="h-[36px] rounded-[10px] border border-[#E5EAF0] bg-white px-3 text-[13px] font-bold text-[#344054] outline-none"
                 >
                   {yearOptions.map((year) => (
@@ -211,7 +234,10 @@ export function MasterManufacturingRequests() {
                 </select>
                 <select
                   value={startMonth}
-                  onChange={(event) => setStartMonth(Number(event.target.value))}
+                  onChange={(event) => {
+                    setStartMonth(Number(event.target.value));
+                    setCurrentPage(1);
+                  }}
                   className="h-[36px] rounded-[10px] border border-[#E5EAF0] bg-white px-3 text-[13px] font-bold text-[#344054] outline-none"
                 >
                   {monthOptions.map((month) => (
@@ -231,7 +257,10 @@ export function MasterManufacturingRequests() {
                 </div>
                 <select
                   value={endYear}
-                  onChange={(event) => setEndYear(Number(event.target.value))}
+                  onChange={(event) => {
+                    setEndYear(Number(event.target.value));
+                    setCurrentPage(1);
+                  }}
                   className="h-[36px] rounded-[10px] border border-[#E5EAF0] bg-white px-3 text-[13px] font-bold text-[#344054] outline-none"
                 >
                   {yearOptions.map((year) => (
@@ -242,7 +271,10 @@ export function MasterManufacturingRequests() {
                 </select>
                 <select
                   value={endMonth}
-                  onChange={(event) => setEndMonth(Number(event.target.value))}
+                  onChange={(event) => {
+                    setEndMonth(Number(event.target.value));
+                    setCurrentPage(1);
+                  }}
                   className="h-[36px] rounded-[10px] border border-[#E5EAF0] bg-white px-3 text-[13px] font-bold text-[#344054] outline-none"
                 >
                   {monthOptions.map((month) => (
@@ -264,7 +296,10 @@ export function MasterManufacturingRequests() {
                 <button
                   key={tab.id}
                   type="button"
-                  onClick={() => setStatusFilter(tab.id)}
+                  onClick={() => {
+                    setStatusFilter(tab.id);
+                    setCurrentPage(1);
+                  }}
                   className={`rounded-full px-4 py-1.5 text-[14px] font-bold transition ${isActive
                     ? "bg-[#2F6BFF] text-white"
                     : "border border-[#E3E8EF] bg-white text-[#667085]"
@@ -313,7 +348,7 @@ export function MasterManufacturingRequests() {
                     </td>
                   </tr>
                 ) : (
-                  filteredRequests.map((request) => {
+                  paginatedRequests.map((request) => {
                     const statusMeta = getStatusMeta(request.status);
 
                     return (
@@ -336,6 +371,12 @@ export function MasterManufacturingRequests() {
               </tbody>
             </table>
           </div>
+          <MasterTablePagination
+            totalItems={filteredRequests.length}
+            currentPage={visiblePage}
+            totalPages={totalPages}
+            onPageChange={setCurrentPage}
+          />
         </section>
       </div>
     </div>

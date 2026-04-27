@@ -27,9 +27,11 @@ type SendMessagePayload = {
 export function ChatSystem({
   userId,
   viewMode,
+  initialRoomId = "",
 }: {
   userId: string;
   viewMode: ViewMode;
+  initialRoomId?: string;
 }) {
   const [rooms, setRooms] = useState<ChatRoomView[]>([]);
   const [selectedRoomId, setSelectedRoomId] = useState("");
@@ -263,8 +265,13 @@ export function ChatSystem({
     });
 
     setRooms(nextRooms);
-    setSelectedRoomId((prev) => (nextRooms.some((room) => room.id === prev) ? prev : nextRooms[0]?.id || ""));
-  }, [manufacturerId, userId, viewMode]);
+    setSelectedRoomId((prev) => {
+      if (initialRoomId && nextRooms.some((room) => room.id === initialRoomId)) {
+        return initialRoomId;
+      }
+      return nextRooms.some((room) => room.id === prev) ? prev : nextRooms[0]?.id || "";
+    });
+  }, [initialRoomId, manufacturerId, userId, viewMode]);
 
   const refreshMessages = useCallback(
     async (roomId: string) => {

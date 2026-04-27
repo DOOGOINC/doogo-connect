@@ -24,6 +24,8 @@ export function ClientProjectDetail({ request }: ClientProjectDetailProps) {
 
   const stepIndex = getClientProjectStepIndex(request.status);
   const isRejected = request.status === "rejected";
+  const isRefunded = request.status === "refunded";
+  const isRequestCancelled = request.status === "request_cancelled";
 
   return (
     <div className="flex flex-1 flex-col overflow-y-auto bg-[#f8f9fb] p-6">
@@ -40,11 +42,11 @@ export function ClientProjectDetail({ request }: ClientProjectDetailProps) {
                 <p className="mt-1 text-[13px] font-bold text-[#6b7280]">
                   {request.manufacturer_name} · {request.quantity.toLocaleString()}개
                 </p>
-                {isRejected ? (
+                {isRejected || isRefunded || isRequestCancelled ? (
                   <div className="mt-3 rounded-[12px] border border-[#fecaca] bg-[#fef2f2] px-4 py-3">
-                    <p className="text-[12px] font-bold text-[#b91c1c]">거절 사유</p>
+                    <p className="text-[12px] font-bold text-[#b91c1c]">{isRequestCancelled ? "요청취소" : isRefunded ? "환불 사유" : "거절 사유"}</p>
                     <p className="mt-1 text-[13px] font-medium leading-relaxed text-[#7f1d1d]">
-                      {request.admin_memo?.trim() || "거절 사유가 입력되지 않았습니다."}
+                      {isRequestCancelled ? "의뢰자가 승인 전 요청을 취소했습니다." : request.admin_memo?.trim() || `${isRefunded ? "환불" : "거절"} 사유가 입력되지 않았습니다.`}
                     </p>
                   </div>
                 ) : null}
@@ -56,7 +58,7 @@ export function ClientProjectDetail({ request }: ClientProjectDetailProps) {
             </div>
           </div>
 
-          {!isRejected ? (
+          {!isRejected && !isRefunded && !isRequestCancelled ? (
             <div className="mt-7 grid grid-cols-5 items-start gap-2">
               {CLIENT_PROJECT_STEPS.map((step, index) => {
                 const isDone = index + 1 <= stepIndex;
@@ -100,7 +102,7 @@ export function ClientProjectDetail({ request }: ClientProjectDetailProps) {
               <Truck className="h-4 w-4" />
               <span className="text-[13px] font-bold">예상 납품일</span>
             </div>
-            <p className="text-[16px] font-bold text-[#111827]">{isRejected ? "-" : getExpectedDeliveryDate(request.created_at)}</p>
+            <p className="text-[16px] font-bold text-[#111827]">{isRejected || isRefunded || isRequestCancelled ? "-" : getExpectedDeliveryDate(request.created_at)}</p>
           </div>
 
           <div className="rounded-[12px] border border-[#e8edf5] bg-white p-5 shadow-sm">
@@ -108,11 +110,11 @@ export function ClientProjectDetail({ request }: ClientProjectDetailProps) {
               <PackageCheck className="h-4 w-4" />
               <span className="text-[13px] font-bold">진행 단계</span>
             </div>
-            <p className="text-[16px] font-bold text-[#111827]">{isRejected ? "거절됨" : `${stepIndex} / 5 단계`}</p>
+            <p className="text-[16px] font-bold text-[#111827]">{isRejected ? "거절됨" : isRefunded ? "환불" : isRequestCancelled ? "요청취소" : `${stepIndex} / 5 단계`}</p>
           </div>
         </section>
 
-        {!isRejected ? (
+        {!isRejected && !isRefunded && !isRequestCancelled ? (
           <section className="rounded-[12px] border border-[#e8edf5] bg-white p-6 shadow-sm">
             <h3 className="mb-6 text-[18px] font-bold text-[#111827]">프로젝트 진행 현황</h3>
             <div className="space-y-4">
@@ -163,12 +165,12 @@ export function ClientProjectDetail({ request }: ClientProjectDetailProps) {
               </div>
               <div className="flex justify-between gap-4">
                 <span className="font-bold text-[#111827]">현재 상태</span>
-                <span className={`font-black ${isRejected ? "text-[#b91c1c]" : "text-[#0064FF]"}`}>{RFQ_STATUS_LABELS[request.status]}</span>
+                <span className={`font-black ${isRejected || isRefunded || isRequestCancelled ? "text-[#b91c1c]" : "text-[#0064FF]"}`}>{RFQ_STATUS_LABELS[request.status]}</span>
               </div>
-              {isRejected ? (
+              {isRejected || isRefunded || isRequestCancelled ? (
                 <div className="flex justify-between gap-4">
-                  <span className="font-bold text-[#111827]">거절 사유</span>
-                  <span className="text-right font-bold text-[#b91c1c]">{request.admin_memo?.trim() || "거절 사유 없음"}</span>
+                  <span className="font-bold text-[#111827]">{isRequestCancelled ? "요청취소" : isRefunded ? "환불 사유" : "거절 사유"}</span>
+                  <span className="text-right font-bold text-[#b91c1c]">{isRequestCancelled ? "의뢰자가 승인 전 요청을 취소했습니다." : request.admin_memo?.trim() || `${isRefunded ? "환불" : "거절"} 사유 없음`}</span>
                 </div>
               ) : null}
             </div>

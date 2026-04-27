@@ -1,8 +1,10 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
+import { authFetch } from "@/lib/client/auth-fetch";
 import { supabase } from "@/lib/supabase";
 import { MasterLoadingState } from "./MasterLoadingState";
+import { MasterTablePagination } from "./MasterTablePagination";
 
 type BannedProfileRow = {
   id: string;
@@ -14,6 +16,7 @@ type BannedProfileRow = {
   ban_updated_at: string | null;
   ban_expires_at: string | null;
 };
+const PAGE_SIZE = 10;
 
 function formatDate(value: string | null) {
   if (!value) return "-";
@@ -61,9 +64,11 @@ function getStatusMeta(profile: Pick<BannedProfileRow, "ban_type" | "ban_expires
   };
 }
 
-export function MasterBlockedMembers() {
+export function MasterBlockedMembers({ refreshKey = 0 }: { refreshKey?: number }) {
   const [loading, setLoading] = useState(true);
   const [profiles, setProfiles] = useState<BannedProfileRow[]>([]);
+  const [unblockingMemberId, setUnblockingMemberId] = useState<string | null>(null);
+  const [currentPage, setCurrentPage] = useState(1);
 
   useEffect(() => {
     const fetchProfiles = async () => {
@@ -107,12 +112,47 @@ export function MasterBlockedMembers() {
     };
 
     void fetchProfiles();
-  }, []);
+  }, [refreshKey]);
 
   const blockedMembers = useMemo(
     () => profiles.filter((profile) => isActiveBan(profile) && profile.role !== "master"),
     [profiles]
   );
+  const totalPages = Math.max(1, Math.ceil(blockedMembers.length / PAGE_SIZE));
+  const visiblePage = Math.min(currentPage, totalPages);
+  const paginatedBlockedMembers = useMemo(() => {
+    const startIndex = (visiblePage - 1) * PAGE_SIZE;
+    return blockedMembers.slice(startIndex, startIndex + PAGE_SIZE);
+  }, [blockedMembers, visiblePage]);
+
+  const handleUnban = async (profile: BannedProfileRow) => {
+    const displayName = profile.full_name?.trim() || profile.email?.trim() || "회원";
+    const confirmed = window.confirm(`${displayName}의 제재를 해제하시겠습니까?`);
+    if (!confirmed) return;
+
+    setUnblockingMemberId(profile.id);
+
+    try {
+      const response = await authFetch(`/api/admin/members/${profile.id}/ban`, {
+        method: "PATCH",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({ action: "unban" }),
+      });
+      const payload = (await response.json()) as { error?: string };
+
+      if (!response.ok) {
+        throw new Error(payload.error || "제재 해제 중 오류가 발생했습니다.");
+      }
+
+      setProfiles((prev) => prev.filter((item) => item.id !== profile.id));
+    } catch (error) {
+      window.alert(error instanceof Error ? error.message : "제재 해제 중 오류가 발생했습니다.");
+    } finally {
+      setUnblockingMemberId(null);
+    }
+  };
 
   return (
     <div className="flex flex-1 flex-col overflow-auto bg-[#f8fafc] px-6 py-6">
@@ -131,7 +171,7 @@ export function MasterBlockedMembers() {
             <table className="min-w-full table-fixed">
               <thead>
                 <tr className="border-b border-[#eef2f6] text-left">
-                  {["대상", "유형", "사유", "제재일", "상태"].map((label) => (
+                  {["대상", "유형", "사유", "제재일", "상태", "관리"].map((label) => (
                     <th key={label} className="px-4 py-4 text-[14px] font-bold text-[#6a7282]">
                       {label}
                     </th>
@@ -141,18 +181,18 @@ export function MasterBlockedMembers() {
               <tbody>
                 {loading ? (
                   <tr>
-                    <td colSpan={5} className="px-4 py-20 text-center">
+                    <td colSpan={6} className="px-4 py-20 text-center">
                       <MasterLoadingState variant="inline" />
                     </td>
                   </tr>
                 ) : blockedMembers.length === 0 ? (
                   <tr>
-                    <td colSpan={5} className="px-4 py-20 text-center text-[14px] font-semibold text-[#98a2b3]">
+                    <td colSpan={6} className="px-4 py-20 text-center text-[14px] font-semibold text-[#98a2b3]">
                       현재 제재 중인 회원이 없습니다.
                     </td>
                   </tr>
                 ) : (
-                  blockedMembers.map((profile) => {
+                  paginatedBlockedMembers.map((profile) => {
                     const statusMeta = getStatusMeta(profile);
 
                     return (
@@ -166,6 +206,16 @@ export function MasterBlockedMembers() {
                             {statusMeta.label}
                           </span>
                         </td>
+                        <td className="px-4 py-4">
+                          <button
+                            type="button"
+                            disabled={unblockingMemberId === profile.id}
+                            onClick={() => void handleUnban(profile)}
+                            className="inline-flex items-center rounded-full bg-[#eef4ff] px-3 py-1 text-[12px] font-bold text-[#2f6bff] transition hover:bg-[#e4edff] disabled:cursor-not-allowed disabled:opacity-60"
+                          >
+                            {unblockingMemberId === profile.id ? "해제 중..." : "제재 해제"}
+                          </button>
+                        </td>
                       </tr>
                     );
                   })
@@ -173,6 +223,12 @@ export function MasterBlockedMembers() {
               </tbody>
             </table>
           </div>
+          <MasterTablePagination
+            totalItems={blockedMembers.length}
+            currentPage={visiblePage}
+            totalPages={totalPages}
+            onPageChange={setCurrentPage}
+          />
         </section>
       </div>
     </div>

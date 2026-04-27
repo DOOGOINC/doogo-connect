@@ -2,11 +2,12 @@
 
 import Link from "next/link";
 import Image from "next/image";
+import { usePathname } from "next/navigation";
 
 const companyLinks = [
   { label: "회사소개", href: "/about" },
-  { label: "개인정보처리방침", href: "/privacy", bold: true },
-  { label: "이용약관", href: "/terms" },
+  { label: "개인정보처리방침", href: "/policy/privacy" },
+  { label: "이용약관", href: "/policy/terms" },
 ];
 
 const serviceLinks = [
@@ -21,6 +22,12 @@ const supportLinks = [
 ];
 
 export function SiteFooter() {
+  const pathname = usePathname();
+
+  if (pathname?.startsWith("/master") || pathname?.startsWith("/partner/dashboard")) {
+    return null;
+  }
+
   return (
     <footer className="bg-[#0a1628] py-16 lg:py-20 text-[#8b95a1]">
       <div className="mx-auto max-w-7xl px-6">
@@ -46,15 +53,13 @@ export function SiteFooter() {
             </div>
           </div>
 
-          {/* 카테고리 메뉴들 */}
           <nav className="flex flex-col gap-4">
             <p className="text-[13px] font-bold tracking-wider text-white">COMPANY</p>
             {companyLinks.map((link) => (
               <Link
                 key={link.label}
                 href={link.href}
-                className={`text-[14px] transition hover:text-white ${link.bold ? "font-bold text-white" : ""
-                  }`}
+                className={`text-[14px] transition hover:text-white ${link.href.startsWith("/policy/") ? "font-bold" : ""}`}
               >
                 {link.label}
               </Link>
@@ -88,7 +93,7 @@ export function SiteFooter() {
           </div>
           <span className="text-[13px] text-[#4e5968]">파트너/관리자 전용 서비스</span>
         </div>
-        {/* 하단 섹션: 사업자 정보 및 법적 고시 */}
+
         <div className="border-t border-[#2f3338] pt-10">
           <div className="flex flex-col lg:flex-row lg:justify-between gap-10">
             <div className="space-y-4">
@@ -111,7 +116,6 @@ export function SiteFooter() {
               </div>
             </div>
 
-            {/* 우측 하단: 고객센터 정보 */}
             <div className="flex flex-col gap-2 shrink-0 lg:text-right">
               <p className="text-[14px] font-bold text-white">
                 사업제휴 문의: <span className="text-[#3182f6] font-medium ml-1 text-[15px] break-all">doogobiz@gmail.com</span>

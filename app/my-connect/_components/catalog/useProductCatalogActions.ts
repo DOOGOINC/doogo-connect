@@ -331,6 +331,7 @@ export function useProductCatalogActions({
         name: form.name.trim(),
         description: form.description.trim(),
         payment_currency: lockedCurrency,
+        cost_price: form.costPrice.trim() ? Number(form.costPrice) : 0,
         base_price: Number(form.basePrice || 0),
         discount_config: discountConfig,
         image: form.image || null,

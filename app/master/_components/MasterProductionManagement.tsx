@@ -5,6 +5,7 @@ import { Search, X } from "lucide-react";
 import { formatCurrency, normalizeCurrencyCode } from "@/lib/currency";
 import { supabase } from "@/lib/supabase";
 import { MasterLoadingState } from "./MasterLoadingState";
+import { MasterTablePagination } from "./MasterTablePagination";
 import { useIsClient } from "./useIsClient";
 
 type ProductionRequest = {
@@ -12,10 +13,15 @@ type ProductionRequest = {
   request_number: string;
   client_id: string;
   manufacturer_name: string;
+  product_id: string;
   product_name: string;
   quantity: number;
   unit_price: number;
   total_price: number;
+  commission_rate_percent: number | null;
+  commission_amount: number | null;
+  settlement_amount: number | null;
+  commission_locked_at: string | null;
   currency_code: string | null;
   status: string;
   created_at: string;
@@ -27,7 +33,12 @@ type ProfileRow = {
   email: string | null;
 };
 
-type ProductionTab = "all" | "new" | "waiting" | "producing" | "completed" | "delivered" | "refunded";
+type ProductCostRow = {
+  id: string;
+  cost_price: number | null;
+};
+
+type ProductionTab = "all" | "new" | "waiting" | "producing" | "completed" | "delivered" | "refunded" | "cancelled";
 
 const TABS: Array<{ id: ProductionTab; label: string }> = [
   { id: "all", label: "전체" },
@@ -37,7 +48,13 @@ const TABS: Array<{ id: ProductionTab; label: string }> = [
   { id: "completed", label: "제조완료" },
   { id: "delivered", label: "배송완료" },
   { id: "refunded", label: "환불" },
+  { id: "cancelled", label: "요청취소" },
 ];
+const PAGE_SIZE = 10;
+const WAITING_STATUSES = ["reviewing", "payment_in_progress", "payment_completed", "production_waiting", "quoted", "approved"];
+const PRODUCING_STATUSES = ["production_started", "production_in_progress", "ordered"];
+const COMPLETED_STATUSES = ["manufacturing_completed", "completed"];
+const DELIVERED_STATUSES = ["delivery_completed", "fulfilled"];
 
 const MANUFACTURER_META: Record<string, string> = {
   "DOOGOBIO NZ": "NZ 뉴질랜드",
@@ -68,15 +85,19 @@ function formatMoney(value: number, currencyCode?: string | null) {
 }
 
 function getPaymentMethod(currencyCode?: string | null) {
-  return normalizeCurrencyCode(currencyCode) === "KRW" ? "포트원 안전결제" : "유트랜스퍼 해외송금";
+  return normalizeCurrencyCode(currencyCode) === "KRW" ? "포트원" : "유트랜스퍼";
 }
 
-function getCostAmount(request: ProductionRequest) {
-  return Math.round(Number(request.total_price || 0) * 0.68);
+function getCostAmount(request: ProductionRequest, productCostMap: Map<string, number>) {
+  const unitCost = Number(productCostMap.get(request.product_id) || 0);
+  return Math.round(unitCost * Number(request.quantity || 0));
 }
 
 function getFeeAmount(request: ProductionRequest) {
-  return Math.round(Number(request.total_price || 0) * 0.03);
+  const storedFee = Number(request.commission_amount);
+  if (Number.isFinite(storedFee) && storedFee > 0) return storedFee;
+  const rate = Number(request.commission_rate_percent || 3);
+  return Number(request.total_price || 0) * (rate / 100);
 }
 
 function getStatusMeta(status: string) {
@@ -84,33 +105,58 @@ function getStatusMeta(status: string) {
     return { label: "신규요청", badgeClass: "bg-[#E9F0FF] text-[#2563EB]" };
   }
 
-  if (status === "reviewing" || status === "quoted") {
+  if (status === "approved") {
+    return { label: "승인", badgeClass: "bg-[#E7FAEC] text-[#22B35E]" };
+  }
+
+  if (status === "payment_completed") {
+    return { label: "결제완료", badgeClass: "bg-[#E7FAEC] text-[#22B35E]" };
+  }
+
+  if (WAITING_STATUSES.includes(status)) {
     return { label: "생산대기", badgeClass: "bg-[#FFF4D6] text-[#D88900]" };
   }
 
-  if (status === "ordered") {
+  if (status === "production_started") {
+    return { label: "제조시작", badgeClass: "bg-[#FFEAD9] text-[#F97316]" };
+  }
+
+  if (PRODUCING_STATUSES.includes(status)) {
     return { label: "제조중", badgeClass: "bg-[#FFEAD9] text-[#F97316]" };
   }
 
-  if (status === "completed") {
+  if (COMPLETED_STATUSES.includes(status)) {
     return { label: "제조완료", badgeClass: "bg-[#E1FAE8] text-[#1DAA54]" };
   }
 
-  if (status === "fulfilled") {
+  if (DELIVERED_STATUSES.includes(status)) {
     return { label: "배송완료", badgeClass: "bg-[#F2E4FF] text-[#B257F7]" };
   }
 
-  return { label: "환불", badgeClass: "bg-[#FFE6E6] text-[#FF5A5F]" };
+  if (status === "refunded") {
+    return { label: "환불", badgeClass: "bg-[#FFE6E6] text-[#FF5A5F]" };
+  }
+
+  if (status === "request_cancelled") {
+    return { label: "요청취소", badgeClass: "bg-[#F3F4F6] text-[#4B5563]" };
+  }
+
+  if (status === "rejected") {
+    return { label: "거절", badgeClass: "bg-[#FFE6E6] text-[#FF5A5F]" };
+  }
+
+  return { label: "확인필요", badgeClass: "bg-[#F3F4F6] text-[#4B5563]" };
 }
 
 function matchesTab(status: string, tab: ProductionTab) {
   if (tab === "all") return true;
   if (tab === "new") return status === "pending";
-  if (tab === "waiting") return status === "reviewing" || status === "quoted";
-  if (tab === "producing") return status === "ordered";
-  if (tab === "completed") return status === "completed";
-  if (tab === "delivered") return status === "fulfilled";
-  return status === "rejected";
+  if (tab === "waiting") return WAITING_STATUSES.includes(status);
+  if (tab === "producing") return PRODUCING_STATUSES.includes(status);
+  if (tab === "completed") return COMPLETED_STATUSES.includes(status);
+  if (tab === "delivered") return DELIVERED_STATUSES.includes(status);
+  if (tab === "cancelled") return status === "request_cancelled";
+  return status === "refunded";
 }
 
 function getMonthRange(year: number, month: number) {
@@ -120,7 +166,7 @@ function getMonthRange(year: number, month: number) {
   };
 }
 
-export function MasterProductionManagement() {
+export function MasterProductionManagement({ refreshKey = 0 }: { refreshKey?: number }) {
   const today = useMemo(() => new Date(), []);
   const currentYear = today.getFullYear();
   const currentMonth = today.getMonth() + 1;
@@ -134,8 +180,10 @@ export function MasterProductionManagement() {
   const [startMonth, setStartMonth] = useState(1);
   const [endYear, setEndYear] = useState(currentYear);
   const [endMonth, setEndMonth] = useState(currentMonth);
+  const [currentPage, setCurrentPage] = useState(1);
   const [requests, setRequests] = useState<ProductionRequest[]>([]);
   const [profiles, setProfiles] = useState<ProfileRow[]>([]);
+  const [productCosts, setProductCosts] = useState<ProductCostRow[]>([]);
   const [selectedRequestId, setSelectedRequestId] = useState<string | null>(null);
   const mounted = useIsClient();
 
@@ -143,14 +191,15 @@ export function MasterProductionManagement() {
     const fetchData = async () => {
       setLoading(true);
 
-      const [requestResult, profileResult] = await Promise.all([
+      const [requestResult, profileResult, productResult] = await Promise.all([
         supabase
           .from("rfq_requests")
           .select(
-            "id, request_number, client_id, manufacturer_name, product_name, quantity, unit_price, total_price, currency_code, status, created_at"
+            "id, request_number, client_id, manufacturer_name, product_id, product_name, quantity, unit_price, total_price, commission_rate_percent, commission_amount, settlement_amount, commission_locked_at, currency_code, status, created_at"
           )
           .order("created_at", { ascending: false }),
         supabase.from("profiles").select("id, full_name, email"),
+        supabase.from("manufacturer_products").select("id, cost_price"),
       ]);
 
       if (requestResult.error) {
@@ -165,11 +214,17 @@ export function MasterProductionManagement() {
         setProfiles((profileResult.data as ProfileRow[] | null) || []);
       }
 
+      if (productResult.error) {
+        console.error("Failed to fetch product costs:", productResult.error.message);
+      } else {
+        setProductCosts((productResult.data as ProductCostRow[] | null) || []);
+      }
+
       setLoading(false);
     };
 
     void fetchData();
-  }, []);
+  }, [refreshKey]);
 
   const profileMap = useMemo(() => {
     return new Map(
@@ -182,6 +237,10 @@ export function MasterProductionManagement() {
       ])
     );
   }, [profiles]);
+
+  const productCostMap = useMemo(() => {
+    return new Map(productCosts.map((product) => [product.id, Number(product.cost_price || 0)]));
+  }, [productCosts]);
 
   const filteredRequests = useMemo(() => {
     const startRange = getMonthRange(startYear, startMonth).start;
@@ -214,12 +273,21 @@ export function MasterProductionManagement() {
     });
   }, [activeTab, endMonth, endYear, profileMap, requests, searchTerm, startMonth, startYear]);
 
+  const totalPages = Math.max(1, Math.ceil(filteredRequests.length / PAGE_SIZE));
+  const visiblePage = Math.min(currentPage, totalPages);
+  const paginatedRequests = useMemo(() => {
+    const startIndex = (visiblePage - 1) * PAGE_SIZE;
+    return filteredRequests.slice(startIndex, startIndex + PAGE_SIZE);
+  }, [filteredRequests, visiblePage]);
+
   const summary = useMemo(() => {
     return {
       newCount: requests.filter((request) => request.status === "pending").length,
-      waitingCount: requests.filter((request) => request.status === "reviewing" || request.status === "quoted").length,
-      producingCount: requests.filter((request) => request.status === "ordered").length,
-      completedCount: requests.filter((request) => request.status === "completed" || request.status === "fulfilled").length,
+      waitingCount: requests.filter((request) => WAITING_STATUSES.includes(request.status)).length,
+      producingCount: requests.filter((request) => PRODUCING_STATUSES.includes(request.status)).length,
+      completedCount: requests.filter(
+        (request) => COMPLETED_STATUSES.includes(request.status) || DELIVERED_STATUSES.includes(request.status)
+      ).length,
     };
   }, [requests]);
 
@@ -304,7 +372,10 @@ export function MasterProductionManagement() {
                   <input
                     type="text"
                     value={searchTerm}
-                    onChange={(event) => setSearchTerm(event.target.value)}
+                    onChange={(event) => {
+                      setSearchTerm(event.target.value);
+                      setCurrentPage(1);
+                    }}
                     placeholder="검색어 입력..."
                     className="h-[40px] w-full rounded-full border border-[#E5EAF0] bg-white pl-11 pr-4 text-[13px] font-medium text-[#344054] outline-none placeholder:text-[#98A2B3]"
                   />
@@ -319,7 +390,10 @@ export function MasterProductionManagement() {
                   </div>
                   <select
                     value={startYear}
-                    onChange={(event) => setStartYear(Number(event.target.value))}
+                    onChange={(event) => {
+                      setStartYear(Number(event.target.value));
+                      setCurrentPage(1);
+                    }}
                     className="h-[36px] rounded-[12px] border border-[#E5EAF0] bg-white px-3 text-[12px] font-bold text-[#344054] outline-none"
                   >
                     {yearOptions.map((year) => (
@@ -330,7 +404,10 @@ export function MasterProductionManagement() {
                   </select>
                   <select
                     value={startMonth}
-                    onChange={(event) => setStartMonth(Number(event.target.value))}
+                    onChange={(event) => {
+                      setStartMonth(Number(event.target.value));
+                      setCurrentPage(1);
+                    }}
                     className="h-[36px] rounded-[12px] border border-[#E5EAF0] bg-white px-3 text-[12px] font-bold text-[#344054] outline-none"
                   >
                     {monthOptions.map((month) => (
@@ -350,7 +427,10 @@ export function MasterProductionManagement() {
                   </div>
                   <select
                     value={endYear}
-                    onChange={(event) => setEndYear(Number(event.target.value))}
+                    onChange={(event) => {
+                      setEndYear(Number(event.target.value));
+                      setCurrentPage(1);
+                    }}
                     className="h-[36px] rounded-[12px] border border-[#E5EAF0] bg-white px-3 text-[12px] font-bold text-[#344054] outline-none"
                   >
                     {yearOptions.map((year) => (
@@ -361,7 +441,10 @@ export function MasterProductionManagement() {
                   </select>
                   <select
                     value={endMonth}
-                    onChange={(event) => setEndMonth(Number(event.target.value))}
+                    onChange={(event) => {
+                      setEndMonth(Number(event.target.value));
+                      setCurrentPage(1);
+                    }}
                     className="h-[36px] rounded-[12px] border border-[#E5EAF0] bg-white px-3 text-[12px] font-bold text-[#344054] outline-none"
                   >
                     {monthOptions.map((month) => (
@@ -383,7 +466,10 @@ export function MasterProductionManagement() {
                   <button
                     key={tab.id}
                     type="button"
-                    onClick={() => setActiveTab(tab.id)}
+                    onClick={() => {
+                      setActiveTab(tab.id);
+                      setCurrentPage(1);
+                    }}
                     className={`rounded-full px-4 py-1.5 text-[14px] font-bold transition ${isActive
                       ? "bg-[#2F6BFF] text-white"
                       : "border border-[#E3E8EF] bg-white text-[#667085]"
@@ -436,7 +522,7 @@ export function MasterProductionManagement() {
                       </td>
                     </tr>
                   ) : (
-                    filteredRequests.map((request) => {
+                    paginatedRequests.map((request) => {
                       const statusMeta = getStatusMeta(request.status);
                       const requester = profileMap.get(request.client_id);
 
@@ -449,7 +535,7 @@ export function MasterProductionManagement() {
                           <td className="px-4 py-2 text-[12px] text-[#4A5568] whitespace-nowrap">{request.product_name}</td>
                           <td className="px-4 py-2 text-[12px] text-[#4A5568] whitespace-nowrap">{formatQuantity(request.quantity)}</td>
                           <td className="px-4 py-2 text-[12px] text-[#7A8599] whitespace-nowrap">
-                            {formatMoney(getCostAmount(request), request.currency_code)}
+                            {formatMoney(getCostAmount(request, productCostMap), request.currency_code)}
                           </td>
                           <td className="px-4 py-2 text-[12px] font-bold text-[#2F6BFF] whitespace-nowrap">
                             {formatMoney(request.total_price, request.currency_code)}
@@ -468,7 +554,7 @@ export function MasterProductionManagement() {
                               onClick={() => setSelectedRequestId(request.id)}
                               className="rounded-full bg-[#EEF4FF] px-3 py-1 text-[12px] font-bold text-[#2F6BFF] whitespace-nowrap"
                             >
-                              인보이스 보기
+                              인보이스
                             </button>
                           </td>
                         </tr>
@@ -478,6 +564,12 @@ export function MasterProductionManagement() {
                 </tbody>
               </table>
             </div>
+            <MasterTablePagination
+              totalItems={filteredRequests.length}
+              currentPage={visiblePage}
+              totalPages={totalPages}
+              onPageChange={setCurrentPage}
+            />
           </section>
         </div>
       </div>
@@ -530,9 +622,9 @@ export function MasterProductionManagement() {
                     { label: "제품", value: selectedRequest.product_name },
                     { label: "수량", value: formatQuantity(selectedRequest.quantity) },
                     { label: "결제 방식", value: getPaymentMethod(selectedRequest.currency_code) },
-                    { label: "원가 (제품 원가)", value: formatMoney(getCostAmount(selectedRequest), selectedRequest.currency_code) },
+                    { label: "원가 (제품 원가)", value: formatMoney(getCostAmount(selectedRequest, productCostMap), selectedRequest.currency_code) },
                     { label: "총 판매금액", value: formatMoney(selectedRequest.total_price, selectedRequest.currency_code), valueClass: "text-[#2F6BFF]" },
-                    { label: "플랫폼 수수료 (3%)", value: formatMoney(getFeeAmount(selectedRequest), selectedRequest.currency_code), valueClass: "text-[#F08A00]" },
+                    { label: `플랫폼 수수료 (${Number(selectedRequest.commission_rate_percent || 3)}%)`, value: formatMoney(getFeeAmount(selectedRequest), selectedRequest.currency_code), valueClass: "text-[#F08A00]" },
                   ].map((item, index) => (
                     <div
                       key={item.label}

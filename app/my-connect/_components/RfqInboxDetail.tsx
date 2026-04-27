@@ -122,14 +122,16 @@ export function RfqInboxDetail({ request, onStatusChange, onReject, statusLabelO
                       onClick={() => void handleDecision("reviewing")}
                       className="inline-flex h-11 items-center justify-center rounded-xl bg-[#0064ff] px-5 text-[14px] font-bold text-white transition hover:bg-[#0054d6] disabled:cursor-not-allowed disabled:opacity-60"
                     >
-                      {updatingStatus === "quoted" ? "처리 중..." : "승인"}
+                      {updatingStatus === "reviewing" ? "처리 중..." : "승인"}
                     </button>
                   </div>
                 ) : null}
-                {request.status === "rejected" && request.admin_memo?.trim() ? (
+                {(request.status === "rejected" || request.status === "refunded" || request.status === "request_cancelled") && (request.admin_memo?.trim() || request.status === "request_cancelled") ? (
                   <div className="max-w-[320px] rounded-[12px] border border-[#fee4e2] bg-[#fff7f6] px-4 py-3 text-[13px] text-[#912018]">
-                    <p className="font-bold">거절 사유</p>
-                    <p className="mt-1 whitespace-pre-wrap font-medium">{request.admin_memo}</p>
+                    <p className="font-bold">{request.status === "request_cancelled" ? "요청취소" : request.status === "refunded" ? "환불 사유" : "거절 사유"}</p>
+                    <p className="mt-1 whitespace-pre-wrap font-medium">
+                      {request.status === "request_cancelled" ? "의뢰자가 승인 전 요청을 취소했습니다." : request.admin_memo}
+                    </p>
                   </div>
                 ) : null}
               </div>

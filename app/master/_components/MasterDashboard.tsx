@@ -15,6 +15,10 @@ type DashboardRequest = {
   product_name: string;
   status: string;
   total_price: number;
+  commission_rate_percent: number | null;
+  commission_amount: number | null;
+  settlement_amount: number | null;
+  commission_locked_at: string | null;
   currency_code: string | null;
   created_at: string;
 };
@@ -31,15 +35,43 @@ type DashboardPartnerRequest = {
   created_at: string;
 };
 
-type DashboardSupportInquiry = {
+type DashboardDispute = {
   id: string;
-  name: string;
-  content: string;
-  status: string;
+  dispute_number: string;
+  applicant_name: string;
+  reason: string;
+  status: "new" | "in_progress" | "resolved" | "disputing" | "refunded";
   created_at: string;
 };
 
+type DashboardAuditLog = {
+  rfq_request_id: string;
+  next_status: string | null;
+  created_at: string;
+};
+
+interface MasterDashboardProps {
+  refreshKey?: number;
+  onOpenDisputeCenter?: () => void;
+}
+
 const MONTH_OFFSETS = [0, 1, 2, 3];
+const SALES_RECORDED_STATUSES = new Set([
+  "payment_completed",
+  "ordered",
+  "manufacturing_completed",
+  "delivery_completed",
+  "completed",
+  "fulfilled",
+]);
+
+function getSalesRecordedAt(request: DashboardRequest, salesRecordedAtMap: Map<string, string>) {
+  return salesRecordedAtMap.get(request.id) || request.commission_locked_at || request.created_at;
+}
+
+function isSalesRecordedRequest(request: DashboardRequest) {
+  return SALES_RECORDED_STATUSES.has(request.status);
+}
 
 const COPY = {
   dashboard: "대시보드",
@@ -88,8 +120,8 @@ const COPY = {
     costDesc: "제조 원가 기준",
     revenue: "실시간 매출 (총 판매금액)",
     revenueDesc: "의뢰자 결제 기준",
-    fee: "수수료 수익 (총 판매금액 × 3%)",
-    feeDesc: "실수령 수익",
+    fee: "수수료 수익",
+    feeDesc: "거래별 확정 수수료",
     daily: "일별",
     dailyTail: "총 판매금액 (마우스 오버 시 금액 표시)",
   },
@@ -208,19 +240,30 @@ function getRequestStatusMeta(status: string) {
       return { label: "완료", badge: "bg-[#F1E8FF] text-[#8B5CF6]" };
     case "rejected":
       return { label: "거절", badge: "bg-[#FFE3E3] text-[#EF4444]" };
+    case "request_cancelled":
+      return { label: "요청취소", badge: "bg-[#F3F4F6] text-[#4B5563]" };
     default:
       return { label: "대기", badge: "bg-[#F3F4F6] text-[#6B7280]" };
   }
 }
 
-function getInquiryStatusMeta(status: string) {
-  if (status === "resolved") {
-    return { label: "해결중", badge: "bg-[#FFF4D6] text-[#EA7A00]" };
+function getDisputeStatusMeta(status: DashboardDispute["status"]) {
+  switch (status) {
+    case "in_progress":
+      return { label: "처리중", badge: "bg-[#dbeafe] text-[#2563eb]" };
+    case "resolved":
+      return { label: "해결됨", badge: "bg-[#dcfce7] text-[#16a34a]" };
+    case "disputing":
+      return { label: "분쟁중", badge: "bg-[#f3e8ff] text-[#9333ea]" };
+    case "refunded":
+      return { label: "환불완료", badge: "bg-[#f1f5f9] text-[#475569]" };
+    case "new":
+    default:
+      return { label: "신규", badge: "bg-[#fee2e2] text-[#dc2626]" };
   }
-  return { label: "신규", badge: "bg-[#FFE8EE] text-[#F43F5E]" };
 }
 
-export function MasterDashboard() {
+export function MasterDashboard({ refreshKey = 0, onOpenDisputeCenter }: MasterDashboardProps) {
   const today = useMemo(() => new Date(), []);
   const currentYear = today.getFullYear();
   const currentMonth = today.getMonth() + 1;
@@ -233,21 +276,31 @@ export function MasterDashboard() {
   const [requests, setRequests] = useState<DashboardRequest[]>([]);
   const [profiles, setProfiles] = useState<DashboardProfile[]>([]);
   const [partnerRequests, setPartnerRequests] = useState<DashboardPartnerRequest[]>([]);
-  const [supportInquiries, setSupportInquiries] = useState<DashboardSupportInquiry[]>([]);
+  const [disputes, setDisputes] = useState<DashboardDispute[]>([]);
+  const [auditLogs, setAuditLogs] = useState<DashboardAuditLog[]>([]);
   const mounted = useIsClient();
 
   useEffect(() => {
     const fetchDashboard = async () => {
       setLoading(true);
 
-      const [requestResult, profileResult, partnerResult, supportResult] = await Promise.all([
+      const [requestResult, profileResult, partnerResult, disputeResult, auditResult] = await Promise.all([
         supabase
           .from("rfq_requests")
-          .select("id, request_number, client_id, manufacturer_name, product_name, status, total_price, currency_code, created_at")
+          .select("id, request_number, client_id, manufacturer_name, product_name, status, total_price, commission_rate_percent, commission_amount, settlement_amount, commission_locked_at, currency_code, created_at")
           .order("created_at", { ascending: false }),
         supabase.from("profiles").select("id, full_name, role"),
         supabase.from("partner_requests").select("id, status, created_at").order("created_at", { ascending: false }),
-        supabase.from("support_inquiries").select("id, name, content, status, created_at").order("created_at", { ascending: false }),
+        supabase
+          .from("master_disputes")
+          .select("id, dispute_number, applicant_name, reason, status, created_at")
+          .order("created_at", { ascending: false })
+          .limit(5),
+        supabase
+          .from("rfq_audit_logs")
+          .select("rfq_request_id, next_status, created_at")
+          .in("next_status", Array.from(SALES_RECORDED_STATUSES))
+          .order("created_at", { ascending: true }),
       ]);
 
       if (requestResult.error) {
@@ -268,17 +321,23 @@ export function MasterDashboard() {
         setPartnerRequests((partnerResult.data as DashboardPartnerRequest[] | null) || []);
       }
 
-      if (supportResult.error) {
-        console.error("Failed to fetch dashboard support inquiries:", supportResult.error.message);
+      if (disputeResult.error) {
+        console.error("Failed to fetch dashboard disputes:", disputeResult.error.message);
       } else {
-        setSupportInquiries((supportResult.data as DashboardSupportInquiry[] | null) || []);
+        setDisputes((disputeResult.data as DashboardDispute[] | null) || []);
+      }
+
+      if (auditResult.error) {
+        console.error("Failed to fetch dashboard audit logs:", auditResult.error.message);
+      } else {
+        setAuditLogs((auditResult.data as DashboardAuditLog[] | null) || []);
       }
 
       setLoading(false);
     };
 
     void fetchDashboard();
-  }, []);
+  }, [refreshKey]);
 
   const selectedPeriod = useMemo(
     () => getPeriodMeta(selectedYear, currentMonth, selectedMonthOffset),
@@ -292,6 +351,26 @@ export function MasterDashboard() {
       return createdAt >= start && createdAt <= end;
     });
   }, [requests, selectedPeriod.month, selectedPeriod.year]);
+
+  const salesRecordedAtMap = useMemo(() => {
+    const recordedAtMap = new Map<string, string>();
+    auditLogs.forEach((log) => {
+      if (!log.next_status || !SALES_RECORDED_STATUSES.has(log.next_status) || recordedAtMap.has(log.rfq_request_id)) {
+        return;
+      }
+      recordedAtMap.set(log.rfq_request_id, log.created_at);
+    });
+    return recordedAtMap;
+  }, [auditLogs]);
+
+  const monthSalesRequests = useMemo(() => {
+    const { start, end } = getMonthDateRange(selectedPeriod.year, selectedPeriod.month);
+    return requests.filter((request) => {
+      if (!isSalesRecordedRequest(request)) return false;
+      const recordedAt = new Date(getSalesRecordedAt(request, salesRecordedAtMap));
+      return recordedAt >= start && recordedAt <= end;
+    });
+  }, [requests, salesRecordedAtMap, selectedPeriod.month, selectedPeriod.year]);
 
   const profileNameMap = useMemo(
     () => new Map(profiles.map((profile) => [profile.id, profile.full_name?.trim() || COPY.memberFallback])),
@@ -313,12 +392,17 @@ export function MasterDashboard() {
   }, [monthRequests, partnerRequests, profiles]);
 
   const salesSummary = useMemo(() => {
-    const currencyRequests = monthRequests.filter(
+    const currencyRequests = monthSalesRequests.filter(
       (request) => normalizeCurrencyCode(request.currency_code) === currency
     );
     const revenue = currencyRequests.reduce((sum, request) => sum + Number(request.total_price || 0), 0);
     const cost = revenue * 0.825;
-    const fee = revenue * 0.03;
+    const fee = currencyRequests.reduce((sum, request) => {
+      const storedFee = Number(request.commission_amount);
+      if (Number.isFinite(storedFee) && storedFee > 0) return sum + storedFee;
+      const rate = Number(request.commission_rate_percent || 3);
+      return sum + Number(request.total_price || 0) * (rate / 100);
+    }, 0);
 
     return {
       orderCount: currencyRequests.length,
@@ -326,17 +410,17 @@ export function MasterDashboard() {
       revenue,
       fee,
     };
-  }, [currency, monthRequests]);
+  }, [currency, monthSalesRequests]);
 
   const allMonthBars = useMemo(() => {
     const totals = new Map<number, number>();
-    const currencyRequests = monthRequests.filter(
+    const currencyRequests = monthSalesRequests.filter(
       (request) => normalizeCurrencyCode(request.currency_code) === currency
     );
 
     currencyRequests.forEach((request) => {
-      const createdAt = new Date(request.created_at);
-      const day = createdAt.getDate();
+      const recordedAt = new Date(getSalesRecordedAt(request, salesRecordedAtMap));
+      const day = recordedAt.getDate();
       totals.set(day, (totals.get(day) || 0) + Number(request.total_price || 0));
     });
 
@@ -350,7 +434,7 @@ export function MasterDashboard() {
       value: totals.get(day) || 0,
       height: totals.get(day) ? Math.round(((totals.get(day) || 0) / max) * 76) : 0,
     }));
-  }, [currency, monthRequests, selectedPeriod.month, selectedPeriod.year]);
+  }, [currency, monthSalesRequests, salesRecordedAtMap, selectedPeriod.month, selectedPeriod.year]);
 
   const dailyBars = useMemo(() => {
     const daysInMonth = allMonthBars.length;
@@ -365,23 +449,28 @@ export function MasterDashboard() {
 
   const statusSummary = useMemo(() => {
     const pending = monthRequests.filter((request) => request.status === "pending").length;
-    const waiting = monthRequests.filter((request) => ["reviewing", "quoted"].includes(request.status)).length;
-    const producing = monthRequests.filter((request) => request.status === "ordered").length;
-    const done = monthRequests.filter((request) => ["completed", "fulfilled"].includes(request.status)).length;
-    const total = pending + waiting + producing + done;
+    const producing = monthRequests.filter((request) =>
+      ["production_started", "production_in_progress", "ordered"].includes(request.status)
+    ).length;
+    const completed = monthRequests.filter((request) =>
+      ["manufacturing_completed", "completed"].includes(request.status)
+    ).length;
+    const delivered = monthRequests.filter((request) =>
+      ["delivery_completed", "fulfilled"].includes(request.status)
+    ).length;
+    const total = pending + producing + completed + delivered;
 
     return {
       pending,
-      waiting,
       producing,
-      done,
+      completed,
+      delivered,
       total,
-      fulfilled: monthRequests.filter((request) => request.status === "fulfilled").length,
     };
   }, [monthRequests]);
 
   const recentRequests = useMemo(() => requests.slice(0, 5), [requests]);
-  const recentAlerts = useMemo(() => supportInquiries.slice(0, 2), [supportInquiries]);
+  const recentAlerts = useMemo(() => disputes.slice(0, 5), [disputes]);
 
   if (!mounted) return null;
 
@@ -426,7 +515,7 @@ export function MasterDashboard() {
                         type="button"
                         onClick={() => setSelectedYear(year)}
                         className={`relative rounded-full px-6 py-1.5 text-[15px] font-extrabold transition-all duration-200 ${isActive
-                          ? "bg-white text-[#2563eb] shadow-[0_2px_8px_rgba(0,0,0,0.08)]"
+                          ? "bg-white text-[#2563eb] shadow-sm"
                           : "text-[#64748b] hover:text-[#1e293b]"
                           }`}
                       >
@@ -474,7 +563,7 @@ export function MasterDashboard() {
               return (
                 <article
                   key={card.label}
-                  className={`rounded-[14px] shadow-sm border border-[#E7ECF3] bg-gradient-to-r ${card.wrap} px-5 py-4 shadow-[0_8px_24px_rgba(15,23,42,0.05)]`}
+                  className={`rounded-[14px] shadow-sm border border-[#E7ECF3] bg-gradient-to-r ${card.wrap} px-5 py-4`}
                 >
                   <div className="flex items-center gap-2 text-[12px] font-semi-bold text-[#667085]">
                     <span className="text-[20px]">{card.icon}</span>
@@ -487,7 +576,7 @@ export function MasterDashboard() {
             })}
           </section>
 
-          <section className="rounded-[14px] border border-[#E7ECF3] bg-white px-4 py-3 shadow-[0_8px_24px_rgba(15,23,42,0.05)]">
+          <section className="rounded-[14px] border border-[#E7ECF3] bg-white px-4 py-3 shadow-sm">
             <div className="flex flex-col gap-4">
               <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
                 <h2 className="flex items-center gap-2 text-[14px] font-bold text-[#24324A]">
@@ -597,7 +686,7 @@ export function MasterDashboard() {
           </section>
 
           <section className="grid gap-4 xl:grid-cols-[1fr_0.98fr]">
-            <article className="rounded-[14px] border border-[#E7ECF3] bg-white px-5 py-6 shadow-[0_8px_24px_rgba(15,23,42,0.05)]">
+            <article className="rounded-[14px] border border-[#E7ECF3] bg-white px-5 py-6 shadow-sm">
               <div className="flex items-center justify-between gap-3">
                 <h2 className="flex items-center gap-2 text-[14px] font-bold text-[#24324A]">
                   <span className="text-[14px]">📊</span>
@@ -618,23 +707,21 @@ export function MasterDashboard() {
                   },
                   {
                     label: COPY.statusRows.producing,
-                    count: statusSummary.waiting + statusSummary.producing,
+                    count: statusSummary.producing,
                     color: "bg-[#FFB703]",
-                    percent: statusSummary.total
-                      ? Math.round(((statusSummary.waiting + statusSummary.producing) / statusSummary.total) * 100)
-                      : 0,
+                    percent: statusSummary.total ? Math.round((statusSummary.producing / statusSummary.total) * 100) : 0,
                   },
                   {
                     label: COPY.statusRows.completed,
-                    count: statusSummary.done,
+                    count: statusSummary.completed,
                     color: "bg-[#22C55E]",
-                    percent: statusSummary.total ? Math.round((statusSummary.done / statusSummary.total) * 100) : 0,
+                    percent: statusSummary.total ? Math.round((statusSummary.completed / statusSummary.total) * 100) : 0,
                   },
                   {
                     label: COPY.statusRows.delivered,
-                    count: statusSummary.fulfilled,
+                    count: statusSummary.delivered,
                     color: "bg-[#C084FC]",
-                    percent: statusSummary.total ? Math.round((statusSummary.fulfilled / statusSummary.total) * 100) : 0,
+                    percent: statusSummary.total ? Math.round((statusSummary.delivered / statusSummary.total) * 100) : 0,
                   },
                 ].map((item) => (
                   <div key={item.label}>
@@ -655,9 +742,9 @@ export function MasterDashboard() {
                 <div className="flex h-3 overflow-hidden rounded-full bg-[#F2F4F7]">
                   {[
                     { value: statusSummary.pending, color: "bg-[#3B82F6]" },
-                    { value: statusSummary.waiting, color: "bg-[#FFB703]" },
-                    { value: statusSummary.producing, color: "bg-[#22C55E]" },
-                    { value: statusSummary.done, color: "bg-[#C084FC]" },
+                    { value: statusSummary.producing, color: "bg-[#FFB703]" },
+                    { value: statusSummary.completed, color: "bg-[#22C55E]" },
+                    { value: statusSummary.delivered, color: "bg-[#C084FC]" },
                   ].map((segment, index) => (
                     <div
                       key={`${segment.color}-${index}`}
@@ -689,10 +776,10 @@ export function MasterDashboard() {
                   index === 0
                     ? statusSummary.pending
                     : index === 1
-                      ? statusSummary.waiting
+                      ? statusSummary.producing
                       : index === 2
-                        ? statusSummary.producing
-                        : statusSummary.done;
+                        ? statusSummary.completed
+                        : statusSummary.delivered;
 
                 return (
                   <article
@@ -714,7 +801,7 @@ export function MasterDashboard() {
             </div>
           </section>
 
-          <section className="rounded-[14px] border border-[#E7ECF3] bg-white px-5 py-5 shadow-[0_8px_24px_rgba(15,23,42,0.05)]">
+          <section className="rounded-[14px] border border-[#E7ECF3] bg-white px-5 py-5 shadow-sm">
             <h2 className="flex items-center gap-2 text-[14px] font-bold text-[#24324A]">
               <span className="text-[16px]">📋</span>
               {COPY.recentRequests}
@@ -753,7 +840,7 @@ export function MasterDashboard() {
             </div>
           </section>
 
-          <section className="rounded-[14px] border border-[#E7ECF3] bg-white px-5 py-5 shadow-[0_8px_24px_rgba(15,23,42,0.05)]">
+          <section className="rounded-[14px] border border-[#E7ECF3] bg-white px-5 py-5 shadow-sm">
             <div className="flex items-center justify-between gap-3">
               <h2 className="flex items-center gap-2 text-[14px] font-bold text-[#24324A]">
                 <span className="text-[16px]">⚖️</span>
@@ -761,6 +848,7 @@ export function MasterDashboard() {
               </h2>
               <button
                 type="button"
+                onClick={onOpenDisputeCenter}
                 className="rounded-full border border-[#D8E7FF] bg-white px-4 py-1.5 text-[12px] font-bold text-[#2F6BFF] transition hover:bg-[#F6F9FF]"
               >
                 {COPY.more}
@@ -778,14 +866,13 @@ export function MasterDashboard() {
                   </tr>
                 </thead>
                 <tbody>
-                  {recentAlerts.map((alert, index) => {
-                    const statusMeta = getInquiryStatusMeta(alert.status);
-                    const code = `DSP-${String(selectedPeriod.year).slice(-2)}${String(selectedPeriod.month).padStart(2, "0")}-${String(index + 1).padStart(3, "0")}`;
+                  {recentAlerts.map((alert) => {
+                    const statusMeta = getDisputeStatusMeta(alert.status);
                     return (
                       <tr key={alert.id} className="border-b border-[#F5F7FA] text-[15px]  text-[#475467] last:border-b-0">
-                        <td className="px-2 py-4">{code}</td>
-                        <td className="px-2 py-4">{alert.name}</td>
-                        <td className="px-2 py-4">{alert.content}</td>
+                        <td className="px-2 py-4">{alert.dispute_number}</td>
+                        <td className="px-2 py-4">{alert.applicant_name}</td>
+                        <td className="px-2 py-4">{alert.reason}</td>
                         <td className="px-2 py-4">
                           <span className={`inline-flex rounded-full px-3 py-1 text-[12px] font-bold ${statusMeta.badge}`}>
                             {statusMeta.label}
@@ -803,7 +890,7 @@ export function MasterDashboard() {
 
       {isSalesGraphOpen ? (
         <div className="fixed inset-0 z-[90] flex items-center justify-center bg-black/45 px-4 py-8">
-          <div className="flex max-h-[calc(100vh-48px)] w-full max-w-[1180px] flex-col overflow-hidden rounded-[20px] border border-[#E7ECF3] bg-white shadow-[0_24px_70px_rgba(15,23,42,0.26)]">
+          <div className="flex max-h-[calc(100vh-48px)] w-full max-w-[1180px] flex-col overflow-hidden rounded-[20px] border border-[#E7ECF3] bg-white shadow-sm">
             <div className="flex items-center justify-between border-b border-[#EEF2F6] px-6 py-5">
               <h3 className="flex items-center gap-2 text-[16px] font-bold text-[#24324A]">
                 <span className="text-[16px]">💰</span>

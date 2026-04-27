@@ -1,16 +1,16 @@
 import { mapRouteError, ok } from "@/lib/server/http";
-import { getOwnedManufacturerId, requireServerUser } from "@/lib/server/supabase";
+import { requireServerUser } from "@/lib/server/supabase";
 
 export async function POST(request: Request) {
   try {
     const { viewMode } = await request.json();
     const { supabase, user } = await requireServerUser(request);
-    const ownedManufacturer = await getOwnedManufacturerId(supabase, user.id);
 
-    const rfqQuery =
-      viewMode === "manufacturer" && ownedManufacturer.id
-        ? supabase.from("rfq_requests").select("client_id, manufacturer_id").eq("manufacturer_id", ownedManufacturer.id)
-        : supabase.from("rfq_requests").select("client_id, manufacturer_id").eq("client_id", user.id);
+    if (viewMode === "manufacturer") {
+      return ok({ success: true });
+    }
+
+    const rfqQuery = supabase.from("rfq_requests").select("client_id, manufacturer_id").eq("client_id", user.id);
 
     const { data, error } = await rfqQuery;
     if (error) {

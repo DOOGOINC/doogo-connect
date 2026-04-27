@@ -3,7 +3,7 @@
 import { useState, useEffect, useCallback } from "react";
 import { authFetch } from "@/lib/client/auth-fetch";
 import { supabase } from "@/lib/supabase";
-import { Download, Search, FileText, CheckCircle2, Clock, XCircle, Eye, X, Filter } from "lucide-react";
+import { Download, Search, FileText, CheckCircle2, Eye, X, Filter, Loader2 } from "lucide-react";
 import { buildStorageObjectUrl, PARTNER_REQUEST_BUCKET } from "@/lib/storage";
 import { MasterLoadingState } from "../MasterLoadingState";
 
@@ -21,12 +21,18 @@ interface PartnerRequest {
   source_ip?: string | null;
 }
 
-export function PartnerRequestAdmin() {
+interface PartnerRequestAdminProps {
+  refreshKey?: number;
+  onUnreadCountChange?: (updater: (prev: number) => number) => void;
+}
+
+export function PartnerRequestAdmin({ refreshKey = 0, onUnreadCountChange }: PartnerRequestAdminProps) {
   const [requests, setRequests] = useState<PartnerRequest[]>([]);
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState("");
   const [statusFilter, setStatusFilter] = useState("all");
   const [selectedRequest, setSelectedRequest] = useState<PartnerRequest | null>(null);
+  const [savingRequestId, setSavingRequestId] = useState<string | null>(null);
 
   const fetchRequests = useCallback(async () => {
     setLoading(true);
@@ -36,8 +42,12 @@ export function PartnerRequestAdmin() {
         .select("*")
         .order("created_at", { ascending: false });
 
-      if (statusFilter !== "all") {
-        query = query.eq("status", statusFilter);
+      if (statusFilter === "unread") {
+        query = query.eq("status", "pending");
+      }
+
+      if (statusFilter === "read") {
+        query = query.neq("status", "pending");
       }
 
       if (searchTerm) {
@@ -56,34 +66,40 @@ export function PartnerRequestAdmin() {
 
   useEffect(() => {
     void fetchRequests();
-  }, [fetchRequests]);
+  }, [fetchRequests, refreshKey]);
 
-  const handleStatusChange = async (requestId: string, newStatus: string) => {
-    if (!window.confirm(`상태를 ${newStatus}(으)로 변경하시겠습니까?`)) return;
+  const handleMarkRead = async (requestId: string) => {
+    setSavingRequestId(requestId);
 
-    const response = await authFetch(`/api/partner-requests/${requestId}`, {
-      method: "PATCH",
-      headers: {
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({ status: newStatus }),
-    });
-    const result = (await response.json()) as { error?: string };
+    try {
+      const response = await authFetch(`/api/partner-requests/${requestId}`, {
+        method: "PATCH",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({ status: "reviewing" }),
+      });
+      const result = (await response.json()) as { error?: string };
 
-    if (!response.ok) alert("상태 변경 실패: " + (result.error || "unknown_error"));
-    else {
-      alert("변경되었습니다.");
-      fetchRequests();
+      if (!response.ok) {
+        throw new Error(result.error || "상태 변경에 실패했습니다.");
+      }
+
+      setRequests((prev) => prev.map((request) => (request.id === requestId ? { ...request, status: "reviewing" } : request)));
+      onUnreadCountChange?.((prev) => Math.max(0, prev - 1));
+    } catch (error) {
+      window.alert(error instanceof Error ? error.message : "상태 변경에 실패했습니다.");
+    } finally {
+      setSavingRequestId(null);
     }
   };
 
   const getStatusBadge = (status: string) => {
-    switch (status) {
-      case 'approved': return <span className="flex items-center gap-1 text-xs font-bold text-green-600 bg-green-50 px-2.5 py-1 rounded-full"><CheckCircle2 className="w-3 h-3" /> 승인됨</span>;
-      case 'rejected': return <span className="flex items-center gap-1 text-xs font-bold text-red-600 bg-red-50 px-2.5 py-1 rounded-full"><XCircle className="w-3 h-3" /> 거절됨</span>;
-      case 'reviewing': return <span className="flex items-center gap-1 text-xs font-bold text-blue-600 bg-blue-50 px-2.5 py-1 rounded-full"><Clock className="w-3 h-3" /> 검토중</span>;
-      default: return <span className="flex items-center gap-1 text-xs font-bold text-amber-600 bg-amber-50 px-2.5 py-1 rounded-full"><Clock className="w-3 h-3" /> 대기중</span>;
+    if (status === "pending") {
+      return <span className="rounded-full bg-amber-50 px-2.5 py-1 text-xs font-bold text-amber-600">미읽음</span>;
     }
+
+    return <span className="rounded-full bg-green-50 px-2.5 py-1 text-xs font-bold text-green-600">읽음</span>;
   };
 
   const downloadCSV = () => {
@@ -96,7 +112,7 @@ export function PartnerRequestAdmin() {
       r.manager_phone,
       r.manager_email,
       new Date(r.created_at).toLocaleString(),
-      r.status
+      r.status === "pending" ? "미읽음" : "읽음"
     ]);
     const csvContent = "\uFEFF" + [headers.join(","), ...rows.map(row => row.join(","))].join("\n");
     const blob = new Blob([csvContent], { type: "text/csv;charset=utf-8;" });
@@ -110,6 +126,18 @@ export function PartnerRequestAdmin() {
   const selectedAttachmentUrl = selectedRequest?.attachment_url
     ? buildStorageObjectUrl(PARTNER_REQUEST_BUCKET, selectedRequest.attachment_url)
     : null;
+
+  const buildAttachmentDownloadUrl = (pathOrUrl: string) => {
+    if (/^https?:\/\//i.test(pathOrUrl)) return pathOrUrl;
+
+    const params = new URLSearchParams({
+      bucket: PARTNER_REQUEST_BUCKET,
+      path: pathOrUrl,
+      fileName: pathOrUrl.split("/").pop() || "partner-request-file",
+    });
+
+    return `/api/storage/download?${params.toString()}`;
+  };
 
   return (
     <div className="mt-4 flex-1 flex flex-col bg-[#F8F9FA] overflow-hidden">
@@ -133,17 +161,15 @@ export function PartnerRequestAdmin() {
               className="h-11 pl-4 pr-10 appearance-none bg-white border border-[#E5E8EB] rounded-xl text-sm font-semibold text-[#4E5968] outline-none cursor-pointer hover:bg-gray-50"
             >
               <option value="all">전체 상태</option>
-              <option value="pending">대기 중</option>
-              <option value="reviewing">검토 중</option>
-              <option value="approved">승인 완료</option>
-              <option value="rejected">거절됨</option>
+              <option value="unread">미읽음</option>
+              <option value="read">읽음</option>
             </select>
             <Filter className="pointer-events-none absolute right-3 top-1/2 h-4 w-4 -translate-y-1/2 text-[#8B95A1]" />
           </div>
           <button onClick={fetchRequests} className="h-11 px-6 bg-[#0064FF] text-white rounded-xl text-sm font-bold hover:bg-[#0052D4]">검색</button>
         </div>
         <button onClick={downloadCSV} className="flex items-center gap-2 h-11 px-5 bg-white border border-[#E5E8EB] text-[#4E5968] rounded-xl text-sm font-bold hover:bg-gray-50 shadow-sm">
-          <Download className="w-4 h-4" />엑셀(CSV)
+          <Download className="w-4 h-4" />엑셀 (CSV)
         </button>
       </div>
 
@@ -158,9 +184,10 @@ export function PartnerRequestAdmin() {
                   <th className="px-4 py-2.5 text-xs font-bold text-[#8B95A1] uppercase tracking-wider">담당자</th>
                   <th className="px-4 py-2.5 text-xs font-bold text-[#8B95A1] uppercase tracking-wider">연락처</th>
                   <th className="px-4 py-2.5 text-xs font-bold text-[#8B95A1] uppercase tracking-wider">이메일</th>
+                  <th className="px-4 py-2.5 text-xs font-bold text-[#8B95A1] uppercase tracking-wider">문의일시</th>
                   <th className="px-4 py-2.5 text-xs font-bold text-[#8B95A1] uppercase tracking-wider">상태</th>
                   <th className="px-4 py-2.5 text-xs font-bold text-[#8B95A1] uppercase tracking-wider">첨부파일</th>
-                  <th className="px-4 py-2.5 text-xs font-bold text-[#8B95A1] uppercase tracking-wider text-right">관리</th>
+                  <th className="px-4 py-2.5 text-xs font-bold text-[#8B95A1] uppercase tracking-wider text-right">작업</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-[#F2F4F6]">
@@ -178,14 +205,21 @@ export function PartnerRequestAdmin() {
                       <td className="px-4 py-3 font-semibold text-[#4E5968]">{req.manager_name}</td>
                       <td className="px-4 py-3 text-[#4E5968]">{req.manager_phone}</td>
                       <td className="px-4 py-3 text-[#4E5968]">{req.manager_email}</td>
+                      <td className="px-4 py-3 text-[13px] text-[#4E5968]">{new Date(req.created_at).toLocaleString("ko-KR")}</td>
                       <td className="px-4 py-3">{getStatusBadge(req.status)}</td>
                       <td className="px-4 py-3">
-                        <div className="flex items-center gap-2">
-                          {req.attachment_url ? (
-                            <a href={buildStorageObjectUrl(PARTNER_REQUEST_BUCKET, req.attachment_url)} target="_blank" rel="noreferrer" className="flex items-center gap-1 text-[#0064FF] font-bold hover:underline text-[12px]">
-                              <FileText className="w-3.5 h-3.5" /> 다운
-                            </a>
-                          ) : <span className="text-[#ADB5BD]">-</span>}
+                        {req.attachment_url ? (
+                          <a
+                            href={buildAttachmentDownloadUrl(req.attachment_url)}
+                            download
+                            className="inline-flex items-center gap-1 text-[12px] font-bold text-[#0064FF] hover:underline"
+                          >
+                            <FileText className="w-3.5 h-3.5" /> 다운
+                          </a>
+                        ) : <span className="text-[#ADB5BD]">-</span>}
+                      </td>
+                      <td className="px-4 py-3 text-right">
+                        <div className="inline-flex items-center gap-1.5">
                           <button
                             type="button"
                             onClick={() => setSelectedRequest(req)}
@@ -194,19 +228,16 @@ export function PartnerRequestAdmin() {
                             <Eye className="h-3 w-3" />
                             상세
                           </button>
+                          <button
+                            type="button"
+                            disabled={savingRequestId === req.id || req.status !== "pending"}
+                            onClick={() => void handleMarkRead(req.id)}
+                            className="inline-flex items-center gap-1 rounded-lg bg-[#0064FF] px-2.5 py-1 text-xs font-bold text-white transition hover:bg-[#0052D4] disabled:cursor-not-allowed disabled:bg-slate-300"
+                          >
+                            {savingRequestId === req.id ? <Loader2 className="h-3 w-3 animate-spin" /> : <CheckCircle2 className="h-3 w-3" />}
+                            읽음
+                          </button>
                         </div>
-                      </td>
-                      <td className="px-4 py-3 text-right">
-                        <select
-                          value={req.status}
-                          onChange={(e) => handleStatusChange(req.id, e.target.value)}
-                          className="text-xs font-bold bg-white border border-[#E5E8EB] rounded-lg px-2 py-1.5 outline-none hover:border-[#0064FF] cursor-pointer h-8"
-                        >
-                          <option value="pending">대기</option>
-                          <option value="reviewing">검토</option>
-                          <option value="approved">승인</option>
-                          <option value="rejected">거절</option>
-                        </select>
                       </td>
                     </tr>
                   ))
@@ -264,13 +295,12 @@ export function PartnerRequestAdmin() {
                 <div className="mt-3 flex flex-wrap items-center gap-3">
                   {selectedAttachmentUrl ? (
                     <a
-                      href={selectedAttachmentUrl}
-                      target="_blank"
-                      rel="noreferrer"
+                      href={buildAttachmentDownloadUrl(selectedRequest.attachment_url)}
+                      download
                       className="inline-flex items-center gap-2 rounded-[12px] bg-[#EFF6FF] px-4 py-2.5 text-[13px] font-bold text-[#2563EB] transition hover:bg-[#DBEAFE]"
                     >
                       <FileText className="h-4 w-4" />
-                      첨부파일 열기
+                      첨부파일 다운
                     </a>
                   ) : (
                     <span className="text-[14px] text-[#98A2B3]">첨부파일 없음</span>

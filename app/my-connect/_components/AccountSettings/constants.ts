@@ -20,19 +20,10 @@ export const TEXT = {
   infoReadonly:
     "이름과 연락처 정보는 고객센터를 통해서만 변경 가능합니다.",
   referralDesc:
-    "추천 링크를 공유하거나 링크 없이 가입한 경우 아래에서 추천인 코드를 추후 입력할 수 있습니다.",
-  myCode: "내 코드",
-  generating: "생성 중",
-  copyLink: "추천 링크 복사",
-  copying: "복사 중...",
-  registeredReferrer: "등록된 추천인",
-  referralOnlyOnce: "추천인 등록은 계정당 1회만 가능합니다.",
-  manualReferral: "추천인 코드 추후 입력",
-  manualReferralHint:
-    "링크 없이 가입했더라도 유효한 추천인 코드를 알고 있으면 여기에서 한번만 등록할 수 있습니다.",
-  referralInput: "추천인 코드 입력",
-  referralRegister: "추천인 등록",
-  referralRegistering: "등록 중...",
+    "의뢰자 회원은 회원가입 시 파트너 추천인 코드를 입력하면 최초 1회에 한해 10,000P를 지급받습니다.",
+  registeredReferrer: "가입 시 적용된 파트너 추천인 코드",
+  referralOnlyOnce: "추천인 코드는 회원가입 시 최초 1회만 적용되며, 적립 내역은 포인트 관리에서 확인할 수 있습니다.",
+  referralEmpty: "회원가입 시 적용된 파트너 추천인 코드가 없습니다.",
   userUpdated: "계정 정보가 업데이트되었습니다.",
   resetConfirm:
     "비밀번호 재설정 메일을 보내시겠습니까? 확인을 누르면 메일로 재설정 링크가 전송됩니다.",
@@ -46,9 +37,4 @@ export const TEXT = {
   emailChangedMail:
     "주소로 인증 메일을 보냈습니다. 메일에서 Confirm 버튼을 눌러야 최종 반영됩니다.",
   emailChangeFailed: "이메일 변경에 실패했습니다.",
-  referralNeedInput: "추천인 코드를 입력해 주세요.",
-  referralSaved: "추천인 코드가 등록되었습니다.",
-  referralSaveFailed: "추천인 코드 등록에 실패했습니다.",
-  referralCopied: "추천 링크를 복사했습니다.",
-  referralCopyFailed: "추천 링크 복사에 실패했습니다.",
 } as const;

@@ -13,6 +13,7 @@ export type ProductRow = {
   is_active?: boolean;
   payment_currency?: CurrencyCode | null;
   base_price: number;
+  cost_price?: number | null;
   discount_config: Record<string, number> | null;
   image: string | null;
   key_features: string[] | null;
@@ -41,6 +42,7 @@ export type ProductForm = {
   name: string;
   description: string;
   paymentCurrency: CurrencyCode;
+  costPrice: string;
   basePrice: string;
   image: string;
   keyFeatures: string;
@@ -66,6 +68,7 @@ export const createProductForm = (): ProductForm => ({
   name: "",
   description: "",
   paymentCurrency: "USD",
+  costPrice: "",
   basePrice: "",
   image: "",
   keyFeatures: "",

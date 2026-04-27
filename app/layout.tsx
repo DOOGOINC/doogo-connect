@@ -18,8 +18,8 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html lang="ko" className="antialiased">
-      <body className="min-h-screen bg-[#f9fafb] text-[#191f28]">
+    <html lang="ko">
+      <body className="">
         <SessionTimeout />
         <Suspense fallback={null}>
           <ReferralTracker />

@@ -18,6 +18,13 @@ function csvEscape(value: string | null | undefined) {
 }
 
 export function MemberFilters({ searchTerm, setSearchTerm, roleFilter, setRoleFilter, onSearch, members }: Props) {
+  const getRoleLabel = (role: Member["role"]) => {
+    if (role === "master") return "마스터";
+    if (role === "manufacturer") return "제조사";
+    if (role === "partner") return "파트너";
+    return "의뢰자";
+  };
+
   const downloadCSV = () => {
     if (members.length === 0) return;
 
@@ -26,7 +33,7 @@ export function MemberFilters({ searchTerm, setSearchTerm, roleFilter, setRoleFi
       csvEscape(member.full_name || "이름 없음"),
       csvEscape(member.email),
       csvEscape(member.phone_number || "-"),
-      csvEscape(member.role === "master" ? "마스터" : member.role === "manufacturer" ? "제조사" : "의뢰자"),
+      csvEscape(getRoleLabel(member.role)),
       csvEscape(member.is_kakao ? "카카오" : "이메일"),
       csvEscape(member.created_at ? new Date(member.created_at).toLocaleDateString() : "-"),
       csvEscape(new Date(member.updated_at).toLocaleDateString()),
@@ -68,6 +75,7 @@ export function MemberFilters({ searchTerm, setSearchTerm, roleFilter, setRoleFi
             <option value="all">전체</option>
             <option value="member">의뢰자</option>
             <option value="manufacturer">제조사</option>
+            <option value="partner">파트너</option>
             <option value="master">마스터</option>
           </select>
           <Filter className="pointer-events-none absolute right-3 top-1/2 h-4 w-4 -translate-y-1/2 text-[#8B95A1]" />

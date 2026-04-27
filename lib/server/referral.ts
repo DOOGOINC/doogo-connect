@@ -1,9 +1,32 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
+import { awardUserPoints, ensurePointSettings } from "./points";
+import { createServiceRoleClient } from "./supabase";
 
 export function sanitizeReferralCode(value: unknown) {
   if (typeof value !== "string") return null;
   const normalized = value.trim().toUpperCase().replace(/[^A-Z0-9_-]/g, "");
   return normalized || null;
+}
+
+export async function isValidPartnerReferralCode(supabase: SupabaseClient, rawReferralCode: unknown) {
+  const referralCode = sanitizeReferralCode(rawReferralCode);
+  if (!referralCode) {
+    return false;
+  }
+
+  const admin = createServiceRoleClient() ?? supabase;
+  const { data, error } = await admin
+    .from("profiles")
+    .select("id")
+    .eq("referral_code", referralCode)
+    .eq("role", "partner")
+    .maybeSingle();
+
+  if (error) {
+    throw new Error(error.message);
+  }
+
+  return Boolean(data?.id);
 }
 
 function createReferralCodeCandidate() {
@@ -70,7 +93,7 @@ type ApplyReferralResult =
 
 export async function applyReferralAttribution(
   supabase: SupabaseClient,
-  _userId: string,
+  userId: string,
   rawReferralCode: unknown,
   source: "link" | "manual" = "link"
 ) {
@@ -79,26 +102,160 @@ export async function applyReferralAttribution(
     return { applied: false, reason: "missing" } satisfies ApplyReferralResult;
   }
 
-  const { data, error } = await supabase.rpc("apply_referral_code", {
-    p_referral_code: referralCode,
-    p_source: source,
-  });
+  const admin = createServiceRoleClient() ?? supabase;
+  const [currentProfileResult, existingEventResult] = await Promise.all([
+    admin
+      .from("profiles")
+      .select("id, role, referred_by_profile_id, referred_by_code")
+      .eq("id", userId)
+      .maybeSingle<{
+        id: string;
+        role: string | null;
+        referred_by_profile_id: string | null;
+        referred_by_code: string | null;
+      }>(),
+    admin.from("referral_events").select("id").eq("user_id", userId).limit(1),
+  ]);
 
-  if (error) {
-    throw new Error(error.message);
+  if (currentProfileResult.error) {
+    throw new Error(currentProfileResult.error.message);
+  }
+  if (existingEventResult.error) {
+    throw new Error(existingEventResult.error.message);
   }
 
-  const result = Array.isArray(data) ? data[0] : data;
-  if (!result) {
+  const currentProfile = currentProfileResult.data;
+  if (!currentProfile) {
     return { applied: false, reason: "profile_missing" } satisfies ApplyReferralResult;
+  }
+  if (currentProfile.role !== "member") {
+    return { applied: false, reason: "invalid_code" } satisfies ApplyReferralResult;
+  }
+  if (currentProfile.referred_by_profile_id || currentProfile.referred_by_code || (existingEventResult.data || []).length > 0) {
+    return { applied: false, reason: "already_referred" } satisfies ApplyReferralResult;
+  }
+
+  const { data: referrerProfile, error: referrerProfileError } = await admin
+    .from("profiles")
+    .select("id, role, referral_code")
+    .eq("referral_code", referralCode)
+    .eq("role", "partner")
+    .maybeSingle<{
+      id: string;
+      role: string | null;
+      referral_code: string | null;
+    }>();
+
+  if (referrerProfileError) {
+    throw new Error(referrerProfileError.message);
+  }
+
+  if (!referrerProfile?.id) {
+    return { applied: false, reason: "invalid_code" } satisfies ApplyReferralResult;
+  }
+  if (referrerProfile.id === userId) {
+    return { applied: false, reason: "self_referral" } satisfies ApplyReferralResult;
+  }
+
+  const pointSettings = await ensurePointSettings(admin);
+  const refereePoints = pointSettings.refereeRewardPoints;
+
+  const { data: insertedEvent, error: insertEventError } = await admin
+    .from("referral_events")
+    .insert({
+      user_id: userId,
+      referrer_profile_id: referrerProfile.id,
+      referral_code: referralCode,
+      source,
+      referrer_points_awarded: 0,
+      referee_points_awarded: 0,
+      points_awarded_at: refereePoints > 0 ? new Date().toISOString() : null,
+    })
+    .select("id")
+    .single<{ id: string }>();
+
+  if (insertEventError) {
+    if (
+      insertEventError.code === "23505" ||
+      insertEventError.message.includes("referral_events_user_id_unique_idx")
+    ) {
+      const { data: existingEvent, error: existingEventError } = await admin
+        .from("referral_events")
+        .select("id, referrer_profile_id, referral_code, referee_points_awarded")
+        .eq("user_id", userId)
+        .maybeSingle<{
+          id: string;
+          referrer_profile_id: string | null;
+          referral_code: string | null;
+          referee_points_awarded: number | null;
+        }>();
+
+      if (existingEventError) {
+        throw new Error(existingEventError.message);
+      }
+
+      if (existingEvent?.referral_code === referralCode) {
+        return {
+          applied: true,
+          reason: "applied",
+          referrerProfileId: existingEvent.referrer_profile_id || referrerProfile.id,
+          referralCode,
+          referrerPoints: 0,
+          refereePoints: existingEvent.referee_points_awarded || 0,
+        } as ApplyReferralResult;
+      }
+
+      return { applied: false, reason: "already_referred" } satisfies ApplyReferralResult;
+    }
+
+    throw new Error(insertEventError.message);
+  }
+
+  const { error: updateProfileError } = await admin
+    .from("profiles")
+    .update({
+      referred_by_profile_id: referrerProfile.id,
+      referred_by_code: referralCode,
+      referral_source: source,
+      referral_recorded_at: new Date().toISOString(),
+      updated_at: new Date().toISOString(),
+    })
+    .eq("id", userId);
+
+  if (updateProfileError) {
+    throw new Error(updateProfileError.message);
+  }
+
+  if (refereePoints > 0) {
+    await awardUserPoints(admin, {
+      userId,
+      amount: refereePoints,
+      reason: "파트너 추천 코드 가입 보너스",
+      category: "partner_referral_signup_bonus",
+      relatedUserId: referrerProfile.id,
+      referralEventId: insertedEvent.id,
+      createdBy: referrerProfile.id,
+    });
+
+    const { error: updateEventError } = await admin
+      .from("referral_events")
+      .update({
+        referee_points_awarded: refereePoints,
+        points_awarded_at: new Date().toISOString(),
+      })
+      .eq("id", insertedEvent.id);
+
+    if (updateEventError) {
+      throw new Error(updateEventError.message);
+    }
   }
 
   return {
-    applied: Boolean(result.applied),
-    reason: result.reason,
-    referrerProfileId: result.referrer_profile_id || null,
-    referralCode: result.referral_code || null,
-    referrerPoints: Number(result.referrer_points || 0),
-    refereePoints: Number(result.referee_points || 0),
+    applied: true,
+    reason: "applied",
+    referrerProfileId: referrerProfile.id,
+    referralCode,
+    referrerPoints: 0,
+    refereePoints,
   } as ApplyReferralResult;
 }

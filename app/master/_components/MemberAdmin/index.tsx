@@ -4,8 +4,8 @@ import { useCallback, useEffect, useState } from "react";
 import { X } from "lucide-react";
 import { authFetch } from "@/lib/client/auth-fetch";
 import { supabase } from "@/lib/supabase";
+import { MasterTablePagination } from "../MasterTablePagination";
 import { MemberFilters } from "./MemberFilters";
-import { MemberPagination } from "./MemberPagination";
 import { MemberTable } from "./MemberTable";
 
 export interface Member {
@@ -16,7 +16,7 @@ export interface Member {
   business_registration_number?: string | null;
   business_attachment_url?: string | null;
   business_attachment_name?: string | null;
-  role: "master" | "manufacturer" | "member";
+  role: "master" | "manufacturer" | "member" | "partner";
   created_at: string;
   updated_at: string;
   is_kakao: boolean;
@@ -37,11 +37,40 @@ type EditableMember = {
   is_kakao: boolean;
 };
 
+async function parseJsonResponse<T>(response: Response, fallbackMessage: string) {
+  const contentType = response.headers.get("content-type") || "";
+
+  if (contentType.includes("application/json")) {
+    return (await response.json()) as T;
+  }
+
+  const text = await response.text();
+  throw new Error(text.includes("<!DOCTYPE") ? fallbackMessage : text || fallbackMessage);
+}
+
+async function authFetchJson<T>(input: RequestInfo | URL, init: RequestInit, fallbackMessage: string) {
+  for (let attempt = 0; attempt < 2; attempt += 1) {
+    const response = await authFetch(input, init);
+
+    if (response.status === 404 && attempt === 0) {
+      await new Promise((resolve) => window.setTimeout(resolve, 150));
+      continue;
+    }
+
+    const payload = await parseJsonResponse<T>(response, fallbackMessage);
+    return { response, payload };
+  }
+
+  throw new Error(fallbackMessage);
+}
+
 function normalizePhoneNumber(value: string) {
   return value.replace(/\D/g, "").slice(0, 11);
 }
 
-export function MemberAdmin() {
+const PAGE_SIZE = 10;
+
+export function MemberAdmin({ refreshKey = 0 }: { refreshKey?: number }) {
   const [members, setMembers] = useState<Member[]>([]);
   const [loading, setLoading] = useState(true);
   const [savingMemberId, setSavingMemberId] = useState<string | null>(null);
@@ -55,22 +84,26 @@ export function MemberAdmin() {
 
   const [currentPage, setCurrentPage] = useState(1);
   const [totalCount, setTotalCount] = useState(0);
-  const pageSize = 10;
+  const totalPages = Math.max(1, Math.ceil(totalCount / PAGE_SIZE));
+  const visiblePage = Math.min(currentPage, totalPages);
 
   const fetchMembers = useCallback(async () => {
     setLoading(true);
     try {
       const params = new URLSearchParams({
         page: String(currentPage),
-        pageSize: String(pageSize),
+        pageSize: String(PAGE_SIZE),
         search: searchTerm,
         roleFilter,
         sortBy,
         sortOrder,
       });
 
-      const response = await authFetch(`/api/admin/members?${params.toString()}`);
-      const payload = (await response.json()) as MemberResponse;
+      const { response, payload } = await authFetchJson<MemberResponse>(
+        `/api/admin/members?${params.toString()}`,
+        {},
+        "회원 목록을 불러오는 중 일시적인 오류가 발생했습니다."
+      );
 
       if (!response.ok) {
         throw new Error(payload.error || "회원 목록을 불러오는 데 실패했습니다.");
@@ -78,6 +111,10 @@ export function MemberAdmin() {
 
       setMembers(payload.members || []);
       setTotalCount(payload.totalCount || 0);
+      const nextTotalPages = Math.max(1, Math.ceil((payload.totalCount || 0) / PAGE_SIZE));
+      if (currentPage > nextTotalPages) {
+        setCurrentPage(nextTotalPages);
+      }
     } catch (err) {
       console.error("Error fetching members:", err);
       window.alert(err instanceof Error ? err.message : "회원 목록을 불러오는 데 실패했습니다.");
@@ -88,11 +125,7 @@ export function MemberAdmin() {
 
   useEffect(() => {
     void fetchMembers();
-  }, [fetchMembers]);
-
-  useEffect(() => {
-    setCurrentPage(1);
-  }, [searchTerm, roleFilter]);
+  }, [fetchMembers, refreshKey]);
 
   const handleRoleChange = async (userId: string, newRole: string) => {
     const currentMember = members.find((member) => member.id === userId);
@@ -102,6 +135,7 @@ export function MemberAdmin() {
       master: "마스터",
       manufacturer: "제조사",
       member: "의뢰자",
+      partner: "파트너",
     };
 
     if (!window.confirm(`사용자의 권한을 ${roleMap[newRole] || newRole}(으)로 변경하시겠습니까?`)) return;
@@ -181,18 +215,21 @@ export function MemberAdmin() {
 
     setSavingMemberId(editingMember.id);
     try {
-      const response = await authFetch("/api/admin/members", {
-        method: "PATCH",
-        headers: {
-          "Content-Type": "application/json",
+      const { response, payload } = await authFetchJson<{ error?: string }>(
+        "/api/admin/members",
+        {
+          method: "PATCH",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({
+            userId: editingMember.id,
+            fullName: editName,
+            phoneNumber: normalizedPhone,
+          }),
         },
-        body: JSON.stringify({
-          userId: editingMember.id,
-          fullName: editName,
-          phoneNumber: normalizedPhone,
-        }),
-      });
-      const payload = (await response.json()) as { error?: string };
+        "회원 정보 수정 중 일시적인 오류가 발생했습니다."
+      );
 
       if (!response.ok) {
         throw new Error(payload.error || "회원 정보 수정에 실패했습니다.");
@@ -220,22 +257,28 @@ export function MemberAdmin() {
   };
 
   return (
-    <div className="flex flex-1 flex-col overflow-hidden bg-[#F8F9FA]">
+    <div className="flex flex-1 flex-col overflow-auto bg-[#F8F9FA]">
       <div className="px-8 py-6">
         <h1 className="text-[20px] font-bold text-[#191F28]">전체 회원 관리</h1>
       </div>
 
       <MemberFilters
         searchTerm={searchTerm}
-        setSearchTerm={setSearchTerm}
+        setSearchTerm={(value) => {
+          setSearchTerm(value);
+          setCurrentPage(1);
+        }}
         roleFilter={roleFilter}
-        setRoleFilter={setRoleFilter}
+        setRoleFilter={(value) => {
+          setRoleFilter(value);
+          setCurrentPage(1);
+        }}
         onSearch={fetchMembers}
         members={members}
       />
 
-      <div className="flex flex-1 flex-col overflow-hidden px-4 md:px-8">
-        <div className="flex flex-1 flex-col overflow-hidden rounded-2xl border border-[#F2F4F6] bg-white shadow-sm mb-4 md:mb-0">
+      <div className="px-4 pb-6 md:px-8">
+        <div className="overflow-hidden rounded-[14px] border border-[#E5E7EB] bg-white shadow-sm">
           <MemberTable
             members={members}
             loading={loading}
@@ -243,12 +286,23 @@ export function MemberAdmin() {
             onRoleChange={handleRoleChange}
             onEditMember={openEditModal}
             sortBy={sortBy}
-            setSortBy={setSortBy}
+            setSortBy={(value) => {
+              setSortBy(value);
+              setCurrentPage(1);
+            }}
             sortOrder={sortOrder}
-            setSortOrder={setSortOrder}
+            setSortOrder={(value) => {
+              setSortOrder(value);
+              setCurrentPage(1);
+            }}
           />
 
-          <MemberPagination currentPage={currentPage} totalCount={totalCount} pageSize={pageSize} onPageChange={setCurrentPage} />
+          <MasterTablePagination
+            totalItems={totalCount}
+            currentPage={visiblePage}
+            totalPages={totalPages}
+            onPageChange={setCurrentPage}
+          />
         </div>
       </div>
 

@@ -8,6 +8,7 @@ import {
 } from "@/lib/rfq";
 import { normalizeCurrencyCode } from "@/lib/currency";
 import { getPricingBySelection } from "@/app/estimate/_data/catalog";
+import { awardUserPoints, ensurePointSettings, spendUserPoints } from "./points";
 import { createServiceRoleClient, getProfileRole, requireServerUser, userOwnsManufacturer } from "./supabase";
 
 type SubmitRfqInput = {
@@ -29,13 +30,22 @@ type UpdateRfqInput = {
 };
 
 const ALLOWED_CLIENT_TRANSITIONS: Record<RfqRequestStatus, RfqRequestStatus[]> = {
-  pending: [],
-  reviewing: [],
-  quoted: [],
+  pending: ["request_cancelled"],
+  reviewing: ["payment_completed"],
+  payment_in_progress: ["payment_completed"],
+  payment_completed: [],
+  production_waiting: [],
+  production_started: [],
+  production_in_progress: [],
+  manufacturing_completed: [],
+  delivery_completed: ["fulfilled"],
+  quoted: ["payment_completed"],
   ordered: [],
   completed: ["fulfilled"],
+  request_cancelled: [],
   rejected: [],
   fulfilled: [],
+  refunded: [],
 };
 
 function requireTrimmed(value: string, label: string) {
@@ -51,15 +61,52 @@ function normalizeStringArray(value: string[] | undefined) {
 }
 
 function canManufacturerUpdateStatus(currentStatus: RfqRequestStatus, nextStatus: RfqRequestStatus) {
-  if (currentStatus === "fulfilled") {
+  if (currentStatus === "fulfilled" || currentStatus === "refunded" || currentStatus === "request_cancelled") {
     return false;
   }
 
   if (nextStatus === "fulfilled") {
-    return currentStatus === "completed";
+    return currentStatus === "delivery_completed" || currentStatus === "completed";
+  }
+
+  if (nextStatus === "refunded") {
+    return true;
+  }
+
+  if (nextStatus === "request_cancelled") {
+    return false;
   }
 
   return nextStatus !== currentStatus;
+}
+
+function canClientUpdateStatus(currentStatus: RfqRequestStatus, nextStatus: RfqRequestStatus) {
+  if (currentStatus === nextStatus) {
+    return true;
+  }
+
+  if (currentStatus === "fulfilled" || currentStatus === "refunded" || currentStatus === "rejected" || currentStatus === "request_cancelled") {
+    return false;
+  }
+
+  if (nextStatus === "payment_completed") {
+    return currentStatus === "reviewing" || currentStatus === "payment_in_progress" || currentStatus === "quoted";
+  }
+
+  return ALLOWED_CLIENT_TRANSITIONS[currentStatus]?.includes(nextStatus) ?? false;
+}
+
+function calculateCommissionSnapshot(totalPrice: number, commissionRatePercent: number) {
+  const safeTotal = Math.max(0, Number(totalPrice || 0));
+  const safeRate = Math.max(0, Math.min(100, Number(commissionRatePercent || 0)));
+  const commissionAmount = Number((safeTotal * (safeRate / 100)).toFixed(2));
+  const settlementAmount = Number((safeTotal - commissionAmount).toFixed(2));
+
+  return {
+    commissionRatePercent: safeRate,
+    commissionAmount,
+    settlementAmount,
+  };
 }
 
 export async function createRfqRequest(input: SubmitRfqInput, request?: Request) {
@@ -154,6 +201,32 @@ export async function createRfqRequest(input: SubmitRfqInput, request?: Request)
 
   const product = productResult.data;
   const container = containerResult.data;
+  const pointReason = `${manufacturerResult.data.name}:${product.name}`;
+  const pointClient = createServiceRoleClient();
+  const pointSettings = pointClient ? await ensurePointSettings(pointClient) : null;
+
+  if (role === "member") {
+    if (!pointClient) {
+      throw new Error("SERVER_CONFIG_MISSING");
+    }
+
+    const rfqRequestPointCost = pointSettings?.rfqRequestCostPoints || 5000;
+
+    const { data: wallet, error: walletError } = await pointClient
+      .from("user_point_wallets")
+      .select("balance")
+      .eq("user_id", user.id)
+      .maybeSingle();
+
+    if (walletError) {
+      throw new Error(walletError.message);
+    }
+
+    if (Number(wallet?.balance || 0) < rfqRequestPointCost) {
+      throw new Error("포인트가 부족합니다. 포인트 충전 후 다시 진행해 주세요.");
+    }
+  }
+
   const currencyCode = normalizeCurrencyCode(product.payment_currency || manufacturerResult.data.catalog_currency || "USD");
   if (container && normalizeCurrencyCode((container as { payment_currency?: string | null }).payment_currency || "USD") !== currencyCode) {
     throw new Error("상품과 결제통화가 다른 용기는 선택할 수 없습니다.");
@@ -223,6 +296,10 @@ export async function createRfqRequest(input: SubmitRfqInput, request?: Request)
     quantity,
     designPrice,
   });
+  const commissionSnapshot = calculateCommissionSnapshot(
+    pricing.totalPrice,
+    pointSettings?.commissionRatePercent || 3
+  );
 
   const reviewForm = input.reviewForm;
   const brandName = requireTrimmed(reviewForm.brandName, "브랜드명");
@@ -267,6 +344,10 @@ export async function createRfqRequest(input: SubmitRfqInput, request?: Request)
     quantity,
     unit_price: pricing.unitPrice,
     total_price: pricing.totalPrice,
+    commission_rate_percent: commissionSnapshot.commissionRatePercent,
+    commission_amount: commissionSnapshot.commissionAmount,
+    settlement_amount: commissionSnapshot.settlementAmount,
+    commission_locked_at: new Date().toISOString(),
     selection_snapshot: {
       manufacturer_id: manufacturerId,
       manufacturer_name: manufacturerResult.data.name,
@@ -297,6 +378,9 @@ export async function createRfqRequest(input: SubmitRfqInput, request?: Request)
           price: Number(item.price || 0),
         })),
         total_price: pricing.totalPrice,
+        commission_rate_percent: commissionSnapshot.commissionRatePercent,
+        commission_amount: commissionSnapshot.commissionAmount,
+        settlement_amount: commissionSnapshot.settlementAmount,
       },
       review_form: {
         brand_name: brandName,
@@ -314,6 +398,24 @@ export async function createRfqRequest(input: SubmitRfqInput, request?: Request)
   const { data, error } = await supabase.from("rfq_requests").insert(insertPayload).select("*").single();
   if (error) {
     throw new Error(error.message);
+  }
+
+  if (role === "member" && pointClient) {
+    try {
+      await spendUserPoints(pointClient, {
+        userId: user.id,
+        amount: pointSettings?.rfqRequestCostPoints || 5000,
+        reason: pointReason,
+        category: "manufacturing_request",
+        createdBy: user.id,
+      });
+    } catch (pointError) {
+      const { error: rollbackError } = await pointClient.from("rfq_requests").delete().eq("id", data.id).eq("client_id", user.id);
+      if (rollbackError) {
+        console.warn("Failed to rollback RFQ after point spend failure:", rollbackError.message);
+      }
+      throw pointError;
+    }
   }
 
   return data;
@@ -342,6 +444,62 @@ async function insertRfqAuditLog(
   return true;
 }
 
+async function refundRfqRequestPoints(params: {
+  requestId: string;
+  clientId: string;
+  manufacturerName: string;
+  productName: string;
+  createdBy: string;
+}) {
+  const admin = createServiceRoleClient();
+  if (!admin) {
+    throw new Error("SERVER_CONFIG_MISSING");
+  }
+
+  const refundReason = `${params.manufacturerName}:${params.productName}`;
+  const { data: spendRows, error: spendError } = await admin
+    .from("point_ledger")
+    .select("amount, created_at")
+    .eq("user_id", params.clientId)
+    .eq("category", "manufacturing_request")
+    .eq("reason", refundReason)
+    .order("created_at", { ascending: false })
+    .limit(1);
+
+  if (spendError) {
+    throw new Error(spendError.message);
+  }
+
+  const spentAmount = Math.abs(Number(spendRows?.[0]?.amount || 0));
+  if (spentAmount <= 0) {
+    return;
+  }
+
+  const { data: existingRefund, error: existingRefundError } = await admin
+    .from("point_ledger")
+    .select("id")
+    .eq("user_id", params.clientId)
+    .eq("category", "manufacturing_request_refund")
+    .eq("reason", refundReason)
+    .gte("created_at", spendRows?.[0]?.created_at || new Date(0).toISOString())
+    .maybeSingle();
+
+  if (existingRefundError) {
+    throw new Error(existingRefundError.message);
+  }
+  if (existingRefund) {
+    return;
+  }
+
+  await awardUserPoints(admin, {
+    userId: params.clientId,
+    amount: spentAmount,
+    reason: refundReason,
+    category: "manufacturing_request_refund",
+    createdBy: params.createdBy,
+  });
+}
+
 export async function updateRfqRequest(input: UpdateRfqInput, request?: Request) {
   const { supabase, user } = await requireServerUser(request);
   const role = await getProfileRole(supabase, user.id);
@@ -366,8 +524,8 @@ export async function updateRfqRequest(input: UpdateRfqInput, request?: Request)
     if (!isMaster && !isManufacturerOwner) {
       throw new Error("관리 메모를 수정할 수 없습니다.");
     }
-    if (rfqRequest.status === "fulfilled") {
-      throw new Error("구매 확정된 주문의 메모는 수정할 수 없습니다.");
+    if (rfqRequest.status === "fulfilled" || rfqRequest.status === "refunded" || rfqRequest.status === "request_cancelled") {
+      throw new Error("최종 처리된 주문의 메모는 수정할 수 없습니다.");
     }
 
     patch.admin_memo = input.adminMemo?.trim() || null;
@@ -379,8 +537,8 @@ export async function updateRfqRequest(input: UpdateRfqInput, request?: Request)
       return rfqRequest;
     }
 
-    if (rfqRequest.status === "fulfilled" && !isMaster) {
-      throw new Error("구매 확정된 주문 상태는 변경할 수 없습니다.");
+    if ((rfqRequest.status === "fulfilled" || rfqRequest.status === "refunded" || rfqRequest.status === "request_cancelled") && !isMaster) {
+      throw new Error("최종 처리된 주문 상태는 변경할 수 없습니다.");
     }
 
     if (isMaster) {
@@ -393,12 +551,31 @@ export async function updateRfqRequest(input: UpdateRfqInput, request?: Request)
       patch.status = input.status;
       eventType = "status_changed";
     } else if (isClient) {
-      if (!ALLOWED_CLIENT_TRANSITIONS[rfqRequest.status as RfqRequestStatus].includes(input.status)) {
+      if (!canClientUpdateStatus(rfqRequest.status as RfqRequestStatus, input.status)) {
+        console.warn("Invalid client RFQ transition", {
+          requestId: input.requestId,
+          currentStatus: rfqRequest.status,
+          nextStatus: input.status,
+          userId: user.id,
+        });
         throw new Error("의뢰자는 허용된 상태만 변경할 수 있습니다.");
       }
       patch.status = input.status;
       eventType = "status_changed";
     }
+  }
+
+  if (patch.status === "fulfilled" && !rfqRequest.commission_locked_at) {
+    const admin = createServiceRoleClient();
+    const pointSettings = admin ? await ensurePointSettings(admin) : null;
+    const snapshot = calculateCommissionSnapshot(
+      Number(rfqRequest.total_price || 0),
+      Number(rfqRequest.commission_rate_percent || pointSettings?.commissionRatePercent || 3)
+    );
+    patch.commission_rate_percent = snapshot.commissionRatePercent;
+    patch.commission_amount = snapshot.commissionAmount;
+    patch.settlement_amount = snapshot.settlementAmount;
+    patch.commission_locked_at = new Date().toISOString();
   }
 
   if (!Object.keys(patch).length) {
@@ -416,6 +593,16 @@ export async function updateRfqRequest(input: UpdateRfqInput, request?: Request)
     throw new Error(updateError.message);
   }
 
+  if (patch.status === "rejected" && rfqRequest.status !== "rejected") {
+    await refundRfqRequestPoints({
+      requestId: input.requestId,
+      clientId: rfqRequest.client_id,
+      manufacturerName: rfqRequest.manufacturer_name || "",
+      productName: rfqRequest.product_name || "",
+      createdBy: user.id,
+    });
+  }
+
   await insertRfqAuditLog(supabase, {
     rfq_request_id: input.requestId,
     actor_id: user.id,
@@ -425,6 +612,61 @@ export async function updateRfqRequest(input: UpdateRfqInput, request?: Request)
     next_status: (patch.status as string | undefined) || rfqRequest.status,
     previous_admin_memo: rfqRequest.admin_memo,
     next_admin_memo: typeof patch.admin_memo === "undefined" ? rfqRequest.admin_memo : ((patch.admin_memo as string | null) || null),
+  });
+
+  return updated;
+}
+
+export async function updateRfqClientPaymentStatus(
+  input: {
+    requestId: string;
+    status: Extract<RfqRequestStatus, "payment_completed">;
+  },
+  request?: Request
+) {
+  const { supabase, user } = await requireServerUser(request);
+
+  const { data: rfqRequest, error } = await supabase
+    .from("rfq_requests")
+    .select("*")
+    .eq("id", input.requestId)
+    .eq("client_id", user.id)
+    .maybeSingle();
+
+  if (error || !rfqRequest) {
+    throw new Error("주문 정보를 찾을 수 없습니다.");
+  }
+
+  if (rfqRequest.status !== "reviewing" && rfqRequest.status !== "payment_in_progress" && rfqRequest.status !== "quoted") {
+    throw new Error("제조사 승인 후 결제 대기 상태에서만 결제 완료 처리할 수 있습니다.");
+  }
+
+  if (rfqRequest.status === input.status) {
+    return rfqRequest;
+  }
+
+  const { data: updated, error: updateError } = await supabase
+    .from("rfq_requests")
+    .update({ status: input.status })
+    .eq("id", input.requestId)
+    .eq("client_id", user.id)
+    .select("*")
+    .single();
+
+  if (updateError) {
+    throw new Error(updateError.message);
+  }
+
+  const role = await getProfileRole(supabase, user.id);
+  await insertRfqAuditLog(supabase, {
+    rfq_request_id: input.requestId,
+    actor_id: user.id,
+    actor_role: role,
+    event_type: "client_payment_status_changed",
+    previous_status: rfqRequest.status,
+    next_status: input.status,
+    previous_admin_memo: rfqRequest.admin_memo,
+    next_admin_memo: rfqRequest.admin_memo,
   });
 
   return updated;

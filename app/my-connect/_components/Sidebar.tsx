@@ -3,7 +3,6 @@
 import {
   BadgeCheck,
   Banknote,
-  BellRing,
   BriefcaseBusiness,
   ChevronDown,
   ClipboardList,
@@ -16,7 +15,6 @@ import {
   PackageCheck,
   Settings,
   ShieldCheck,
-  Sparkles,
   UserRound,
 } from "lucide-react";
 import { useState } from "react";
@@ -36,7 +34,6 @@ interface SidebarGroup {
   children: SidebarLeafItem[];
   defaultOpen?: boolean;
 }
-const Emoji01 = () => <span>🏠</span>;
 const Emoji02 = () => <span>📝</span>;
 const Emoji03 = () => <span>🏭</span>;
 const Emoji04 = () => <span>💬</span>;
@@ -63,8 +60,7 @@ const CLIENT_GROUPS: SidebarGroup[] = [
     icon: Emoji03,
     defaultOpen: true,
     children: [
-      { id: "delivery", label: "요청 내역", icon: PackageCheck },
-      { id: "activity", label: "활동 로그", icon: BellRing },
+      { id: "delivery", label: "생산", icon: PackageCheck },
     ],
   },
   {
@@ -82,7 +78,10 @@ const CLIENT_GROUPS: SidebarGroup[] = [
     label: "거래 관리",
     icon: Emoji05,
     defaultOpen: true,
-    children: [{ id: "payment", label: "결제 내역", icon: Banknote }],
+    children: [
+      { id: "payment", label: "결제 내역", icon: Banknote },
+      { id: "refund-disputes", label: "환불/취소/분쟁", icon: ShieldCheck },
+    ],
   },
 ];
 
@@ -94,7 +93,7 @@ const MANUFACTURER_GROUPS: SidebarGroup[] = [
     defaultOpen: true,
     children: [
       { id: "rfq-inbox", label: "제조사 견적함", icon: FileText },
-      { id: "orders", label: "주문 관리", icon: BriefcaseBusiness },
+      { id: "orders", label: "수주 관리", icon: BriefcaseBusiness },
     ],
   },
   {
@@ -129,7 +128,10 @@ const MANUFACTURER_GROUPS: SidebarGroup[] = [
     label: "거래 관리",
     icon: Banknote,
     defaultOpen: true,
-    children: [{ id: "transactions", label: "거래 통계", icon: Banknote }],
+    children: [
+      { id: "transactions", label: "거래 통계", icon: Banknote },
+      { id: "trade-support", label: "거래 지원", icon: ShieldCheck },
+    ],
   },
 ];
 
@@ -169,8 +171,8 @@ export function Sidebar({ activeTab, displayName, isManufacturer, onTabChange, v
   const homeTab = viewMode === "manufacturer" ? "rfq-inbox" : "dashboard";
 
   return (
-    <aside className="flex h-full w-[248px] flex-shrink-0 flex-col border-r border-[#edf0f4] bg-white">
-      <div className="border-b border-[#edf0f4] bg-[#edf3ff] px-5 py-5">
+    <aside className="flex h-full min-h-0 w-[248px] flex-shrink-0 flex-col border-r border-[#edf0f4] bg-white">
+      <div className="flex-shrink-0 border-b border-[#edf0f4] bg-[#edf3ff] px-5 py-5">
         <div className="flex items-start gap-3">
           <div className="flex h-11 w-11 items-center justify-center rounded-full bg-[#2f6bff] text-white">
             <UserRound className="h-5 w-5" />
@@ -180,7 +182,7 @@ export function Sidebar({ activeTab, displayName, isManufacturer, onTabChange, v
             <p className="mt-1 truncate text-[14px] font-bold leading-6 text-[#2a3550]">{profileName}</p>
           </div>
         </div>
-        {/* 여기보세요 */}
+
         <div className="mt-3 flex flex-wrap items-center gap-2">
           <span className="rounded-full bg-[#2f6bff] px-3 py-1 text-[11px] font-semibold text-white">{profileTypeLabel}</span>
           <span className="inline-flex items-center gap-1 rounded-full bg-[#ddf7e8] px-3 py-1 text-[11px] font-semibold text-[#14904c]">
@@ -190,7 +192,7 @@ export function Sidebar({ activeTab, displayName, isManufacturer, onTabChange, v
         </div>
       </div>
 
-      <div className="px-4 pb-3 pt-4">
+      <div className="flex-shrink-0 px-4 pb-3 pt-4">
         <button
           type="button"
           onClick={() => onTabChange(homeTab)}
@@ -202,7 +204,7 @@ export function Sidebar({ activeTab, displayName, isManufacturer, onTabChange, v
         </button>
       </div>
 
-      <nav className="flex-1 overflow-y-auto px-3 pb-6">
+      <nav className="min-h-0 flex-1 overflow-y-auto px-3 pb-6 [scrollbar-width:none] [-ms-overflow-style:none] [&::-webkit-scrollbar]:hidden">
         {groups.map((group) => {
           const hasActiveChild = group.children.some((child) => child.id === activeTab);
           const isOpen = openGroups[group.id] ?? (hasActiveChild || group.defaultOpen === true);

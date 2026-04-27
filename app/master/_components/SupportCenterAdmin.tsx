@@ -5,7 +5,11 @@ import { SupportChatSystem } from "@/app/my-connect/_components/SupportChatSyste
 import { supabase } from "@/lib/supabase";
 import { MasterLoadingState } from "./MasterLoadingState";
 
-export function SupportCenterAdmin() {
+interface SupportCenterAdminProps {
+  initialRoomId?: string;
+}
+
+export function SupportCenterAdmin({ initialRoomId = "" }: SupportCenterAdminProps) {
   const [userId, setUserId] = useState("");
 
   useEffect(() => {
@@ -26,5 +30,5 @@ export function SupportCenterAdmin() {
     return <MasterLoadingState />;
   }
 
-  return <SupportChatSystem userId={userId} isMaster />;
+  return <SupportChatSystem userId={userId} isMaster initialRoomId={initialRoomId} />;
 }

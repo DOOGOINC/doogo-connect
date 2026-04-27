@@ -5,6 +5,7 @@ import { Search, X } from "lucide-react";
 import { authFetch } from "@/lib/client/auth-fetch";
 import { supabase } from "@/lib/supabase";
 import { MasterLoadingState } from "./MasterLoadingState";
+import { MasterTablePagination } from "./MasterTablePagination";
 
 type ProfileRow = {
   id: string;
@@ -50,6 +51,7 @@ const FILTERS: Array<{ id: RequesterFilter; label: string }> = [
   { id: "all", label: "전체" },
   { id: "active", label: "활성 회원(거래완료)" },
 ];
+const PAGE_SIZE = 10;
 
 function formatDate(value: string) {
   const date = new Date(value);
@@ -111,7 +113,7 @@ function getBanLabel(profile: Pick<ProfileRow, "ban_type" | "ban_expires_at">) {
   return null;
 }
 
-export function MasterRequesterManagement() {
+export function MasterRequesterManagement({ refreshKey = 0 }: { refreshKey?: number }) {
   const today = useMemo(() => new Date(), []);
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState("");
@@ -120,6 +122,7 @@ export function MasterRequesterManagement() {
   const [selectedRequester, setSelectedRequester] = useState<RequesterTableRow | null>(null);
   const [updatingBanAction, setUpdatingBanAction] = useState<BanAction | null>(null);
   const [banReasonInput, setBanReasonInput] = useState("");
+  const [currentPage, setCurrentPage] = useState(1);
   const [profiles, setProfiles] = useState<ProfileRow[]>([]);
   const [wallets, setWallets] = useState<WalletRow[]>([]);
   const [requests, setRequests] = useState<RequestRow[]>([]);
@@ -178,7 +181,7 @@ export function MasterRequesterManagement() {
     };
 
     void fetchData();
-  }, []);
+  }, [refreshKey]);
 
   const walletMap = useMemo(() => new Map(wallets.map((wallet) => [wallet.user_id, Number(wallet.balance || 0)])), [wallets]);
 
@@ -225,6 +228,13 @@ export function MasterRequesterManagement() {
       return [requester.name, requester.email].some((value) => value.toLowerCase().includes(normalizedSearch));
     });
   }, [activeFilter, requesters, searchTerm]);
+
+  const totalPages = Math.max(1, Math.ceil(filteredRequesters.length / PAGE_SIZE));
+  const visiblePage = Math.min(currentPage, totalPages);
+  const paginatedRequesters = useMemo(() => {
+    const startIndex = (visiblePage - 1) * PAGE_SIZE;
+    return filteredRequesters.slice(startIndex, startIndex + PAGE_SIZE);
+  }, [filteredRequesters, visiblePage]);
 
   const summary = useMemo(() => {
     const currentMonthCount = requesters.filter((requester) => {
@@ -381,7 +391,10 @@ export function MasterRequesterManagement() {
                 <button
                   key={filter.id}
                   type="button"
-                  onClick={() => setActiveFilter(filter.id)}
+                  onClick={() => {
+                    setActiveFilter(filter.id);
+                    setCurrentPage(1);
+                  }}
                   className={`rounded-full px-4 py-2 text-[14px] font-bold transition ${isActive ? "bg-[#2F6BFF] text-white" : "border border-[#E3E8EF] bg-white text-[#667085]"
                     }`}
                 >
@@ -396,7 +409,10 @@ export function MasterRequesterManagement() {
             <input
               type="text"
               value={searchTerm}
-              onChange={(event) => setSearchTerm(event.target.value)}
+              onChange={(event) => {
+                setSearchTerm(event.target.value);
+                setCurrentPage(1);
+              }}
               placeholder="이름·이메일 검색..."
               className="h-[42px] w-full rounded-full border border-[#E5EAF0] bg-white pl-11 pr-4 text-[14px] font-medium text-[#344054] outline-none placeholder:text-[#98A2B3]"
             />
@@ -429,7 +445,7 @@ export function MasterRequesterManagement() {
                     </td>
                   </tr>
                 ) : (
-                  filteredRequesters.map((requester) => (
+                  paginatedRequesters.map((requester) => (
                     <tr key={requester.id} className="border-b border-[#F2F5F8] last:border-b-0">
                       <td className="px-4 py-3 text-[14px] font-bold text-[#344054]">{requester.name}</td>
                       <td className="px-4 py-3 text-[12px] text-[#344054]">{requester.email}</td>
@@ -463,6 +479,12 @@ export function MasterRequesterManagement() {
               </tbody>
             </table>
           </div>
+          <MasterTablePagination
+            totalItems={filteredRequesters.length}
+            currentPage={visiblePage}
+            totalPages={totalPages}
+            onPageChange={setCurrentPage}
+          />
         </section>
       </div>
 

@@ -26,7 +26,7 @@ export function ChatRoomSidebar({
   onFilterChange,
   onSearchChange,
   onRoomSelect,
-  title = "제조사 채팅",
+  title = "1:1 대화",
   searchPlaceholder = "채팅 검색...",
   emptyLabel = "표시할 채팅방이 없습니다.",
   showActiveFilter = false,
@@ -51,26 +51,23 @@ export function ChatRoomSidebar({
         <div className="mb-4 flex gap-2">
           <button
             onClick={() => onFilterChange("all")}
-            className={`rounded-full px-3 py-1.5 text-xs font-semibold ${
-              roomFilter === "all" ? "bg-gray-100 text-gray-700" : "text-gray-500 hover:bg-gray-100"
-            }`}
+            className={`rounded-full px-3 py-1.5 text-xs font-semibold ${roomFilter === "all" ? "bg-gray-100 text-gray-700" : "text-gray-500 hover:bg-gray-100"
+              }`}
           >
             전체
           </button>
           <button
             onClick={() => onFilterChange("unread")}
-            className={`rounded-full px-3 py-1.5 text-xs font-semibold ${
-              roomFilter === "unread" ? "bg-gray-100 text-gray-700" : "text-gray-500 hover:bg-gray-100"
-            }`}
+            className={`rounded-full px-3 py-1.5 text-xs font-semibold ${roomFilter === "unread" ? "bg-gray-100 text-gray-700" : "text-gray-500 hover:bg-gray-100"
+              }`}
           >
             읽지 않음
           </button>
           {showActiveFilter ? (
             <button
               onClick={() => onFilterChange("active")}
-              className={`rounded-full px-3 py-1.5 text-xs font-semibold ${
-                roomFilter === "active" ? "bg-gray-100 text-gray-700" : "text-gray-500 hover:bg-gray-100"
-              }`}
+              className={`rounded-full px-3 py-1.5 text-xs font-semibold ${roomFilter === "active" ? "bg-gray-100 text-gray-700" : "text-gray-500 hover:bg-gray-100"
+                }`}
             >
               접속 중
             </button>
@@ -95,9 +92,8 @@ export function ChatRoomSidebar({
           <button
             key={room.id}
             onClick={() => onRoomSelect(room.id)}
-            className={`flex w-full items-center gap-3 border-b border-gray-50 px-5 py-4 transition-colors ${
-              selectedRoomId === room.id ? "bg-blue-50" : "hover:bg-gray-50"
-            }`}
+            className={`flex w-full items-center gap-3 border-b border-gray-50 px-5 py-4 transition-colors ${selectedRoomId === room.id ? "bg-blue-50" : "hover:bg-gray-50"
+              }`}
           >
             <div className="relative shrink-0">
               <div className="h-12 w-12 overflow-hidden rounded-full border border-gray-200 bg-gray-100">

@@ -6,9 +6,7 @@
 
 :root {
   --font-pretendard: "Pretendard Variable", Pretendard, -apple-system, BlinkMacSystemFont, system-ui, Roboto, "Helvetica Neue", "Segoe UI", "Apple SD Gothic Neo", "Noto Sans KR", "Malgun Gothic", "Apple Color Emoji", "Segoe UI Emoji", "Segoe UI Symbol", sans-serif;
-  --background: #f4efe6;
   --foreground: #14212b;
-  --surface-base: #f4efe6;
   --surface-card: #fffaf2;
   --surface-muted: #e5ddd1;
   --brand-deep: #183b4e;
@@ -24,12 +22,17 @@
   --color-foreground: var(--foreground);
   --font-sans: var(--font-geist-sans);
   --font-mono: var(--font-geist-mono);
-  
+
   --animate-marquee-left: marquee-left 30s linear infinite;
 
   @keyframes marquee-left {
-    from { transform: translateX(0); }
-    to { transform: translateX(-50%); }
+    from {
+      transform: translateX(0);
+    }
+
+    to {
+      transform: translateX(-50%);
+    }
   }
 }
 
@@ -87,8 +90,13 @@ textarea {
 /* app/globals.css 맨 아래에 추가 */
 
 @keyframes marquee {
-  0% { transform: translateX(0%); }
-  100% { transform: translateX(-50%); }
+  0% {
+    transform: translateX(0%);
+  }
+
+  100% {
+    transform: translateX(-50%);
+  }
 }
 
 .animate-marquee {

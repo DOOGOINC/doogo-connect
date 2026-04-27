@@ -1,6 +1,6 @@
 "use client";
 
-import { ChevronLeft, ChevronRight } from "lucide-react";
+import { useMemo } from "react";
 
 interface Props {
   currentPage: number;
@@ -10,49 +10,50 @@ interface Props {
 }
 
 export function MemberPagination({ currentPage, totalCount, pageSize, onPageChange }: Props) {
-  const totalPages = Math.ceil(totalCount / pageSize);
+  const totalPages = Math.max(1, Math.ceil(totalCount / pageSize));
+  const pageNumbers = useMemo(() => {
+    const start = Math.max(1, currentPage - 2);
+    const end = Math.min(totalPages, start + 4);
+    const adjustedStart = Math.max(1, end - 4);
+
+    return Array.from({ length: end - adjustedStart + 1 }, (_, index) => adjustedStart + index);
+  }, [currentPage, totalPages]);
+
   if (totalPages <= 1) return null;
 
-  const startIdx = (currentPage - 1) * pageSize + 1;
-  const endIdx = Math.min(currentPage * pageSize, totalCount);
-
   return (
-    <div className="px-6 py-4 bg-[#F9FAFB] border-t border-[#F2F4F6] flex items-center justify-between">
-      <p className="text-xs font-medium text-[#8B95A1]">
-        총 <span className="text-[#4E5968]">{totalCount}</span>명 중 {startIdx}-{endIdx} 표시
+    <div className="flex flex-col gap-3 border-t border-[#F2F4F7] px-4 py-3 sm:flex-row sm:items-center sm:justify-between">
+      <p className="text-[12px] font-semibold text-[#6B7280]">
+        총 {totalCount.toLocaleString()}건 · {currentPage}/{totalPages}페이지
       </p>
-
       <div className="flex items-center gap-1">
         <button
-          onClick={() => onPageChange(currentPage - 1)}
+          type="button"
+          onClick={() => onPageChange(Math.max(1, currentPage - 1))}
           disabled={currentPage === 1}
-          className="p-1.5 rounded-lg border border-[#E5E8EB] bg-white text-[#4E5968] disabled:opacity-30 disabled:cursor-not-allowed hover:bg-gray-50 transition-all"
+          className="h-8 rounded-full border border-[#E5E7EB] px-3 text-[12px] font-bold text-[#4B5563] transition hover:bg-[#F9FAFB] disabled:cursor-not-allowed disabled:opacity-40"
         >
-          <ChevronLeft className="w-4 h-4" />
+          이전
         </button>
-
-        <div className="flex items-center gap-1 px-2">
-          {Array.from({ length: totalPages }, (_, i) => i + 1).map((page) => (
-            <button
-              key={page}
-              onClick={() => onPageChange(page)}
-              className={`min-w-[32px] h-8 rounded-lg text-xs font-bold transition-all ${
-                currentPage === page 
-                  ? "bg-[#0064FF] text-white" 
-                  : "text-[#4E5968] hover:bg-gray-100"
-              }`}
-            >
-              {page}
-            </button>
-          ))}
-        </div>
-
+        {pageNumbers.map((page) => (
+          <button
+            key={page}
+            type="button"
+            onClick={() => onPageChange(page)}
+            className={`h-8 min-w-8 rounded-full px-3 text-[12px] font-bold transition ${
+              currentPage === page ? "bg-[#2563EB] text-white" : "border border-[#E5E7EB] text-[#4B5563] hover:bg-[#F9FAFB]"
+            }`}
+          >
+            {page}
+          </button>
+        ))}
         <button
-          onClick={() => onPageChange(currentPage + 1)}
+          type="button"
+          onClick={() => onPageChange(Math.min(totalPages, currentPage + 1))}
           disabled={currentPage === totalPages}
-          className="p-1.5 rounded-lg border border-[#E5E8EB] bg-white text-[#4E5968] disabled:opacity-30 disabled:cursor-not-allowed hover:bg-gray-50 transition-all"
+          className="h-8 rounded-full border border-[#E5E7EB] px-3 text-[12px] font-bold text-[#4B5563] transition hover:bg-[#F9FAFB] disabled:cursor-not-allowed disabled:opacity-40"
         >
-          <ChevronRight className="w-4 h-4" />
+          다음
         </button>
       </div>
     </div>

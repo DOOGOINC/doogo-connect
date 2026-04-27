@@ -9,20 +9,24 @@ interface ProductionManagementProps {
   onStatusChange: (requestId: string, status: RfqRequestStatus) => Promise<void>;
 }
 
-type ProductionTab = "reviewing" | "waiting" | "in-progress" | "completed";
+type ProductionTab = "payment-confirm" | "waiting" | "started" | "in-progress" | "completed" | "delivery-completed";
 
 const PRODUCTION_TABS: Array<{ id: ProductionTab; label: string }> = [
-  { id: "reviewing", label: "제조사 확인" },
-  { id: "waiting", label: "제조 대기" },
-  { id: "in-progress", label: "제조 진행" },
+  { id: "payment-confirm", label: "결제 확인" },
+  { id: "waiting", label: "생산 대기" },
+  { id: "started", label: "제조 시작" },
+  { id: "in-progress", label: "제조 진행중" },
   { id: "completed", label: "제조 완료" },
+  { id: "delivery-completed", label: "납품 완료" },
 ];
 
 const PRODUCTION_STATUS_MAP: Record<ProductionTab, RfqRequestStatus[]> = {
-  reviewing: ["reviewing"],
-  waiting: ["quoted"],
-  "in-progress": ["ordered"],
-  completed: ["completed"],
+  "payment-confirm": ["payment_completed"],
+  waiting: ["production_waiting", "quoted"],
+  started: ["production_started", "ordered"],
+  "in-progress": ["production_in_progress"],
+  completed: ["manufacturing_completed", "completed"],
+  "delivery-completed": ["delivery_completed"],
 };
 
 const formatIsoDate = (value: string) => {
@@ -35,12 +39,22 @@ const getOrderNumberLabel = (request: RfqRequestRow) => getDisplayOrderNumber(re
 const getProgress = (status: RfqRequestStatus) => {
   switch (status) {
     case "fulfilled":
-    case "completed":
       return 100;
+    case "delivery_completed":
+      return 95;
+    case "manufacturing_completed":
+    case "completed":
+      return 85;
+    case "production_in_progress":
+      return 70;
+    case "production_started":
     case "ordered":
-      return 65;
+      return 55;
+    case "production_waiting":
     case "quoted":
-      return 35;
+      return 40;
+    case "payment_completed":
+      return 25;
     case "reviewing":
       return 15;
     default:
@@ -49,7 +63,7 @@ const getProgress = (status: RfqRequestStatus) => {
 };
 
 export function ProductionManagement({ requests, onStatusChange }: ProductionManagementProps) {
-  const [activeTab, setActiveTab] = useState<ProductionTab>("reviewing");
+  const [activeTab, setActiveTab] = useState<ProductionTab>("payment-confirm");
   const [selectedRequest, setSelectedRequest] = useState<RfqRequestRow | null>(null);
   const [updatingId, setUpdatingId] = useState<string | null>(null);
 
@@ -65,7 +79,7 @@ export function ProductionManagement({ requests, onStatusChange }: ProductionMan
           acc[tab.id] = productionRequests.filter((request) => PRODUCTION_STATUS_MAP[tab.id].includes(request.status)).length;
           return acc;
         },
-        { reviewing: 0, waiting: 0, "in-progress": 0, completed: 0 }
+        { "payment-confirm": 0, waiting: 0, started: 0, "in-progress": 0, completed: 0, "delivery-completed": 0 }
       ),
     [productionRequests]
   );
@@ -85,19 +99,27 @@ export function ProductionManagement({ requests, onStatusChange }: ProductionMan
   };
 
   const handleMoveToWaiting = async (requestId: string) => {
-    await updateStatus(requestId, "quoted");
+    await updateStatus(requestId, "production_waiting");
   };
 
   const handleStartProduction = async (requestId: string) => {
-    await updateStatus(requestId, "ordered");
+    await updateStatus(requestId, "production_started");
+  };
+
+  const handleMoveToInProgress = async (requestId: string) => {
+    await updateStatus(requestId, "production_in_progress");
   };
 
   const handleCompleteProduction = async (requestId: string) => {
-    await updateStatus(requestId, "completed");
+    await updateStatus(requestId, "manufacturing_completed");
+  };
+
+  const handleCompleteDelivery = async (requestId: string) => {
+    await updateStatus(requestId, "delivery_completed");
   };
 
   const handleMoveToWarehouse = async (requestId: string) => {
-    const shouldConfirm = window.confirm("배대지 이동 및 구매 확정 처리하시겠습니까?");
+    const shouldConfirm = window.confirm("거래 완료 처리하시겠습니까?");
     if (!shouldConfirm) return;
 
     await updateStatus(requestId, "fulfilled");
@@ -110,10 +132,12 @@ export function ProductionManagement({ requests, onStatusChange }: ProductionMan
           <div>
             <h2 className="text-[24px] font-bold tracking-tight text-[#1f2937] lg:text-[26px]">제조 관리</h2>
             <p className="mt-1.5 text-[14px] text-[#667085] lg:text-[15px]">
-              {activeTab === "reviewing" && "승인된 요청을 제조사 확인 단계에서 먼저 검토합니다."}
-              {activeTab === "waiting" && "제조 대기 상태로 넘어간 주문입니다."}
+              {activeTab === "payment-confirm" && "의뢰자가 결제를 완료한 주문을 제조사가 수기로 확인합니다."}
+              {activeTab === "waiting" && "생산 대기 상태의 주문입니다."}
+              {activeTab === "started" && "제조 시작 처리된 주문입니다."}
               {activeTab === "in-progress" && "현재 제조가 진행 중인 주문입니다."}
               {activeTab === "completed" && "제조가 완료된 주문입니다."}
+              {activeTab === "delivery-completed" && "납품 완료 후 거래 완료 대기 중인 주문입니다."}
             </p>
           </div>
 
@@ -125,9 +149,8 @@ export function ProductionManagement({ requests, onStatusChange }: ProductionMan
                   key={tab.id}
                   type="button"
                   onClick={() => setActiveTab(tab.id)}
-                  className={`rounded-[12px] px-4 py-2.5 text-[13px] font-semibold transition lg:px-5 lg:text-[14px] ${
-                    isActive ? "bg-[#0f172a] text-white" : "text-[#475467] hover:bg-[#f2f4f7]"
-                  }`}
+                  className={`rounded-[12px] px-4 py-2.5 text-[13px] font-semibold transition lg:px-5 lg:text-[14px] ${isActive ? "bg-[#0f172a] text-white" : "text-[#475467] hover:bg-[#f2f4f7]"
+                    }`}
                 >
                   {tab.label}
                   <span className={`ml-2 ${isActive ? "text-white/80" : "text-[#98a2b3]"}`}>{counts[tab.id]}</span>
@@ -150,11 +173,9 @@ export function ProductionManagement({ requests, onStatusChange }: ProductionMan
                     <div className="flex flex-col gap-4 xl:flex-row xl:items-start xl:justify-between">
                       <div className="min-w-0 flex-1">
                         <div className="flex flex-wrap items-center gap-2">
-                          <span className="rounded-[10px] bg-[#f8fafc] px-3 py-1.5 text-[12px] font-semibold text-[#64748b]">
-                            RFQ {request.request_number}
+                          <span className="rounded-[10px] bg-[#f8fafc] px-3 py-1.5 text-[12px] font-semibold text-[#64748b]">{request.request_number}
                           </span>
-                          <span className="rounded-[10px] bg-[#eef4ff] px-3 py-1.5 text-[12px] font-semibold text-[#2563eb]">
-                            주문 {getOrderNumberLabel(request)}
+                          <span className="rounded-[10px] bg-[#eef4ff] px-3 py-1.5 text-[12px] font-semibold text-[#2563eb]">{getOrderNumberLabel(request)}
                           </span>
                           <span className="rounded-full bg-[#fff1b8] px-3 py-1 text-[12px] font-semibold text-[#b7791f]">
                             {currentTabLabel}
@@ -185,14 +206,14 @@ export function ProductionManagement({ requests, onStatusChange }: ProductionMan
                           <Eye className="h-4 w-4" />
                           상세
                         </button>
-                        {activeTab === "reviewing" && (
+                        {activeTab === "payment-confirm" && (
                           <button
                             type="button"
                             disabled={updatingId === request.id}
                             onClick={() => void handleMoveToWaiting(request.id)}
                             className="inline-flex h-11 items-center justify-center rounded-[14px] bg-[#475467] px-4 text-[14px] font-semibold text-white shadow-sm transition hover:bg-[#344054] disabled:cursor-not-allowed disabled:bg-[#98a2b3]"
                           >
-                            {updatingId === request.id ? "처리 중..." : "제조 대기로 이동"}
+                            {updatingId === request.id ? "처리 중..." : "생산 대기로 이동"}
                           </button>
                         )}
                         {activeTab === "waiting" && (
@@ -203,6 +224,16 @@ export function ProductionManagement({ requests, onStatusChange }: ProductionMan
                             className="inline-flex h-11 items-center justify-center rounded-[14px] bg-[#2563eb] px-4 text-[14px] font-semibold text-white shadow-sm transition hover:bg-[#1d4ed8] disabled:cursor-not-allowed disabled:bg-[#93c5fd]"
                           >
                             {updatingId === request.id ? "처리 중..." : "제조 시작"}
+                          </button>
+                        )}
+                        {activeTab === "started" && (
+                          <button
+                            type="button"
+                            disabled={updatingId === request.id}
+                            onClick={() => void handleMoveToInProgress(request.id)}
+                            className="inline-flex h-11 items-center justify-center rounded-[14px] bg-[#0891b2] px-4 text-[14px] font-semibold text-white shadow-sm transition hover:bg-[#0e7490] disabled:cursor-not-allowed disabled:bg-[#67e8f9]"
+                          >
+                            {updatingId === request.id ? "처리 중..." : "제조 진행중으로 이동"}
                           </button>
                         )}
                         {activeTab === "in-progress" && (
@@ -219,10 +250,20 @@ export function ProductionManagement({ requests, onStatusChange }: ProductionMan
                           <button
                             type="button"
                             disabled={updatingId === request.id}
+                            onClick={() => void handleCompleteDelivery(request.id)}
+                            className="inline-flex h-11 items-center justify-center rounded-[14px] bg-[#0f766e] px-4 text-[14px] font-semibold text-white shadow-sm transition hover:bg-[#115e59] disabled:cursor-not-allowed disabled:bg-[#99f6e4]"
+                          >
+                            {updatingId === request.id ? "처리 중..." : "납품 완료"}
+                          </button>
+                        )}
+                        {activeTab === "delivery-completed" && (
+                          <button
+                            type="button"
+                            disabled={updatingId === request.id}
                             onClick={() => void handleMoveToWarehouse(request.id)}
                             className="inline-flex h-11 items-center justify-center rounded-[14px] bg-[#0f766e] px-4 text-[14px] font-semibold text-white shadow-sm transition hover:bg-[#115e59] disabled:cursor-not-allowed disabled:bg-[#99f6e4]"
                           >
-                            {updatingId === request.id ? "처리 중..." : "배대지 이동"}
+                            {updatingId === request.id ? "처리 중..." : "거래 완료"}
                           </button>
                         )}
                       </div>

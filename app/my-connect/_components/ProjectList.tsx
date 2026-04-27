@@ -31,9 +31,16 @@ export function ProjectList({
   showCreateButton = true,
   statusOptions = [
     { value: "pending", label: "접수 완료" },
-    { value: "reviewing", label: "제조사 확인" },
+    { value: "reviewing", label: "결제 대기" },
+    { value: "payment_completed", label: "결제 완료" },
+    { value: "production_waiting", label: "생산 대기" },
+    { value: "production_started", label: "제조 시작" },
+    { value: "production_in_progress", label: "제조 진행중" },
+    { value: "manufacturing_completed", label: "제조 완료" },
+    { value: "delivery_completed", label: "납품 완료" },
     { value: "ordered", label: "제조 시작" },
     { value: "completed", label: "제조 완료" },
+    { value: "request_cancelled", label: "요청취소" },
     { value: "rejected", label: "거절" },
   ],
   statusLabelOverrides,
@@ -72,23 +79,7 @@ export function ProjectList({
             />
           </div>
 
-          <div className="flex gap-2">
-            <div className="relative w-24">
-              <select
-                value={statusFilter}
-                onChange={(e) => setStatusFilter(e.target.value)}
-                className="w-full cursor-pointer appearance-none rounded-lg border border-gray-200 bg-white px-2.5 py-1.5 pr-7 text-xs font-medium text-gray-700 focus:outline-none"
-              >
-                <option value="all">전체</option>
-                {statusOptions.map((option) => (
-                  <option key={option.value} value={option.value}>
-                    {option.label}
-                  </option>
-                ))}
-              </select>
-              <ChevronDown className="pointer-events-none absolute right-2 top-1/2 h-3 w-3 -translate-y-1/2 text-gray-400" />
-            </div>
-          </div>
+
         </div>
       </div>
 
@@ -101,9 +92,8 @@ export function ProjectList({
               <button
                 key={request.id}
                 onClick={() => onRequestSelect?.(request.id)}
-                className={`w-full border-b border-gray-100 px-4 py-4 text-left transition-colors ${
-                  isActive ? "border-l-2 border-l-[#0064FF] bg-blue-50" : "border-l-2 border-l-transparent hover:bg-gray-50"
-                }`}
+                className={`w-full border-b border-gray-100 px-4 py-4 text-left transition-colors ${isActive ? "border-l-2 border-l-[#0064FF] bg-blue-50" : "border-l-2 border-l-transparent hover:bg-gray-50"
+                  }`}
               >
                 <div className="flex items-start gap-3">
                   <div className="relative h-10 w-10 flex-shrink-0 overflow-hidden rounded-lg border border-gray-200 bg-gray-100">
@@ -116,9 +106,8 @@ export function ProjectList({
 
                     <div className="mt-1.5 flex items-center gap-2">
                       <span
-                        className={`rounded-full px-1.5 py-0.5 text-[10px] font-semibold ${
-                          isActive ? "bg-white text-[#0064FF]" : "bg-blue-50 text-[#0064FF]"
-                        }`}
+                        className={`rounded-full px-1.5 py-0.5 text-[10px] font-semibold ${isActive ? "bg-white text-[#0064FF]" : "bg-blue-50 text-[#0064FF]"
+                          }`}
                       >
                         {statusLabelOverrides?.[request.status] ?? RFQ_STATUS_LABELS[request.status]}
                       </span>

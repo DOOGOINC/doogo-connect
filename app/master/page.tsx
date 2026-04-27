@@ -5,10 +5,14 @@ import { ManufacturerAdmin } from "./_components/ManufacturerAdmin";
 import { MasterBlockedMembers } from "./_components/MasterBlockedMembers";
 import { MasterCommunicationHub } from "./_components/MasterCommunicationHub";
 import { MasterDashboard } from "./_components/MasterDashboard";
+import { MasterDisputeCenter } from "./_components/MasterDisputeCenter";
 import { MasterManufacturingRequests } from "./_components/MasterManufacturingRequests";
 import { MasterProductionManagement } from "./_components/MasterProductionManagement";
 import { MasterRequesterManagement } from "./_components/MasterRequesterManagement";
+import { MasterPartnerManagement } from "./_components/MasterPartnerManagement";
 import { MasterSidebar } from "./_components/MasterSidebar";
+import { MasterSettingsAdmin } from "./_components/MasterSettingsAdmin";
+import { MasterTransactionManagement } from "./_components/MasterTransactionManagement";
 import { MemberAdmin } from "./_components/MemberAdmin";
 import { PointSettingsAdmin } from "./_components/PointSettingsAdmin";
 import { SupportCenterAdmin } from "./_components/SupportCenterAdmin";
@@ -23,11 +27,16 @@ const COPY = {
 
 export default function MasterDashboardPage() {
   const [activeTab, setActiveTab] = useState("dashboard");
+  const [supportInitialRoomId, setSupportInitialRoomId] = useState("");
+  const openSupportRoom = (roomId: string) => {
+    setSupportInitialRoomId(roomId);
+    setActiveTab("support");
+  };
 
   const renderContent = () => {
     switch (activeTab) {
       case "dashboard":
-        return <MasterDashboard />;
+        return <MasterDashboard onOpenDisputeCenter={() => setActiveTab("dispute-center")} />;
       case "manufacturing-requests":
         return <MasterManufacturingRequests />;
       case "production-management":
@@ -40,6 +49,8 @@ export default function MasterDashboardPage() {
         return <MasterRequesterManagement />;
       case "blocked-members":
         return <MasterBlockedMembers />;
+      case "dispute-center":
+        return <MasterDisputeCenter onOpenSupportRoom={openSupportRoom} />;
       case "communication":
         return <MasterCommunicationHub />;
       case "partner-requests":
@@ -48,8 +59,14 @@ export default function MasterDashboardPage() {
         return <MasterCommunicationHub initialSection="support-inquiries" />;
       case "point-settings":
         return <PointSettingsAdmin />;
+      case "transaction-management":
+        return <MasterTransactionManagement />;
+      case "partner-management":
+        return <MasterPartnerManagement />;
+      case "settings":
+        return <MasterSettingsAdmin />;
       case "support":
-        return <SupportCenterAdmin />;
+        return <SupportCenterAdmin initialRoomId={supportInitialRoomId} />;
       default:
         return (
           <div className="flex flex-1 items-center justify-center bg-[#F8F9FA] font-medium text-gray-500">
@@ -61,7 +78,7 @@ export default function MasterDashboardPage() {
 
   return (
     <div className="flex min-h-screen flex-col bg-white">
-      <main className="flex h-screen flex-1 overflow-hidden border-t border-slate-100">
+      <main className="flex min-h-screen flex-1 border-t border-slate-100">
         <MasterSidebar activeTab={activeTab} onTabChange={setActiveTab} />
         {renderContent()}
       </main>

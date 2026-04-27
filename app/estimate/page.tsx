@@ -4,7 +4,7 @@ import { Suspense, startTransition, useEffect, useState } from "react";
 import { CheckCircle2, ChevronLeft, ChevronRight } from "lucide-react";
 import { AuthModal } from "@/components/AuthModal";
 import { authFetch } from "@/lib/client/auth-fetch";
-import { DEFAULT_REVIEW_FORM_VALUES, type ReviewFormValues } from "@/lib/rfq";
+import { DEFAULT_REVIEW_FORM_VALUES, type ReviewFormValues, type RfqRequestRow } from "@/lib/rfq";
 import { supabase } from "@/lib/supabase";
 import { FooterBar } from "./_components/FooterBar";
 import { Step1Manufacturer } from "./_components/Step1Manufacturer";
@@ -25,6 +25,9 @@ function EstimatePageContent() {
   const [isLoadingAuth, setIsLoadingAuth] = useState(true);
   const [isSubmittingOrder, setIsSubmittingOrder] = useState(false);
   const [reviewForm, setReviewForm] = useState<ReviewFormValues>(DEFAULT_REVIEW_FORM_VALUES);
+  const [submittedRfq, setSubmittedRfq] = useState<Pick<RfqRequestRow, "request_number" | "order_number"> | null>(null);
+  const [pointBalance, setPointBalance] = useState(0);
+  const [rfqRequestPointCost, setRfqRequestPointCost] = useState(5000);
 
   useEffect(() => {
     const initializeSession = async () => {
@@ -55,6 +58,16 @@ function EstimatePageContent() {
         contactEmail: prev.contactEmail || profile?.email || session.user.email || "",
         contactPhone: prev.contactPhone || profile?.phone_number || session.user.user_metadata?.phone_number || "",
       }));
+
+      const pointResponse = await authFetch("/api/points/summary");
+      const pointPayload = (await pointResponse.json()) as {
+        wallet?: { balance?: number };
+        rfqRequestCostPoints?: number;
+      } & { error?: string };
+      if (pointResponse.ok) {
+        setPointBalance(Number(pointPayload.wallet?.balance || 0));
+        setRfqRequestPointCost(Number(pointPayload.rfqRequestCostPoints || 5000));
+      }
       setIsLoadingAuth(false);
     };
 
@@ -122,11 +135,20 @@ function EstimatePageContent() {
 
     setIsSubmittingOrder(false);
 
-    const payload = (await response.json()) as { error?: string };
+    const payload = (await response.json()) as { error?: string; data?: RfqRequestRow };
     if (!response.ok) {
       alert(`견적 요청 접수에 실패했습니다: ${payload.error || "알 수 없는 오류"}`);
       return;
     }
+
+    setSubmittedRfq(
+      payload.data
+        ? {
+          request_number: payload.data.request_number,
+          order_number: payload.data.order_number,
+        }
+        : null
+    );
 
     startTransition(() => {
       est.setCurrentStep(6);
@@ -223,6 +245,7 @@ function EstimatePageContent() {
               designExtras={est.designExtras}
               est={est}
               reviewForm={reviewForm}
+              rfqRequest={submittedRfq}
               onReset={est.resetSelection}
             />
           ) : (
@@ -288,6 +311,8 @@ function EstimatePageContent() {
                     onReset={est.resetSelection}
                     reviewForm={reviewForm}
                     onReviewFormChange={handleReviewFormChange}
+                    pointBalance={pointBalance}
+                    pointCost={rfqRequestPointCost}
                   />
                 ) : null}
 
@@ -312,7 +337,7 @@ function EstimatePageContent() {
                     }
                     className="flex h-14 flex-1 items-center justify-center gap-2 rounded-[16px] bg-[#0052cc] px-8 text-[18px] font-bold text-white transition-all hover:bg-[#0747a6] disabled:bg-[#e5e8eb] disabled:text-[#adb5bd]"
                   >
-                    {isSubmittingOrder ? "저장 중..." : est.currentStep === 5 ? "⚡ 5,000P 사용 · 견적 접수하기" : (
+                    {isSubmittingOrder ? "접수중..." : est.currentStep === 5 ? `⚡ ${rfqRequestPointCost.toLocaleString()}P 사용 · 견적 접수하기` : (
                       <>
                         다음 단계
                         <ChevronRight className="h-5 w-5" />

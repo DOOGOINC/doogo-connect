@@ -2,6 +2,7 @@ import { mapRouteError, ok } from "@/lib/server/http";
 import { requireMasterUser } from "@/lib/server/supabase";
 
 type BanAction = "7d" | "30d" | "permanent";
+type MemberBanAction = BanAction | "unban";
 
 function getBanPatch(action: BanAction) {
   const now = new Date();
@@ -26,24 +27,35 @@ function getBanPatch(action: BanAction) {
   };
 }
 
+function getUnbanPatch() {
+  const now = new Date();
+
+  return {
+    ban_type: "none",
+    ban_expires_at: null,
+    ban_updated_at: now.toISOString(),
+    updated_at: now.toISOString(),
+  };
+}
+
 export async function PATCH(request: Request, context: { params: Promise<{ id: string }> }) {
   try {
     const { supabase } = await requireMasterUser(request);
     const { id } = await context.params;
 
     const body = await request.json();
-    const action = typeof body.action === "string" ? body.action : "";
+    const action = typeof body.action === "string" ? (body.action as MemberBanAction) : "";
     const reason = typeof body.reason === "string" ? body.reason.trim() : "";
 
     if (!id) {
       throw new Error("Member ID is required.");
     }
 
-    if (action !== "7d" && action !== "30d" && action !== "permanent") {
+    if (action !== "7d" && action !== "30d" && action !== "permanent" && action !== "unban") {
       throw new Error("Invalid ban action.");
     }
 
-    if (!reason) {
+    if (action !== "unban" && !reason) {
       throw new Error("Ban reason is required.");
     }
 
@@ -56,16 +68,20 @@ export async function PATCH(request: Request, context: { params: Promise<{ id: s
       throw new Error("Member not found.");
     }
 
-    if (member.role !== "member") {
+    if (member.role === "master") {
+      throw new Error("Master accounts cannot be sanctioned here.");
+    }
+
+    if (action !== "unban" && member.role !== "member") {
       throw new Error("Only requester accounts can be sanctioned here.");
     }
 
-    const patch = getBanPatch(action);
+    const patch = action === "unban" ? getUnbanPatch() : getBanPatch(action);
     const updateWithReason = await supabase
       .from("profiles")
       .update({
         ...patch,
-        ban_reason: reason,
+        ban_reason: action === "unban" ? null : reason,
       })
       .eq("id", id)
       .select("id, ban_type, ban_expires_at, ban_reason")

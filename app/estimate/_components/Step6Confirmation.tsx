@@ -20,7 +20,7 @@ import {
   getPricingBySelection,
 } from "../_data/catalog";
 import { PrintableEstimate } from "./PrintableEstimate";
-import { type ReviewFormValues } from "@/lib/rfq";
+import { getDisplayOrderNumber, type ReviewFormValues, type RfqRequestRow } from "@/lib/rfq";
 
 type ReviewEstimate = {
   selection: {
@@ -42,6 +42,7 @@ export function Step6Confirmation({
   designExtras,
   est,
   reviewForm,
+  rfqRequest,
   onReset,
 }: {
   designServices: DesignServiceItem[];
@@ -49,6 +50,7 @@ export function Step6Confirmation({
   designExtras: DesignExtraItem[];
   est: ReviewEstimate;
   reviewForm: ReviewFormValues;
+  rfqRequest: Pick<RfqRequestRow, "request_number" | "order_number"> | null;
   onReset: () => void;
 }) {
   const router = useRouter();
@@ -76,10 +78,8 @@ export function Step6Confirmation({
     day: "numeric",
   });
 
-  const [orderNumber] = useState(() => {
-    const random = Math.floor(Math.random() * 90000000) + 10000000;
-    return `DGC-${random}`;
-  });
+  const orderNumber = rfqRequest ? getDisplayOrderNumber(rfqRequest) : "ORD-발급중";
+  const requestNumber = rfqRequest?.request_number || null;
 
   const pricing = useMemo(
     () =>
@@ -166,6 +166,12 @@ export function Step6Confirmation({
           <h2 className="text-[24px] font-bold tracking-tight text-[#191f28]">견적 내역 확인</h2>
           <div className="mt-2.5 flex items-center gap-2.5 text-[14px] font-medium text-[#8b95a1]">
             <span>주문번호: <span className="font-bold text-[#191f28]">{orderNumber}</span></span>
+            {requestNumber ? (
+              <>
+                <span className="h-3 w-[1px] bg-[#e5e8eb]" />
+                <span>RFQ: <span className="font-bold text-[#191f28]">{requestNumber}</span></span>
+              </>
+            ) : null}
             <span className="h-3 w-[1px] bg-[#e5e8eb]" />
             <span>{orderDate}</span>
           </div>

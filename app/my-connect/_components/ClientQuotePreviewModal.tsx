@@ -224,7 +224,7 @@ export function ClientQuotePreviewModal({ request, open, onClose }: ClientQuoteP
 
       rows.push({
         title: request.product_name,
-        spec: `${request.manufacturer_name} | Qty ${request.quantity.toLocaleString()}`,
+        spec: `${request.manufacturer_name} | 수량 ${request.quantity.toLocaleString()}`,
         unitPrice: productUnitPrice,
         quantity: request.quantity,
         amount: productAmount,
@@ -233,7 +233,7 @@ export function ClientQuotePreviewModal({ request, open, onClose }: ClientQuoteP
       if (request.container_name) {
         rows.push({
           title: request.container_name,
-          spec: "Container option",
+          spec: "용기/포장 옵션",
           unitPrice: containerUnitPrice,
           quantity: request.quantity,
           amount: containerAmount,
@@ -245,7 +245,7 @@ export function ClientQuotePreviewModal({ request, open, onClose }: ClientQuoteP
         const packagePrice = Number(snapshotPricing.package_price ?? packageRow.price ?? 0);
         rows.push({
           title: packageRow.name,
-          spec: "Design package",
+          spec: "디자인 패키지",
           unitPrice: packagePrice,
           quantity: 1,
           amount: packagePrice,
@@ -259,7 +259,7 @@ export function ClientQuotePreviewModal({ request, open, onClose }: ClientQuoteP
           const price = Number(snapshotService?.price ?? item.price ?? 0);
           return {
             title: snapshotService?.name || item.name,
-            spec: "Design service",
+            spec: "디자인 패키지",
             unitPrice: price,
             quantity: 1,
             amount: price,
@@ -274,7 +274,7 @@ export function ClientQuotePreviewModal({ request, open, onClose }: ClientQuoteP
           const price = Number(snapshotExtra?.price ?? item.price ?? 0);
           return {
             title: snapshotExtra?.name || item.name,
-            spec: "Additional option",
+            spec: "추가 옵션",
             unitPrice: price,
             quantity: 1,
             amount: price,

@@ -193,6 +193,7 @@ export function useProductCatalogData({
     name: item.name,
     description: item.description || "",
     paymentCurrency: (item.payment_currency || currencyCode) as CurrencyCode,
+    costPrice: item.cost_price == null ? "" : String(item.cost_price),
     basePrice: String(item.base_price),
     image: item.image || "",
     keyFeatures: joinLines(item.key_features),

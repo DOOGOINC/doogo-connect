@@ -181,7 +181,7 @@ export function ProductCatalogEditor({
             </div>
 
             <div className="grid gap-6">
-              <div className="grid gap-6 sm:grid-cols-2">
+              <div className="grid gap-6 sm:grid-cols-3">
                 <div>
                   <label className={labelClassName}>상품 ID</label>
                   <input value={form.id} disabled className={`${inputClassName} bg-[#F9FAFB] text-[#8B95A1]`} placeholder="자동 생성" />
@@ -249,6 +249,22 @@ export function ProductCatalogEditor({
                       value={form.basePrice}
                       onChange={(e) => onFormChange((prev) => ({ ...prev, basePrice: e.target.value }))}
                       className={`${inputClassName} pr-14 font-bold text-[#3182F6]`}
+                      placeholder="0.00"
+                    />
+                    <span className="absolute right-4 top-1/2 -translate-y-1/2 text-[14px] font-medium text-[#8B95A1]">
+                      {form.paymentCurrency}
+                    </span>
+                  </div>
+                </div>
+                <div>
+                  <label className={labelClassName}>원가</label>
+                  <div className="relative">
+                    <input
+                      type="number"
+                      step="0.01"
+                      value={form.costPrice}
+                      onChange={(e) => onFormChange((prev) => ({ ...prev, costPrice: e.target.value }))}
+                      className={inputClassName}
                       placeholder="0.00"
                     />
                     <span className="absolute right-4 top-1/2 -translate-y-1/2 text-[14px] font-medium text-[#8B95A1]">

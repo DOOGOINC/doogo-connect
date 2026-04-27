@@ -1,5 +1,6 @@
 import { redirect } from "next/navigation";
 import { getLoginEntryByRole, getPortalHomeByRole } from "@/lib/auth/roles";
+import { getPartnerStatusByUserId } from "@/lib/server/partners";
 import { createClient } from "@/utils/supabase/server";
 
 export default async function PartnerDashboardLayout({ children }: { children: React.ReactNode }) {
@@ -19,6 +20,11 @@ export default async function PartnerDashboardLayout({ children }: { children: R
     }
 
     redirect(getPortalHomeByRole(data.role));
+  }
+
+  const partnerStatus = await getPartnerStatusByUserId(supabase, user.id);
+  if (partnerStatus !== "active") {
+    redirect("/partner?tab=partner");
   }
 
   return children;

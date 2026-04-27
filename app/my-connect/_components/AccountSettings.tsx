@@ -5,13 +5,12 @@ import { Loader2 } from "lucide-react";
 import type { User } from "@supabase/supabase-js";
 import { authFetch } from "@/lib/client/auth-fetch";
 import { supabase } from "@/lib/supabase";
-import { buildReferralLink, sanitizeReferralCode } from "@/utils/referral";
 import { AccountInfoSection } from "./AccountSettings/AccountInfoSection";
 import { BasicInfoSection } from "./AccountSettings/BasicInfoSection";
 import { BusinessRegistrationSection } from "./AccountSettings/BusinessRegistrationSection";
 import { TEXT } from "./AccountSettings/constants";
 import { ReferralSection } from "./AccountSettings/ReferralSection";
-import type { PointSummaryPayload, Profile } from "./AccountSettings/types";
+import type { Profile } from "./AccountSettings/types";
 
 function isKakaoUser(user: User | null | undefined) {
   if (!user) return false;
@@ -36,12 +35,6 @@ export function AccountSettings() {
   const [isEmailSent, setIsEmailSent] = useState(false);
   const [isPasswordSent, setIsPasswordSent] = useState(false);
   const [isSocialAccount, setIsSocialAccount] = useState(false);
-  const [referralInput, setReferralInput] = useState("");
-  const [referralError, setReferralError] = useState("");
-  const [referralMessage, setReferralMessage] = useState("");
-  const [isApplyingReferral, setIsApplyingReferral] = useState(false);
-  const [isCopyingReferralLink, setIsCopyingReferralLink] = useState(false);
-  const [referralCount, setReferralCount] = useState(0);
 
   useEffect(() => {
     void fetchProfile();
@@ -86,12 +79,6 @@ export function AccountSettings() {
 
       if (error) throw error;
       setProfile(data);
-
-      const pointSummaryResponse = await authFetch("/api/points/summary");
-      const pointSummaryPayload = (await pointSummaryResponse.json()) as PointSummaryPayload & { error?: string };
-      if (pointSummaryResponse.ok) {
-        setReferralCount(Number(pointSummaryPayload.referralCount || 0));
-      }
     } catch (err) {
       console.error("Error fetching profile:", err);
     } finally {
@@ -151,63 +138,6 @@ export function AccountSettings() {
     }
   };
 
-  const handleApplyReferral = async () => {
-    const referralCode = sanitizeReferralCode(referralInput);
-
-    if (!referralCode) {
-      setReferralError(TEXT.referralNeedInput);
-      return;
-    }
-
-    setIsApplyingReferral(true);
-    setReferralError("");
-    setReferralMessage("");
-
-    try {
-      const response = await authFetch("/api/referral/apply", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({
-          referralCode,
-        }),
-      });
-
-      const payload = (await response.json()) as { error?: string };
-
-      if (!response.ok) {
-        throw new Error(payload.error || TEXT.referralSaveFailed);
-      }
-
-      setReferralInput("");
-      setReferralMessage(TEXT.referralSaved);
-      await fetchProfile();
-    } catch (err) {
-      setReferralError(err instanceof Error ? err.message : TEXT.referralSaveFailed);
-    } finally {
-      setIsApplyingReferral(false);
-    }
-  };
-
-  const handleCopyReferralLink = async () => {
-    if (!profile?.referral_code) return;
-
-    const referralLink = buildReferralLink(profile.referral_code);
-    if (!referralLink) return;
-
-    try {
-      setIsCopyingReferralLink(true);
-      await navigator.clipboard.writeText(referralLink);
-      setReferralMessage(TEXT.referralCopied);
-      setReferralError("");
-    } catch {
-      setReferralError(TEXT.referralCopyFailed);
-    } finally {
-      setIsCopyingReferralLink(false);
-    }
-  };
-
   if (loading) {
     return (
       <div className="flex flex-1 items-center justify-center">
@@ -243,18 +173,7 @@ export function AccountSettings() {
         <BasicInfoSection profile={profile} text={TEXT} />
 
         <ReferralSection
-          handleApplyReferral={handleApplyReferral}
-          handleCopyReferralLink={handleCopyReferralLink}
-          isApplyingReferral={isApplyingReferral}
-          isCopyingReferralLink={isCopyingReferralLink}
           profile={profile}
-          referralCount={referralCount}
-          referralError={referralError}
-          referralInput={referralInput}
-          referralMessage={referralMessage}
-          setReferralError={setReferralError}
-          setReferralInput={setReferralInput}
-          setReferralMessage={setReferralMessage}
           text={TEXT}
         />
       </div>

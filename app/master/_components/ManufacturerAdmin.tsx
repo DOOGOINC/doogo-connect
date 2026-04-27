@@ -1,14 +1,15 @@
 /* eslint-disable @next/next/no-img-element */
 "use client";
 
-import { useCallback, useEffect, useRef, useState } from "react";
-import { Edit, Factory, Loader2, MapPin, Package, Plus, Tag, Trash2, Upload } from "lucide-react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { Factory, Loader2, Search, Upload } from "lucide-react";
 import type { AppRole } from "@/lib/auth/roles";
 import { authFetch } from "@/lib/client/auth-fetch";
 import { supabase } from "@/lib/supabase";
 import { CatalogModal } from "@/app/my-connect/_components/catalog/CatalogModal";
 import { CatalogToast } from "@/app/my-connect/_components/catalog/CatalogToast";
 import { MasterLoadingState } from "./MasterLoadingState";
+import { MasterTablePagination } from "./MasterTablePagination";
 
 interface Manufacturer {
   id?: number;
@@ -22,6 +23,7 @@ interface Manufacturer {
   products: string[];
   image: string;
   logo: string;
+  is_active: boolean;
 }
 
 interface OwnerProfile {
@@ -46,7 +48,9 @@ const initialForm: Manufacturer = {
   products: [],
   image: "",
   logo: "",
+  is_active: true,
 };
+const PAGE_SIZE = 10;
 
 export function ManufacturerAdmin() {
   const [manufacturers, setManufacturers] = useState<Manufacturer[]>([]);
@@ -60,6 +64,8 @@ export function ManufacturerAdmin() {
   const [tagsString, setTagsString] = useState("");
   const [productsString, setProductsString] = useState("");
   const [formData, setFormData] = useState<Manufacturer>(initialForm);
+  const [searchTerm, setSearchTerm] = useState("");
+  const [currentPage, setCurrentPage] = useState(1);
 
   const imageInputRef = useRef<HTMLInputElement>(null);
   const logoInputRef = useRef<HTMLInputElement>(null);
@@ -90,6 +96,7 @@ export function ManufacturerAdmin() {
         address: manufacturer.address || "",
         tags: Array.isArray(manufacturer.tags) ? manufacturer.tags : [],
         products: Array.isArray(manufacturer.products) ? manufacturer.products : [],
+        is_active: manufacturer.is_active !== false,
       }));
       setManufacturers(formattedData);
     }
@@ -186,6 +193,7 @@ export function ManufacturerAdmin() {
           .filter(Boolean),
         image: formData.image,
         logo: formData.logo,
+        is_active: formData.is_active,
       };
 
       if (editingId) {
@@ -246,13 +254,6 @@ export function ManufacturerAdmin() {
     await fetchManufacturers();
   };
 
-  const ownerLabelMap = new Map(
-    ownerProfiles.map((profile) => [
-      profile.id,
-      profile.full_name?.trim() || profile.email?.trim() || profile.id,
-    ])
-  );
-
   const usedOwnerIds = new Set(
     manufacturers
       .filter((manufacturer) => manufacturer.owner_id && manufacturer.id !== editingId)
@@ -264,15 +265,56 @@ export function ManufacturerAdmin() {
     return !usedOwnerIds.has(profile.id);
   });
 
+  const filteredManufacturers = useMemo(() => {
+    const normalizedSearch = searchTerm.trim().toLowerCase();
+    if (!normalizedSearch) return manufacturers;
+
+    return manufacturers.filter((manufacturer) =>
+      [
+        manufacturer.name,
+        manufacturer.location,
+        manufacturer.address,
+        manufacturer.tags.join(", "),
+        manufacturer.products.join(", "),
+      ].some((value) => value.toLowerCase().includes(normalizedSearch))
+    );
+  }, [manufacturers, searchTerm]);
+
+  const totalPages = Math.max(1, Math.ceil(filteredManufacturers.length / PAGE_SIZE));
+  const visiblePage = Math.min(currentPage, totalPages);
+  const paginatedManufacturers = useMemo(() => {
+    const startIndex = (visiblePage - 1) * PAGE_SIZE;
+    return filteredManufacturers.slice(startIndex, startIndex + PAGE_SIZE);
+  }, [filteredManufacturers, visiblePage]);
+
+  const summary = useMemo(
+    () => ({
+      total: manufacturers.length,
+      active: manufacturers.filter((manufacturer) => manufacturer.is_active !== false).length,
+      inactive: manufacturers.filter((manufacturer) => manufacturer.is_active === false).length,
+    }),
+    [manufacturers]
+  );
+
+  const getCountryDisplay = (manufacturer: Manufacturer) => {
+    const source = `${manufacturer.location} ${manufacturer.address}`.toLowerCase();
+    if (source.includes("뉴질랜드") || source.includes("new zealand") || source.includes("nz")) return "NZ 뉴질랜드";
+    if (source.includes("한국") || source.includes("korea") || source.includes("kr")) return "KR 한국";
+    return manufacturer.location || "-";
+  };
+
   return (
-    <div className="flex-1 overflow-y-auto bg-[#F8F9FA] p-8">
+    <div className="flex-1 overflow-y-auto bg-[#f5f6f8] px-8 py-7">
       {toastMessage ? <CatalogToast message={toastMessage} onClose={() => setToastMessage("")} /> : null}
 
-      <div className="max-w-[1100px] space-y-8">
-        <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+      <div className="w-full space-y-6">
+        <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
           <div>
-            <h1 className="text-[20px] font-bold text-[#191F28]">제조사 관리</h1>
-            <p className="mt-1 text-[14px] text-[#4E5968]">제조사 등록, 수정, 계정 연결을 한 곳에서 관리합니다.</p>
+            <h1 className="flex items-center gap-2 text-[20px] font-extrabold text-[#1f2937]">
+              <span className="text-[20px]">🏭</span>
+              제조사 관리
+            </h1>
+            <p className="mt-1 text-[14px] font-medium text-[#6b7280]">두고커넥트 운영 관리 시스템</p>
           </div>
           <button
             type="button"
@@ -283,11 +325,41 @@ export function ManufacturerAdmin() {
               setEditingId(null);
               setOpen(true);
             }}
-            className="inline-flex h-11 items-center gap-2 rounded-[12px] bg-[#3182F6] px-5 text-[14px] font-semibold text-white shadow-md shadow-blue-100 transition hover:bg-[#1B64DA]"
+            className="inline-flex h-9 items-center gap-2 rounded-[12px] bg-[#3182F6] px-4 text-[14px] font-semibold text-white shadow-sm transition hover:bg-[#1B64DA]"
           >
-            <Plus className="h-4 w-4" />
-            새 제조사 등록
+
+            등록
           </button>
+        </div>
+
+        <section className="grid gap-4 lg:grid-cols-3">
+          {[
+            { icon: "🏭", label: "총 제조사", value: `${summary.total}개`, accent: "text-[#2563eb]", dotClass: "" },
+            { icon: "🟢", label: "활성 제조사", value: `${summary.active}개`, accent: "text-[#2563eb]", dotClass: "" },
+            { icon: "⏳", label: "비활성 제조사", value: `${summary.inactive}개`, accent: "text-[#2563eb]", dotClass: "" },
+          ].map((card) => (
+            <article key={card.label} className="rounded-[14px] border border-[#e7e9ee] bg-white px-7 py-7 shadow-sm">
+              <div className="flex items-center gap-4">
+                {card.dotClass ? <span className={`h-7 w-7 rounded-full ${card.dotClass}`} /> : <span className="text-[20px]">{card.icon}</span>}
+                <span className="text-[12px] font-semibold text-[#6b7280]">{card.label}</span>
+              </div>
+              <p className={`mt-4 text-[24px] font-bold leading-none ${card.accent}`}>{card.value}</p>
+            </article>
+          ))}
+        </section>
+
+        <div className="relative max-w-sm"> {/* max-w-sm 등을 추가해 전체 너비를 제한할 수 있습니다 */}
+          <Search className="pointer-events-none absolute left-4 top-1/2 h-4 w-4 -translate-y-1/2 text-[#9ca3af]" />
+          <input
+            type="text"
+            value={searchTerm}
+            onChange={(event) => {
+              setSearchTerm(event.target.value);
+              setCurrentPage(1);
+            }}
+            placeholder="업체명·국가 검색..."
+            className="h-[44px] w-full rounded-[10px] border border-[#e5e7eb] bg-white pl-[42px] pr-4 text-[13px] font-medium text-[#374151] outline-none placeholder:text-[#9ca3af] focus:border-[#1652b2] focus:ring-2  transition-all"
+          />
         </div>
 
         <CatalogModal
@@ -347,6 +419,17 @@ export function ManufacturerAdmin() {
                       ))}
                     </select>
                     <p className="text-[12px] text-[#8B95A1]">이미 다른 제조사에 연결된 계정은 제외됩니다.</p>
+                  </div>
+                  <div className="space-y-2">
+                    <label className="text-[13px] font-semibold text-[#4E5968]">노출 상태</label>
+                    <select
+                      value={formData.is_active ? "active" : "inactive"}
+                      onChange={(e) => setFormData({ ...formData, is_active: e.target.value === "active" })}
+                      className="h-12 w-full rounded-[14px] border border-[#D8E0E8] bg-white px-4 text-[14px] outline-none transition focus:border-[#3182F6] focus:ring-4 focus:ring-[#3182F6]/10"
+                    >
+                      <option value="active">활성화</option>
+                      <option value="inactive">비활성화</option>
+                    </select>
                   </div>
                   <div className="space-y-2">
                     <label className="text-[13px] font-semibold text-[#4E5968]">위치</label>
@@ -450,71 +533,71 @@ export function ManufacturerAdmin() {
         {loading ? (
           <MasterLoadingState variant="panel" />
         ) : (
-          <div className="grid gap-4">
-            {manufacturers.length === 0 ? (
-              <div className="rounded-2xl border border-[#F2F4F6] bg-white p-12 text-center font-medium text-[#8B95A1]">
+          <section className="overflow-hidden rounded-[14px] border border-[#e7e9ee] bg-white shadow-sm">
+            {filteredManufacturers.length === 0 ? (
+              <div className="p-16 text-center text-[12px] font-semibold text-[#8B95A1]">
                 등록된 제조사가 없습니다.
               </div>
             ) : (
-              manufacturers.map((manufacturer) => (
-                <div
-                  key={manufacturer.id}
-                  className="group flex items-center justify-between rounded-[14px] border border-[#F2F4F6] bg-white p-6 shadow-sm transition-all hover:shadow-md"
-                >
-                  <div className="flex items-center gap-5">
-                    <div className="flex h-16 w-16 items-center justify-center overflow-hidden rounded-xl border border-gray-100 bg-[#F8F9FA] p-2">
-                      {manufacturer.logo ? (
-                        <img src={manufacturer.logo} alt={manufacturer.name} className="max-h-full max-w-full object-contain" />
-                      ) : (
-                        <Factory className="h-6 w-6 text-gray-300" />
-                      )}
-                    </div>
-                    <div>
-                      <div className="flex items-center gap-2">
-                        <h3 className="text-lg font-bold text-[#191F28]">{manufacturer.name}</h3>
-                        <span className="rounded-full bg-[#E6F0FF] px-2 py-0.5 text-xs font-bold text-[#0064FF]">
-                          평점 {manufacturer.rating}
-                        </span>
-                      </div>
-                      <div className="mt-1 flex flex-wrap items-center gap-3 text-[#8B95A1]">
-                        <span className="flex items-center gap-1 text-sm">
-                          <MapPin className="h-3 w-3" /> {manufacturer.location}
-                        </span>
-                        <span className="text-sm">주소: {manufacturer.address || "-"}</span>
-                        <span className="flex items-center gap-1 text-sm">
-                          <Tag className="h-3 w-3" />{" "}
-                          {manufacturer.tags.length > 0 ? manufacturer.tags.slice(0, 3).join(", ") : "태그 없음"}
-                        </span>
-                        <span className="flex items-center gap-1 text-sm">
-                          <Package className="h-3 w-3" />{" "}
-                          {manufacturer.products.length > 0 ? manufacturer.products.slice(0, 2).join(", ") : "품목 없음"}
-                        </span>
-                        <span className="text-sm">
-                          연결 계정: {manufacturer.owner_id ? ownerLabelMap.get(manufacturer.owner_id) || manufacturer.owner_id : "미연결"}
-                        </span>
-                      </div>
-                    </div>
-                  </div>
-                  <div className="flex items-center gap-2 opacity-0 transition-opacity group-hover:opacity-100">
-                    <button
-                      onClick={() => startEdit(manufacturer)}
-                      className="rounded-xl p-3 text-[#4E5968] transition-colors hover:bg-[#F2F4F6]"
-                      title="수정"
-                    >
-                      <Edit className="h-5 w-5" />
-                    </button>
-                    <button
-                      onClick={() => manufacturer.id && handleDelete(manufacturer.id)}
-                      className="rounded-xl p-3 text-red-400 transition-colors hover:bg-red-50"
-                      title="삭제"
-                    >
-                      <Trash2 className="h-5 w-5" />
-                    </button>
-                  </div>
-                </div>
-              ))
+              <div className="overflow-x-auto">
+                <table className="min-w-[1120px] w-full text-left">
+                  <thead className="bg-[#fbfcfd]">
+                    <tr className="text-[12px] font-extrabold text-[#6b7280]">
+                      <th className="px-5 py-3">업체명</th>
+                      <th className="px-5 py-3">제조 국가</th>
+                      <th className="px-5 py-3">보유 인증</th>
+                      <th className="px-5 py-3">주요 제품</th>
+                      <th className="px-5 py-3">상태</th>
+                      <th className="px-5 py-3">수정</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {paginatedManufacturers.map((manufacturer) => {
+                      const isActive = manufacturer.is_active !== false;
+
+                      return (
+                        <tr key={manufacturer.id} className="border-t border-[#f2f4f6] text-[14px] text-[#1f2937]">
+                          <td className="px-5 py-3 font-semibold">{manufacturer.name}</td>
+                          <td className="px-5 py-3">{getCountryDisplay(manufacturer)}</td>
+                          <td className="px-5 py-3">{manufacturer.tags.length > 0 ? manufacturer.tags.join(", ") : "-"}</td>
+                          <td className="px-5 py-3">{manufacturer.products.length > 0 ? manufacturer.products.join(", ") : "-"}</td>
+                          <td className="px-5 py-3">
+                            <span className={`inline-flex rounded-full px-3 py-1 text-[12px] font-bold ${isActive ? "bg-[#dcfce7] text-[#15803d]" : "bg-[#fef3c7] text-[#d97706]"}`}>
+                              {isActive ? "활성" : "비활성"}
+                            </span>
+                          </td>
+                          <td className="px-5 py-3">
+                            <div className="flex items-center gap-2">
+                              <button
+                                type="button"
+                                onClick={() => startEdit(manufacturer)}
+                                className="rounded-[14px] bg-[#eff6ff] px-3 py-1 text-[12px] font-bold text-[#2563eb] transition hover:bg-[#dbeafe]"
+                              >
+                                수정
+                              </button>
+                              <button
+                                type="button"
+                                onClick={() => manufacturer.id && handleDelete(manufacturer.id)}
+                                className="rounded-[14px] bg-[#fef2f2] px-3 py-1 text-[12px] font-bold text-[#dc2626] transition hover:bg-[#fee2e2]"
+                              >
+                                삭제
+                              </button>
+                            </div>
+                          </td>
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
+              </div>
             )}
-          </div>
+            <MasterTablePagination
+              totalItems={filteredManufacturers.length}
+              currentPage={visiblePage}
+              totalPages={totalPages}
+              onPageChange={setCurrentPage}
+            />
+          </section>
         )}
       </div>
     </div>

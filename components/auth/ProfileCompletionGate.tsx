@@ -1,6 +1,7 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
+import { usePathname } from "next/navigation";
 import type { Session, User } from "@supabase/supabase-js";
 import { Loader2 } from "lucide-react";
 import { authFetch } from "@/lib/client/auth-fetch";
@@ -69,7 +70,19 @@ function getBanLoginMessage(profile: Pick<ProfileRow, "ban_type" | "ban_expires_
   return "이 계정은 현재 제재 상태입니다. 관리자에게 문의해 주세요.";
 }
 
+async function readRouteError(response: Response, fallbackMessage: string) {
+  const contentType = response.headers.get("content-type") || "";
+
+  if (contentType.includes("application/json")) {
+    const payload = (await response.json()) as { error?: string };
+    return payload.error || fallbackMessage;
+  }
+
+  return fallbackMessage;
+}
+
 export function ProfileCompletionGate() {
+  const pathname = usePathname();
   const [session, setSession] = useState<Session | null>(null);
   const [isChecking, setIsChecking] = useState(true);
   const [isOpen, setIsOpen] = useState(false);
@@ -79,7 +92,7 @@ export function ProfileCompletionGate() {
   const [error, setError] = useState("");
   const alertedUserRef = useRef<string | null>(null);
 
-  const checkProfileCompletion = async (nextSession: Session | null) => {
+  const checkProfileCompletion = useCallback(async (nextSession: Session | null) => {
     setSession(nextSession);
     setError("");
 
@@ -96,24 +109,27 @@ export function ProfileCompletionGate() {
 
     try {
       const referralCode = getStoredReferralCode();
-      const response = await authFetch("/api/profile/sync", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({
-          email: nextSession.user.email || null,
-          referralCode,
-        }),
-      });
+      const kakaoUser = isKakaoUser(nextSession.user);
 
-      if (!response.ok) {
-        const payload = (await response.json()) as { error?: string };
-        throw new Error(payload.error || "프로필 동기화에 실패했습니다.");
-      }
+      if (kakaoUser || referralCode) {
+        const response = await authFetch("/api/profile/sync", {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({
+            email: nextSession.user.email || null,
+            referralCode,
+          }),
+        });
 
-      if (referralCode) {
-        clearStoredReferralCode();
+        if (!response.ok) {
+          throw new Error(await readRouteError(response, "프로필 동기화에 실패했습니다."));
+        }
+
+        if (referralCode) {
+          clearStoredReferralCode();
+        }
       }
 
       const { data, error: profileError } = await supabase
@@ -137,7 +153,7 @@ export function ProfileCompletionGate() {
         return;
       }
 
-      if (!isKakaoUser(nextSession.user)) {
+      if (!kakaoUser || pathname === "/kakao-referral") {
         setIsOpen(false);
         setIsChecking(false);
         setFullName("");
@@ -164,7 +180,7 @@ export function ProfileCompletionGate() {
     } finally {
       setIsChecking(false);
     }
-  };
+  }, [pathname]);
 
   useEffect(() => {
     void supabase.auth.getSession().then(({ data: { session: nextSession } }) => {
@@ -180,7 +196,7 @@ export function ProfileCompletionGate() {
     return () => {
       subscription.unsubscribe();
     };
-  }, []);
+  }, [checkProfileCompletion]);
 
   const handleSave = async () => {
     const trimmedName = fullName.trim();
@@ -219,9 +235,8 @@ export function ProfileCompletionGate() {
         }),
       });
 
-      const profilePayload = (await profileResponse.json()) as { error?: string };
       if (!profileResponse.ok) {
-        throw new Error(profilePayload.error || "프로필 저장에 실패했습니다.");
+        throw new Error(await readRouteError(profileResponse, "프로필 저장에 실패했습니다."));
       }
 
       if (referralCode) {
@@ -230,6 +245,7 @@ export function ProfileCompletionGate() {
 
       const { error: metadataError } = await supabase.auth.updateUser({
         data: {
+          name: trimmedName,
           full_name: trimmedName,
           phone_number: normalizedPhone,
         },
@@ -264,7 +280,7 @@ export function ProfileCompletionGate() {
       <div className="w-full max-w-md rounded-[14px] bg-white p-8 shadow-2xl">
         <div className="mb-6">
           <p className="mb-2 text-sm font-semibold text-[#0064FF]">카카오 로그인 완료</p>
-          <h2 className="text-2xl font-bold text-[#191F28]">기본 정보를 입력해 주세요</h2>
+          <h2 className="text-2xl font-bold text-[#191F28]">기본 정보를 입력해 주세요.</h2>
           <p className="mt-2 text-sm leading-6 text-[#6B7684]">
             카카오에서는 이메일만 연동됩니다. 서비스 이용을 위해 이름과 연락처를 한 번만 입력해 주세요.
           </p>
@@ -283,7 +299,7 @@ export function ProfileCompletionGate() {
               autoComplete="name"
               disabled={isChecking || isSaving}
               className="h-12 w-full rounded-xl border border-[#E5E8EB] px-4 text-[15px] text-[#191F28] outline-none transition focus:border-[#0064FF] focus:ring-4 focus:ring-[#0064FF]/10 disabled:bg-[#F2F4F6]"
-              placeholder="이름을 입력해 주세요"
+              placeholder="이름을 입력해 주세요."
             />
           </div>
 

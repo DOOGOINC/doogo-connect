@@ -6,8 +6,10 @@ import { Loader2, X } from "lucide-react";
 import type { AppRole } from "@/lib/auth/roles";
 import { getLoginEntryByRole, isPrivilegedPortalRole } from "@/lib/auth/roles";
 import { authFetch } from "@/lib/client/auth-fetch";
+import { fetchRefereeRewardPoints, formatRewardPoints } from "@/lib/client/referee-reward";
+import { DEFAULT_REFEREE_REWARD_POINTS } from "@/lib/points/constants";
 import { supabase } from "@/lib/supabase";
-import { captureReferralFromLocation, clearStoredReferralCode, getStoredReferralCode } from "@/utils/referral";
+import { captureReferralFromLocation, clearStoredReferralCode, getStoredReferralCode, persistReferralCode, sanitizeReferralCode } from "@/utils/referral";
 
 interface AuthModalProps {
   isOpen: boolean;
@@ -20,6 +22,8 @@ type AuthProfileRow = {
   ban_type: "none" | "temporary" | "permanent" | null;
   ban_expires_at: string | null;
 };
+
+const REMEMBERED_LOGIN_EMAIL_KEY = "doogo-connect:remembered-login-email";
 
 function normalizePhoneNumber(value: string) {
   return value.replace(/\D/g, "").slice(0, 11);
@@ -78,7 +82,8 @@ export function AuthModal({ isOpen, onClose, initialMode = "login" }: AuthModalP
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [isOtpSent, setIsOtpSent] = useState(false);
-  const [agreedToRequiredTerms, setAgreedToRequiredTerms] = useState(false);
+  const [agreedToTerms, setAgreedToTerms] = useState(false);
+  const [agreedToPrivacy, setAgreedToPrivacy] = useState(false);
 
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -86,19 +91,27 @@ export function AuthModal({ isOpen, onClose, initialMode = "login" }: AuthModalP
   const [phone, setPhone] = useState("");
   const [verificationCode, setVerificationCode] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
+  const [rememberEmail, setRememberEmail] = useState(false);
+  const [referralCodeInput, setReferralCodeInput] = useState("");
+  const [refereeRewardPoints, setRefereeRewardPoints] = useState(DEFAULT_REFEREE_REWARD_POINTS);
 
   useEffect(() => {
+    const rememberedLoginEmail = window.localStorage.getItem(REMEMBERED_LOGIN_EMAIL_KEY) || "";
+
     setMounted(true);
     setMode(initialMode);
     setError(null);
     setIsOtpSent(false);
-    setEmail("");
+    setEmail(initialMode === "login" ? rememberedLoginEmail : "");
     setPassword("");
     setName("");
     setPhone("");
     setVerificationCode("");
     setConfirmPassword("");
-    setAgreedToRequiredTerms(false);
+    setReferralCodeInput(initialMode === "signup" ? getStoredReferralCode() || "" : "");
+    setAgreedToTerms(false);
+    setAgreedToPrivacy(false);
+    setRememberEmail(initialMode === "login" && Boolean(rememberedLoginEmail));
   }, [initialMode, isOpen]);
 
   useEffect(() => {
@@ -109,6 +122,48 @@ export function AuthModal({ isOpen, onClose, initialMode = "login" }: AuthModalP
     };
   }, [isOpen]);
 
+  useEffect(() => {
+    if (!isOpen || mode !== "signup") {
+      return;
+    }
+
+    const controller = new AbortController();
+
+    void fetchRefereeRewardPoints(controller.signal).then((points) => {
+      setRefereeRewardPoints(points);
+    });
+
+    return () => {
+      controller.abort();
+    };
+  }, [isOpen, mode]);
+
+  const updateEmail = (nextEmail: string) => {
+    setEmail(nextEmail);
+
+    if (!rememberEmail || mode !== "login") {
+      return;
+    }
+
+    const normalizedEmail = nextEmail.trim();
+    if (normalizedEmail) {
+      window.localStorage.setItem(REMEMBERED_LOGIN_EMAIL_KEY, normalizedEmail);
+    } else {
+      window.localStorage.removeItem(REMEMBERED_LOGIN_EMAIL_KEY);
+    }
+  };
+
+  const updateRememberEmail = (isChecked: boolean) => {
+    setRememberEmail(isChecked);
+
+    const normalizedEmail = email.trim();
+    if (isChecked && normalizedEmail) {
+      window.localStorage.setItem(REMEMBERED_LOGIN_EMAIL_KEY, normalizedEmail);
+    } else if (!isChecked) {
+      window.localStorage.removeItem(REMEMBERED_LOGIN_EMAIL_KEY);
+    }
+  };
+
   const handleKakaoLogin = async () => {
     setLoading(true);
     setError(null);
@@ -116,7 +171,9 @@ export function AuthModal({ isOpen, onClose, initialMode = "login" }: AuthModalP
     try {
       captureReferralFromLocation();
       const next = `${window.location.pathname}${window.location.search}`;
-      const redirectTo = `${window.location.origin}/auth/callback?next=${encodeURIComponent(next)}`;
+      const kakaoSignupNext = `/kakao-referral?next=${encodeURIComponent(next)}`;
+      const redirectTarget = mode === "signup" ? kakaoSignupNext : next;
+      const redirectTo = `${window.location.origin}/auth/callback?next=${encodeURIComponent(redirectTarget)}`;
 
       const { error: oauthError } = await supabase.auth.signInWithOAuth({
         provider: "kakao",
@@ -207,6 +264,14 @@ export function AuthModal({ isOpen, onClose, initialMode = "login" }: AuthModalP
         }
 
         const role = (profile?.role || "member") as AppRole;
+        const normalizedEmail = email.trim();
+
+        if (rememberEmail && normalizedEmail) {
+          window.localStorage.setItem(REMEMBERED_LOGIN_EMAIL_KEY, normalizedEmail);
+        } else {
+          window.localStorage.removeItem(REMEMBERED_LOGIN_EMAIL_KEY);
+        }
+
         if (isPrivilegedPortalRole(role)) {
           await supabase.auth.signOut();
           onClose();
@@ -263,7 +328,7 @@ export function AuthModal({ isOpen, onClose, initialMode = "login" }: AuthModalP
       return;
     }
 
-    if (!agreedToRequiredTerms) {
+    if (!agreedToTerms || !agreedToPrivacy) {
       setError("필수 항목에 동의해야 회원가입이 가능합니다.");
       return;
     }
@@ -276,6 +341,33 @@ export function AuthModal({ isOpen, onClose, initialMode = "login" }: AuthModalP
     if (password !== confirmPassword) {
       setError("비밀번호 확인이 일치하지 않습니다.");
       return;
+    }
+
+    const normalizedReferralCode = sanitizeReferralCode(referralCodeInput);
+    if (referralCodeInput.trim()) {
+      if (!normalizedReferralCode) {
+        setError("추천인 코드가 맞지않습니다.");
+        return;
+      }
+
+      const referralValidationResponse = await fetch("/api/referral/validate", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          referralCode: normalizedReferralCode,
+        }),
+      });
+      const referralValidationPayload = (await referralValidationResponse.json()) as { error?: string; valid?: boolean };
+
+      if (!referralValidationResponse.ok || !referralValidationPayload.valid) {
+        setError(referralValidationPayload.error || "추천인 코드가 맞지않습니다.");
+        return;
+      }
+      persistReferralCode(normalizedReferralCode);
+    } else {
+      clearStoredReferralCode();
     }
 
     setLoading(true);
@@ -302,6 +394,7 @@ export function AuthModal({ isOpen, onClose, initialMode = "login" }: AuthModalP
       const { error: updateError } = await supabase.auth.updateUser({
         password,
         data: {
+          name: name.trim(),
           full_name: name.trim(),
           phone_number: normalizedPhone,
         },
@@ -340,8 +433,20 @@ export function AuthModal({ isOpen, onClose, initialMode = "login" }: AuthModalP
         }
       }
 
-      window.alert("회원가입이 완료되었습니다.");
-      onClose();
+      await supabase.auth.signOut();
+
+      window.alert("회원가입이 완료되었습니다. 로그인 후 이용해 주세요.");
+      setMode("login");
+      setError(null);
+      setIsOtpSent(false);
+      setPassword("");
+      setName("");
+      setPhone("");
+      setVerificationCode("");
+      setConfirmPassword("");
+      setReferralCodeInput("");
+      setAgreedToTerms(false);
+      setAgreedToPrivacy(false);
     } catch (err) {
       setError(err instanceof Error ? err.message : "회원가입 중 오류가 발생했습니다.");
     } finally {
@@ -356,7 +461,8 @@ export function AuthModal({ isOpen, onClose, initialMode = "login" }: AuthModalP
   return (
     <div className="fixed inset-0 z-[100] flex animate-in items-center justify-center bg-black/60 px-6 fade-in duration-200">
       <div
-        className="relative w-full max-w-[400px] animate-in rounded-[14px] bg-white p-8 shadow-2xl zoom-in-95 duration-200"
+        className={`relative w-full animate-in rounded-[14px] bg-white p-6 shadow-2xl zoom-in-95 duration-200 ${mode === "signup" ? "max-w-[520px]" : "max-w-[400px]"
+          }`}
         onClick={(event) => event.stopPropagation()}
       >
         <button
@@ -367,9 +473,9 @@ export function AuthModal({ isOpen, onClose, initialMode = "login" }: AuthModalP
           <X className="h-5 w-5" />
         </button>
 
-        <div className="mb-6 mt-2 text-center">
-          <h2 className="text-[24px] font-bold tracking-tight text-[#191f28]">{mode === "login" ? "로그인" : "회원가입"}</h2>
-          <p className="mt-1 text-[14px] font-medium text-[#8b95a1]">DOOGO Connect</p>
+        <div className="mb-6 mt-2">
+          <h2 className="text-[20px] font-bold tracking-tight text-[#191f28]">{mode === "login" ? "로그인" : "회원가입"}</h2>
+          <p className="mt-1 text-[12px] font-medium text-[#8b95a1]">DOOGO Connect 서비스</p>
         </div>
 
         <button
@@ -416,7 +522,7 @@ export function AuthModal({ isOpen, onClose, initialMode = "login" }: AuthModalP
                   type="email"
                   placeholder="이메일"
                   value={email}
-                  onChange={(event) => setEmail(event.target.value)}
+                  onChange={(event) => updateEmail(event.target.value)}
                   autoComplete="email"
                   disabled={isOtpSent}
                   className="h-12 flex-1 rounded-xl border border-slate-200 bg-white px-4 text-[14px] font-medium text-[#191f28] outline-none transition-all placeholder:text-[#adb5bd] focus:border-[#0064FF] focus:ring-4 focus:ring-[#0064FF]/5 disabled:bg-slate-50 disabled:text-slate-400"
@@ -446,16 +552,35 @@ export function AuthModal({ isOpen, onClose, initialMode = "login" }: AuthModalP
                 autoComplete="tel"
                 className="h-12 w-full rounded-xl border border-slate-200 bg-white px-4 text-[14px] font-medium text-[#191f28] outline-none transition-all placeholder:text-[#adb5bd] focus:border-[#0064FF] focus:ring-4 focus:ring-[#0064FF]/5"
               />
+              <input
+                type="text"
+                placeholder="추천인 코드 (선택)"
+                value={referralCodeInput}
+                onChange={(event) => setReferralCodeInput(event.target.value.toUpperCase())}
+                autoComplete="off"
+                className="hidden"
+              />
             </>
           ) : (
-            <input
-              type="email"
-              placeholder="이메일"
-              value={email}
-              onChange={(event) => setEmail(event.target.value)}
-              autoComplete="email"
-              className="h-12 w-full rounded-xl border border-slate-200 bg-white px-4 text-[14px] font-medium text-[#191f28] outline-none transition-all placeholder:text-[#adb5bd] focus:border-[#0064FF] focus:ring-4 focus:ring-[#0064FF]/5"
-            />
+            <>
+              <input
+                type="email"
+                placeholder="이메일"
+                value={email}
+                onChange={(event) => updateEmail(event.target.value)}
+                autoComplete="email"
+                className="h-12 w-full rounded-xl border border-slate-200 bg-white px-4 text-[14px] font-medium text-[#191f28] outline-none transition-all placeholder:text-[#adb5bd] focus:border-[#0064FF] focus:ring-4 focus:ring-[#0064FF]/5"
+              />
+              <label className="flex items-center gap-2 px-1 text-[13px] font-medium text-[#6b7684]">
+                <input
+                  type="checkbox"
+                  checked={rememberEmail}
+                  onChange={(event) => updateRememberEmail(event.target.checked)}
+                  className="h-4 w-4 rounded border-slate-300 text-[#0064FF] focus:ring-[#0064FF]"
+                />
+                <span>아이디 기억하기</span>
+              </label>
+            </>
           )}
 
           <input
@@ -477,15 +602,65 @@ export function AuthModal({ isOpen, onClose, initialMode = "login" }: AuthModalP
                 autoComplete="new-password"
                 className="h-12 w-full rounded-xl border border-slate-200 bg-white px-4 text-[14px] font-medium text-[#191f28] outline-none transition-all placeholder:text-[#adb5bd] focus:border-[#0064FF] focus:ring-4 focus:ring-[#0064FF]/5"
               />
+              <div>
+                <div className="flex h-12 w-full items-center justify-between rounded-[24px] border border-slate-200 bg-white px-6">
+                  <input
+                    type="text"
+                    placeholder="추천인 코드 (선택)"
+                    value={referralCodeInput}
+                    onChange={(event) => setReferralCodeInput(event.target.value.toUpperCase())}
+                    autoComplete="off"
+                    className="h-full flex-1 bg-transparent text-[14px] font-medium text-[#191f28] outline-none placeholder:text-[#adb5bd]"
+                  />
+                  <span className="inline-flex h-8 items-center rounded-full bg-[#E8F9EE] px-4 text-[13px] font-bold text-[#16A34A]">
+                    +{formatRewardPoints(refereeRewardPoints)}
+                  </span>
+                </div>
+                <p className="mt-3 flex items-center gap-2 text-[12px] font-bold text-[#16A34A]">
+                  <span aria-hidden="true">🎁</span>
+                  추천인 코드 입력 시 {formatRewardPoints(refereeRewardPoints)}를 즉시 지급합니다
+                </p>
+              </div>
               <label className="flex items-start gap-3 rounded-xl border border-slate-200 bg-slate-50 px-4 py-3 text-[13px] text-[#4E5968]">
                 <input
                   type="checkbox"
-                  checked={agreedToRequiredTerms}
-                  onChange={(event) => setAgreedToRequiredTerms(event.target.checked)}
+                  checked={agreedToTerms}
+                  onChange={(event) => setAgreedToTerms(event.target.checked)}
                   className="mt-0.5 h-4 w-4 rounded border-slate-300 text-[#0064FF] focus:ring-[#0064FF]"
                 />
                 <span className="leading-5">
-                  [필수] 개인정보 수집 및 이용 동의
+                  <Link
+                    href="/policy/terms"
+                    onClick={(event) => {
+                      event.stopPropagation();
+                      onClose();
+                    }}
+                    className="font-semibold text-[#0064FF] hover:underline"
+                  >
+                    이용약관
+                  </Link>{" "}
+                  동의 (필수)
+                </span>
+              </label>
+              <label className="flex items-start gap-3 rounded-xl border border-slate-200 bg-slate-50 px-4 py-3 text-[13px] text-[#4E5968]">
+                <input
+                  type="checkbox"
+                  checked={agreedToPrivacy}
+                  onChange={(event) => setAgreedToPrivacy(event.target.checked)}
+                  className="mt-0.5 h-4 w-4 rounded border-slate-300 text-[#0064FF] focus:ring-[#0064FF]"
+                />
+                <span className="leading-5">
+                  <Link
+                    href="/policy/privacy"
+                    onClick={(event) => {
+                      event.stopPropagation();
+                      onClose();
+                    }}
+                    className="font-semibold text-[#0064FF] hover:underline"
+                  >
+                    개인정보처리방침
+                  </Link>{" "}
+                  동의 (필수)
                 </span>
               </label>
             </>
@@ -495,7 +670,7 @@ export function AuthModal({ isOpen, onClose, initialMode = "login" }: AuthModalP
 
           <button
             type="submit"
-            disabled={loading}
+            disabled={loading || (mode === "signup" && (!agreedToTerms || !agreedToPrivacy))}
             className="mt-6 flex h-12 w-full items-center justify-center rounded-xl bg-[#0064FF] text-[16px] font-bold text-white transition-all hover:bg-[#0052d4] active:scale-[0.98] disabled:bg-slate-300"
           >
             {loading ? <Loader2 className="h-5 w-5 animate-spin" /> : mode === "login" ? "로그인" : "회원가입 완료"}
@@ -511,7 +686,9 @@ export function AuthModal({ isOpen, onClose, initialMode = "login" }: AuthModalP
                 setMode(mode === "login" ? "signup" : "login");
                 setError(null);
                 setIsOtpSent(false);
-                setAgreedToRequiredTerms(false);
+                setReferralCodeInput("");
+                setAgreedToTerms(false);
+                setAgreedToPrivacy(false);
               }}
               className="font-bold text-[#0064FF] hover:underline"
             >

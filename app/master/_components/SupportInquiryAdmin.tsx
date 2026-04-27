@@ -20,7 +20,7 @@ function csvEscape(value: string | null | undefined) {
   return `"${normalized.replace(/"/g, "\"\"")}"`;
 }
 
-export function SupportInquiryAdmin() {
+export function SupportInquiryAdmin({ refreshKey = 0 }: { refreshKey?: number }) {
   const [inquiries, setInquiries] = useState<SupportInquiry[]>([]);
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState("");
@@ -57,7 +57,7 @@ export function SupportInquiryAdmin() {
 
   useEffect(() => {
     void fetchInquiries();
-  }, [fetchInquiries]);
+  }, [fetchInquiries, refreshKey]);
 
   const toggleSort = (field: string) => {
     if (sortBy === field) {
@@ -101,7 +101,7 @@ export function SupportInquiryAdmin() {
       csvEscape(inquiry.email),
       csvEscape(inquiry.company),
       csvEscape(inquiry.content),
-      csvEscape(inquiry.status === "resolved" ? "해결됨" : "대기 중"),
+      csvEscape(inquiry.status === "resolved" ? "읽음" : "미읽음"),
       csvEscape(new Date(inquiry.created_at).toLocaleString("ko-KR")),
     ]);
 
@@ -146,8 +146,8 @@ export function SupportInquiryAdmin() {
               className="h-11 pl-4 pr-10 appearance-none rounded-xl border border-[#E5E8EB] bg-white text-sm font-semibold text-[#4E5968] outline-none hover:bg-gray-50 cursor-pointer"
             >
               <option value="all">전체 상태</option>
-              <option value="pending">대기 중</option>
-              <option value="resolved">해결됨</option>
+              <option value="pending">미읽음</option>
+              <option value="resolved">읽음</option>
             </select>
             <Filter className="pointer-events-none absolute right-3 top-1/2 h-4 w-4 -translate-y-1/2 text-[#8B95A1]" />
           </div>
@@ -166,7 +166,7 @@ export function SupportInquiryAdmin() {
       </div>
 
       <div className="flex flex-1 overflow-hidden px-8 pb-8">
-        <div className="flex flex-1 flex-col overflow-hidden rounded-2xl border border-[#F2F4F6] bg-white shadow-sm">
+        <div className="flex flex-1 flex-col overflow-hidden rounded-[14px] border border-[#F2F4F6] bg-white shadow-sm">
           <div className="flex-1 overflow-auto">
             <table className="min-w-[980px] w-full text-sm">
               <thead className="sticky top-0 z-10 border-b border-[#F2F4F6] bg-[#F9FAFB]">
@@ -241,7 +241,7 @@ export function SupportInquiryAdmin() {
                       <td className="px-4 py-3 text-[#4E5968] text-[13px]">{new Date(inquiry.created_at).toLocaleString("ko-KR")}</td>
                       <td className="px-4 py-3">
                         <span className={`rounded-full px-2.5 py-1 text-xs font-bold ${statusBadge[inquiry.status]}`}>
-                          {inquiry.status === "resolved" ? "해결됨" : "대기 중"}
+                          {inquiry.status === "resolved" ? "읽음" : "미읽음"}
                         </span>
                       </td>
                       <td className="px-4 py-3 text-right">
@@ -261,7 +261,7 @@ export function SupportInquiryAdmin() {
                             className="inline-flex items-center gap-1 rounded-lg bg-[#0064FF] px-2.5 py-1 text-xs font-bold text-white transition hover:bg-[#0052D4] disabled:cursor-not-allowed disabled:bg-slate-300"
                           >
                             {savingInquiryId === inquiry.id ? <Loader2 className="h-3 w-3 animate-spin" /> : <CheckCircle2 className="h-3 w-3" />}
-                            해결
+                            읽음
                           </button>
                         </div>
                       </td>

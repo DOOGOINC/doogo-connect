@@ -1,8 +1,9 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { Calendar, ChevronDown, ChevronUp, Download, FileText, Search, X, ArrowUpDown } from "lucide-react";
 import { formatRfqCurrency, formatRfqDateTime, getDisplayOrderNumber, type RfqRequestRow } from "@/lib/rfq";
+import { authFetch } from "@/lib/client/auth-fetch";
 
 interface TransactionsSettlementProps {
   requests: RfqRequestRow[];
@@ -17,11 +18,10 @@ type InvoiceRecord = {
   invoiceNumber: string;
   request: RfqRequestRow;
   gross: number;
+  commissionRatePercent: number;
   fee: number;
   net: number;
 };
-
-const FEE_RATE = 0.03;
 
 const createInvoiceNumber = (request: RfqRequestRow) => {
   const date = new Date(request.created_at);
@@ -32,6 +32,7 @@ const createInvoiceNumber = (request: RfqRequestRow) => {
 
 export function TransactionsSettlement({ requests }: TransactionsSettlementProps) {
   const [activeTab, setActiveTab] = useState<SettlementTab>("transactions");
+  const [commissionRatePercent, setCommissionRatePercent] = useState(3);
   const [monthFilter, setMonthFilter] = useState(new Date().toISOString().slice(0, 7));
   const [invoiceQuery, setInvoiceQuery] = useState("");
   const [selectedInvoice, setSelectedInvoice] = useState<InvoiceRecord | null>(null);
@@ -39,6 +40,23 @@ export function TransactionsSettlement({ requests }: TransactionsSettlementProps
     key: "created_at",
     direction: "desc",
   });
+  const feeRate = commissionRatePercent / 100;
+
+  useEffect(() => {
+    const fetchSettings = async () => {
+      try {
+        const response = await authFetch("/api/points/summary");
+        const payload = (await response.json()) as { commissionRatePercent?: number };
+        if (response.ok) {
+          setCommissionRatePercent(Number(payload.commissionRatePercent || 3));
+        }
+      } catch (error) {
+        console.error("Failed to load commission settings:", error);
+      }
+    };
+
+    void fetchSettings();
+  }, []);
 
   const invoiceRecords = useMemo<InvoiceRecord[]>(
     () =>
@@ -46,19 +64,23 @@ export function TransactionsSettlement({ requests }: TransactionsSettlementProps
         .filter((request) => request.status === "fulfilled")
         .map((request) => {
           const gross = Number(request.total_price);
-          const fee = gross * FEE_RATE;
-          const net = gross - fee;
+          const storedFee = Number(request.commission_amount);
+          const storedNet = Number(request.settlement_amount);
+          const rate = Number(request.commission_rate_percent || commissionRatePercent);
+          const fee = Number.isFinite(storedFee) && storedFee > 0 ? storedFee : gross * (rate / 100 || feeRate);
+          const net = Number.isFinite(storedNet) && storedNet > 0 ? storedNet : gross - fee;
 
           return {
             id: request.id,
             invoiceNumber: createInvoiceNumber(request),
             request,
             gross,
+            commissionRatePercent: rate,
             fee,
             net,
           };
         }),
-    [requests]
+    [commissionRatePercent, feeRate, requests]
   );
 
   const processedInvoices = useMemo(() => {
@@ -76,21 +98,27 @@ export function TransactionsSettlement({ requests }: TransactionsSettlementProps
     if (!sortConfig) return filtered;
 
     return [...filtered].sort((a, b) => {
-      let aValue: any;
-      let bValue: any;
+      let aValue: string | number;
+      let bValue: string | number;
 
       if (sortConfig.key === "created_at") {
         aValue = new Date(a.request.created_at).getTime();
         bValue = new Date(b.request.created_at).getTime();
-      } else if (sortConfig.key === "gross" || sortConfig.key === "net" || sortConfig.key === "fee") {
-        aValue = a[sortConfig.key as keyof InvoiceRecord];
-        bValue = b[sortConfig.key as keyof InvoiceRecord];
+      } else if (sortConfig.key === "gross") {
+        aValue = a.gross;
+        bValue = b.gross;
+      } else if (sortConfig.key === "net") {
+        aValue = a.net;
+        bValue = b.net;
+      } else if (sortConfig.key === "fee") {
+        aValue = a.fee;
+        bValue = b.fee;
       } else if (sortConfig.key === "invoiceNumber") {
         aValue = a.invoiceNumber;
         bValue = b.invoiceNumber;
       } else {
-        aValue = (a as any)[sortConfig.key];
-        bValue = (b as any)[sortConfig.key];
+        aValue = String(a[sortConfig.key as keyof InvoiceRecord] || "");
+        bValue = String(b[sortConfig.key as keyof InvoiceRecord] || "");
       }
 
       if (aValue < bValue) return sortConfig.direction === "asc" ? -1 : 1;
@@ -107,7 +135,7 @@ export function TransactionsSettlement({ requests }: TransactionsSettlementProps
     setSortConfig({ key, direction });
   };
 
-  const SortIcon = ({ columnKey }: { columnKey: SortKey }) => {
+  const renderSortIcon = (columnKey: SortKey) => {
     if (!sortConfig || sortConfig.key !== columnKey) {
       return <ArrowUpDown className="ml-1 h-3 w-3 opacity-30" />;
     }
@@ -143,7 +171,7 @@ export function TransactionsSettlement({ requests }: TransactionsSettlementProps
         <div className="mx-auto flex w-full max-w-[1600px] flex-col gap-5">
           <div className="shrink-0">
             <h2 className="text-[24px] font-bold tracking-tight text-[#1f2937]">거래/정산</h2>
-            <p className="mt-1.5 text-[14px] text-[#667085]">구매 확정된 주문을 기준으로 통화별 거래와 정산 내역을 확인합니다.</p>
+            <p className="mt-1.5 text-[14px] text-[#667085]">거래 완료된 주문을 기준으로 통화별 거래와 정산 내역을 확인합니다.</p>
           </div>
 
           <div className="inline-flex w-fit shrink-0 rounded-[16px] bg-white p-1 shadow-[0_8px_24px_rgba(15,23,42,0.08)]">
@@ -172,7 +200,7 @@ export function TransactionsSettlement({ requests }: TransactionsSettlementProps
               <div>
                 <h3 className="text-[22px] font-bold text-[#1f2937]">{activeTab === "transactions" ? "거래 내역" : "정산 내역"}</h3>
                 <p className="mt-1 text-[14px] text-[#667085]">
-                  {activeTab === "transactions" ? "월별 거래 내역을 화폐 단위별로 확인하세요." : "구매 확정된 건에 대한 통화별 정산 내역입니다."}
+                  {activeTab === "transactions" ? "월별 거래 내역을 화폐 단위별로 확인하세요." : "거래 완료된 건에 대한 통화별 정산 내역입니다."}
                 </p>
               </div>
               {activeTab === "transactions" ? (
@@ -229,7 +257,7 @@ export function TransactionsSettlement({ requests }: TransactionsSettlementProps
                         <div className="grid gap-0 lg:grid-cols-3 divide-x divide-[#f2f4f6]">
                           {[
                             { label: "총 매출", value: formatRfqCurrency(totalsByCurrency[cc].gross, cc), color: "text-[#1f2937]" },
-                            { label: "수수료 합계 (3%)", value: formatRfqCurrency(totalsByCurrency[cc].fee, cc), color: "text-[#ff4d4f]" },
+                            { label: "수수료 합계", value: formatRfqCurrency(totalsByCurrency[cc].fee, cc), color: "text-[#ff4d4f]" },
                             { label: "순 정산 금액", value: formatRfqCurrency(totalsByCurrency[cc].net, cc), color: "text-[#2563eb]" },
                           ].map((stat) => (
                             <div key={stat.label} className="px-6 py-5 text-center">
@@ -248,21 +276,21 @@ export function TransactionsSettlement({ requests }: TransactionsSettlementProps
                     <thead className="sticky top-0 z-10 bg-[#fbfcfd] text-[11px] font-bold uppercase tracking-wider text-[#667085] shadow-[0_1px_0_rgba(0,0,0,0.05)]">
                       <tr>
                         <th className="w-[180px] cursor-pointer px-6 py-4 transition-colors hover:bg-[#f9fafb]" onClick={() => requestSort("created_at")}>
-                          <div className="flex items-center">접수 일시 <SortIcon columnKey="created_at" /></div>
+                          <div className="flex items-center">접수 일시 {renderSortIcon("created_at")}</div>
                         </th>
                         <th className="w-[150px] px-6 py-4 transition-colors hover:bg-[#f9fafb]">의뢰자</th>
                         <th className="w-[240px] px-6 py-4 transition-colors hover:bg-[#f9fafb]">상품</th>
                         <th className="w-[120px] px-6 py-4 transition-colors hover:bg-[#f9fafb]">수량</th>
                         <th className="w-[150px] cursor-pointer px-6 py-4 transition-colors hover:bg-[#f9fafb]" onClick={() => requestSort("gross")}>
-                          <div className="flex items-center">총액 <SortIcon columnKey="gross" /></div>
+                          <div className="flex items-center">총액 {renderSortIcon("gross")}</div>
                         </th>
-                        <th className="w-[150px] px-6 py-4 transition-colors hover:bg-[#f9fafb]">수수료(3%)</th>
+                        <th className="w-[150px] px-6 py-4 transition-colors hover:bg-[#f9fafb]">수수료</th>
                         <th className="w-[150px] cursor-pointer px-6 py-4 transition-colors hover:bg-[#f9fafb]" onClick={() => requestSort("net")}>
-                          <div className="flex items-center">순 정산 <SortIcon columnKey="net" /></div>
+                          <div className="flex items-center">순 정산 {renderSortIcon("net")}</div>
                         </th>
                         <th className="w-[130px] px-6 py-4 transition-colors hover:bg-[#f9fafb]">상태</th>
                         <th className="w-[200px] cursor-pointer px-6 py-4 transition-colors hover:bg-[#f9fafb]" onClick={() => requestSort("invoiceNumber")}>
-                          <div className="flex items-center">인보이스 <SortIcon columnKey="invoiceNumber" /></div>
+                          <div className="flex items-center">인보이스 {renderSortIcon("invoiceNumber")}</div>
                         </th>
                       </tr>
                     </thead>
@@ -277,7 +305,10 @@ export function TransactionsSettlement({ requests }: TransactionsSettlementProps
                             </td>
                             <td className="px-6 py-5 font-bold text-[#191f28]">{record.request.quantity.toLocaleString()}개</td>
                             <td className="px-6 py-5 font-bold text-[#191f28]">{formatRfqCurrency(record.gross, record.request.currency_code)}</td>
-                            <td className="px-6 py-5 font-bold text-[#ff4d4f]">{formatRfqCurrency(record.fee, record.request.currency_code)}</td>
+                            <td className="px-6 py-5 font-bold text-[#ff4d4f]">
+                              {formatRfqCurrency(record.fee, record.request.currency_code)}
+                              <span className="ml-1 text-[11px] text-[#98a2b3]">({record.commissionRatePercent}%)</span>
+                            </td>
                             <td className="px-6 py-5 font-black text-[#2563eb]">{formatRfqCurrency(record.net, record.request.currency_code)}</td>
                             <td className="px-6 py-5">
                               <span className="inline-flex rounded-full bg-[#dcfce7] px-3 py-1 text-[11px] font-bold text-[#16a34a]">정산 완료</span>
@@ -325,7 +356,7 @@ export function TransactionsSettlement({ requests }: TransactionsSettlementProps
                         <div className="min-w-[150px] text-right">
                           <p className="text-[13px] font-semibold text-[#98a2b3]">총 매출</p>
                           <p className="mt-1 text-[18px] font-bold text-[#1f2937]">{formatRfqCurrency(record.gross, record.request.currency_code)}</p>
-                          <p className="mt-2 text-[14px] font-semibold text-[#ff4d4f]">수수료 -{formatRfqCurrency(record.fee, record.request.currency_code)}</p>
+                          <p className="mt-2 text-[14px] font-semibold text-[#ff4d4f]">수수료({record.commissionRatePercent}%) -{formatRfqCurrency(record.fee, record.request.currency_code)}</p>
                           <p className="mt-2 text-[18px] font-bold text-[#2563eb]">{formatRfqCurrency(record.net, record.request.currency_code)}</p>
                         </div>
                       </div>
@@ -402,7 +433,7 @@ export function TransactionsSettlement({ requests }: TransactionsSettlementProps
                         <td className="px-4 py-3 text-right font-bold text-[#1f2937]">{formatRfqCurrency(selectedInvoice.gross, selectedInvoice.request.currency_code)}</td>
                       </tr>
                       <tr>
-                        <td className="px-4 py-3 font-medium text-[#1f2937]">플랫폼 수수료 (3%)</td>
+                        <td className="px-4 py-3 font-medium text-[#1f2937]">플랫폼 수수료 ({selectedInvoice.commissionRatePercent}%)</td>
                         <td className="px-4 py-3 text-right font-bold text-[#ff4d4f]">-{formatRfqCurrency(selectedInvoice.fee, selectedInvoice.request.currency_code)}</td>
                       </tr>
                       <tr>

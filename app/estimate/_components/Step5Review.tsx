@@ -33,6 +33,8 @@ export function Step5Review({
   onReset,
   reviewForm,
   onReviewFormChange,
+  pointBalance = 50000,
+  pointCost = 5000,
 }: {
   designServices: DesignServiceItem[];
   designPackages: DesignPackageItem[];
@@ -41,6 +43,8 @@ export function Step5Review({
   onReset: () => void;
   reviewForm: ReviewFormValues;
   onReviewFormChange: <K extends keyof ReviewFormValues>(key: K, value: ReviewFormValues[K]) => void;
+  pointBalance?: number;
+  pointCost?: number;
 }) {
   const selectedServiceItems = useMemo(
     () => designServices.filter((service) => (est.selection.designServices || []).includes(service.id)),
@@ -270,22 +274,22 @@ export function Step5Review({
         <section className="rounded-[14px] bg-[#fffbe6]/60 border border-[#ffeebf] p-6">
           <div className="flex items-start gap-4 mb-4">
             <span className="text-[20px]">⚡</span>
-            <h3 className="text-[16px] font-bold text-[#92400e]">포인트 5,000P가 차감됩니다</h3>
+          <h3 className="text-[16px] font-bold text-[#92400e]">포인트 {pointCost.toLocaleString()}P가 차감됩니다</h3>
           </div>
 
           <div className="space-y-3.5 mb-4 ml-10">
             <div className="flex justify-between items-center">
               <span className="text-[14px] font-medium text-[#191f28]">현재 보유 포인트</span>
-              <span className="text-[16px] font-bold text-[#191f28]">50,000P</span>
+              <span className="text-[16px] font-bold text-[#191f28]">{pointBalance.toLocaleString()}P</span>
             </div>
             <div className="flex justify-between items-center">
               <span className="text-[15px] font-medium text-[#191f28]">차감 포인트</span>
-              <span className="text-[16px] font-bold text-[#ef4444]">-5,000P</span>
+              <span className="text-[16px] font-bold text-[#ef4444]">-{pointCost.toLocaleString()}P</span>
             </div>
             <div className="h-[1px] bg-[#ffeebf] w-full" />
             <div className="flex justify-between items-center pt-1">
               <span className="text-[15px] font-bold text-[#191f28]">차감 후 잔여</span>
-              <span className="text-[18px] font-bold text-[#0052cc]">45,000P</span>
+              <span className="text-[18px] font-bold text-[#0052cc]">{Math.max(0, pointBalance - pointCost).toLocaleString()}P</span>
             </div>
           </div>
 
@@ -294,7 +298,7 @@ export function Step5Review({
               💡 포인트 사용 TIP
             </p>
             <p className="text-[14px] leading-relaxed text-[#8b95a1]">
-              제조사 재고 부족 또는 제조사 사정으로 견적이 취소될 경우, 사용된 5,000P는 자동으로 환불됩니다.
+              제조사 재고 부족 또는 제조사 사정으로 견적이 취소될 경우, 사용된 {pointCost.toLocaleString()}P는 자동으로 환불됩니다.
             </p>
           </div>
         </section>

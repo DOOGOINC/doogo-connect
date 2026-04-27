@@ -45,11 +45,23 @@ type PaymentRecord = {
   invoiceLabel: string;
 };
 
-const PAYMENT_STATUSES: PaymentStatus[] = ["pending", "paid"];
+const PAYMENT_STATUSES: PaymentStatus[] = ["paid"];
 const currencyCardClasses = ["from-[#2563eb] to-[#1d4ed8]", "from-[#16a34a] to-[#059669]", "from-[#7c3aed] to-[#6d28d9]"];
 
+const PAID_REQUEST_STATUSES = new Set([
+  "payment_completed",
+  "production_waiting",
+  "production_started",
+  "ordered",
+  "production_in_progress",
+  "manufacturing_completed",
+  "completed",
+  "delivery_completed",
+  "fulfilled",
+]);
+
 const getPaymentStatus = (request: RfqRequestRow): PaymentStatus => {
-  if (request.status === "ordered" || request.status === "completed" || request.status === "fulfilled") {
+  if (PAID_REQUEST_STATUSES.has(request.status)) {
     return "paid";
   }
   return "pending";
@@ -82,7 +94,7 @@ export function ClientPaymentManagement({ requests }: ClientPaymentManagementPro
   const paymentRecords = useMemo<PaymentRecord[]>(
     () =>
       requests
-        .filter((request) => request.status !== "pending" && request.status !== "rejected")
+        .filter((request) => PAID_REQUEST_STATUSES.has(request.status))
         .map((request) => ({
           id: request.id,
           request,
@@ -155,7 +167,7 @@ export function ClientPaymentManagement({ requests }: ClientPaymentManagementPro
   }, [endDate, paymentRecords, searchQuery, sortConfig, startDate, statusFilter]);
 
   const currencySummaries = useMemo(() => {
-    const grouped = filteredRecords.reduce<Record<string, { total: number; count: number; method: string }>>((acc, record) => {
+    const grouped = paymentRecords.reduce<Record<string, { total: number; count: number; method: string }>>((acc, record) => {
       const currencyCode = record.request.currency_code || "USD";
       if (!acc[currencyCode]) {
         acc[currencyCode] = { total: 0, count: 0, method: record.paymentMethod };
@@ -172,7 +184,7 @@ export function ClientPaymentManagement({ requests }: ClientPaymentManagementPro
       method: summary.method,
       gradientClass: currencyCardClasses[index % currencyCardClasses.length],
     }));
-  }, [filteredRecords]);
+  }, [paymentRecords]);
 
   const handleDownloadCsv = () => {
     const headers = [
@@ -227,7 +239,7 @@ export function ClientPaymentManagement({ requests }: ClientPaymentManagementPro
     setSortConfig({ key, direction });
   };
 
-  const SortIcon = ({ columnKey }: { columnKey: SortKey }) => {
+  const renderSortIcon = (columnKey: SortKey) => {
     if (sortConfig.key !== columnKey) {
       return <ArrowUpDown className="ml-1 h-3 w-3 opacity-30" />;
     }
@@ -334,28 +346,28 @@ export function ClientPaymentManagement({ requests }: ClientPaymentManagementPro
                 <thead className="sticky top-0 z-10 bg-white shadow-[0_1px_0_rgba(0,0,0,0.05)]">
                   <tr className="text-left text-[11px] font-bold uppercase tracking-wider text-[#8b95a1]">
                     <th className="w-[120px] cursor-pointer px-6 py-4 hover:bg-[#f9fafb]" onClick={() => requestSort("display_number")}>
-                      <div className="flex items-center">거래번호 <SortIcon columnKey="display_number" /></div>
+                      <div className="flex items-center">거래번호 {renderSortIcon("display_number")}</div>
                     </th>
                     <th className="w-[130px] cursor-pointer px-4 py-4 hover:bg-[#f9fafb]" onClick={() => requestSort("created_at")}>
-                      <div className="flex items-center">날짜 <SortIcon columnKey="created_at" /></div>
+                      <div className="flex items-center">날짜 {renderSortIcon("created_at")}</div>
                     </th>
                     <th className="w-[280px] cursor-pointer px-4 py-4 hover:bg-[#f9fafb]" onClick={() => requestSort("product_name")}>
-                      <div className="flex items-center">제품명 <SortIcon columnKey="product_name" /></div>
+                      <div className="flex items-center">제품명 {renderSortIcon("product_name")}</div>
                     </th>
                     <th className="w-[170px] cursor-pointer px-4 py-4 hover:bg-[#f9fafb]" onClick={() => requestSort("manufacturer_name")}>
-                      <div className="flex items-center">제조사 <SortIcon columnKey="manufacturer_name" /></div>
+                      <div className="flex items-center">제조사 {renderSortIcon("manufacturer_name")}</div>
                     </th>
                     <th className="w-[100px] cursor-pointer px-4 py-4 hover:bg-[#f9fafb]" onClick={() => requestSort("quantity")}>
-                      <div className="flex items-center">수량 <SortIcon columnKey="quantity" /></div>
+                      <div className="flex items-center">수량 {renderSortIcon("quantity")}</div>
                     </th>
                     <th className="w-[170px] cursor-pointer px-4 py-4 hover:bg-[#f9fafb]" onClick={() => requestSort("total_price")}>
-                      <div className="flex items-center">결제금액 <SortIcon columnKey="total_price" /></div>
+                      <div className="flex items-center">결제금액 {renderSortIcon("total_price")}</div>
                     </th>
                     <th className="w-[140px] cursor-pointer px-4 py-4 hover:bg-[#f9fafb]" onClick={() => requestSort("payment_method")}>
-                      <div className="flex items-center">결제방식 <SortIcon columnKey="payment_method" /></div>
+                      <div className="flex items-center">결제방식 {renderSortIcon("payment_method")}</div>
                     </th>
                     <th className="w-[120px] cursor-pointer px-4 py-4 hover:bg-[#f9fafb]" onClick={() => requestSort("payment_status")}>
-                      <div className="flex items-center">상태 <SortIcon columnKey="payment_status" /></div>
+                      <div className="flex items-center">상태 {renderSortIcon("payment_status")}</div>
                     </th>
                     <th className="w-[120px] px-4 py-4">인보이스</th>
                     <th className="w-[160px] px-6 py-4">상세</th>

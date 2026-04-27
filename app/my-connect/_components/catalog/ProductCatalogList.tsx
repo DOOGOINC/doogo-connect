@@ -116,6 +116,10 @@ export function ProductCatalogList({
                     {formatCurrency(item.base_price, normalizeCurrencyCode(item.payment_currency))}
                   </div>
                   <div className="text-[12px] font-medium text-[#8B95A1]">기본가</div>
+                  <div className="mt-2 text-[14px] font-bold text-[#4E5968]">
+                    {formatCurrency(item.cost_price || 0, normalizeCurrencyCode(item.payment_currency))}
+                  </div>
+                  <div className="text-[11px] font-medium text-[#98A2B3]">원가</div>
                 </div>
               </div>
 
