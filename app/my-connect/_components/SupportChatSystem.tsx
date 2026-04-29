@@ -42,6 +42,13 @@ export function SupportChatSystem({ userId, isMaster = false, initialRoomId = ""
   const shouldScrollToBottomRef = useRef(false);
   const messagesRef = useRef<ChatMessageView[]>([]);
   const selectedRoomIdRef = useRef("");
+  const roomsRefreshInFlightRef = useRef(false);
+  const pendingRoomsRefreshRef = useRef(false);
+  const messagesRefreshInFlightRef = useRef<Record<string, boolean>>({});
+  const pendingMessagesRefreshRef = useRef<Record<string, boolean>>({});
+  const readReceiptInFlightRef = useRef<Record<string, boolean>>({});
+  const refreshRoomsTimeoutRef = useRef<number | null>(null);
+  const refreshMessageTimeoutsRef = useRef<Record<string, number>>({});
 
   useEffect(() => {
     messagesRef.current = messages;
@@ -81,6 +88,51 @@ export function SupportChatSystem({ userId, isMaster = false, initialRoomId = ""
   const scrollToBottom = useCallback((behavior: ScrollBehavior = "auto") => {
     messagesEndRef.current?.scrollIntoView({ behavior, block: "end" });
   }, []);
+
+  const toMessageView = useCallback(
+    (message: ChatMessageRow): ChatMessageView => ({
+      ...message,
+      file_url: message.file_url ? buildStorageObjectUrl(CHAT_FILE_BUCKET, message.file_url) : null,
+      isMine: message.sender_id === userId,
+      timeLabel: formatMessageTime(message.created_at),
+    }),
+    [userId]
+  );
+
+  const replaceMessage = useCallback((message: ChatMessageView) => {
+    setMessages((prev) => {
+      const existingIndex = prev.findIndex((item) => item.id === message.id);
+      if (existingIndex === -1) {
+        return [...prev, message].sort((a, b) => new Date(a.created_at).getTime() - new Date(b.created_at).getTime());
+      }
+
+      const next = [...prev];
+      next[existingIndex] = message;
+      return next;
+    });
+  }, []);
+
+  const removeMessage = useCallback((messageId: string) => {
+    setMessages((prev) => prev.filter((message) => message.id !== messageId));
+  }, []);
+
+  const markRoomMessagesRead = useCallback(
+    async (roomId: string) => {
+      if (!roomId || readReceiptInFlightRef.current[roomId]) {
+        return;
+      }
+
+      readReceiptInFlightRef.current[roomId] = true;
+      try {
+        await supabase.from("chat_messages").update({ is_read: true }).eq("room_id", roomId).neq("sender_id", userId).eq("is_read", false);
+      } finally {
+        readReceiptInFlightRef.current[roomId] = false;
+      }
+
+      setRooms((prev) => prev.map((room) => (room.id === roomId ? { ...room, unreadCount: 0 } : room)));
+    },
+    [userId]
+  );
 
   useEffect(() => {
     const roomChanged = prevRoomIdRef.current !== selectedRoomId;
@@ -129,15 +181,22 @@ export function SupportChatSystem({ userId, isMaster = false, initialRoomId = ""
   }, [touchPresence]);
 
   const refreshRooms = useCallback(async () => {
+    if (roomsRefreshInFlightRef.current) {
+      pendingRoomsRefreshRef.current = true;
+      return;
+    }
+
+    roomsRefreshInFlightRef.current = true;
     const roomQuery = isMaster
       ? supabase.from("chat_rooms").select("*").eq("room_type", "support")
       : supabase.from("chat_rooms").select("*").eq("room_type", "support").eq("client_id", userId);
 
-    const { data: roomRows, error: roomError } = await roomQuery.order("updated_at", { ascending: false });
-    if (roomError) {
-      console.error("Failed to load support rooms:", roomError.message);
-      return;
-    }
+    try {
+      const { data: roomRows, error: roomError } = await roomQuery.order("updated_at", { ascending: false });
+      if (roomError) {
+        console.error("Failed to load support rooms:", roomError.message);
+        return;
+      }
 
     const roomsData = ((roomRows as ChatRoomRow[] | null) || []).filter(Boolean);
     if (!roomsData.length) {
@@ -219,53 +278,107 @@ export function SupportChatSystem({ userId, isMaster = false, initialRoomId = ""
       };
     });
 
-    setRooms(nextRooms);
-    setSelectedRoomId((prev) => {
-      if (initialRoomId && nextRooms.some((room) => room.id === initialRoomId)) return initialRoomId;
-      return nextRooms.some((room) => room.id === prev) ? prev : nextRooms[0]?.id || "";
-    });
+      setRooms(nextRooms);
+      setSelectedRoomId((prev) => {
+        if (initialRoomId && nextRooms.some((room) => room.id === initialRoomId)) return initialRoomId;
+        return nextRooms.some((room) => room.id === prev) ? prev : nextRooms[0]?.id || "";
+      });
+    } finally {
+      roomsRefreshInFlightRef.current = false;
+
+      if (pendingRoomsRefreshRef.current) {
+        pendingRoomsRefreshRef.current = false;
+        void refreshRooms();
+      }
+    }
   }, [initialRoomId, isMaster, userId]);
 
   const refreshMessages = useCallback(
     async (roomId: string) => {
-      const wasNearBottom = isNearBottom();
-      const { data, error } = await supabase
-        .from("chat_messages")
-        .select("id, room_id, sender_id, content, message_type, is_read, created_at, file_url, file_name, file_size")
-        .eq("room_id", roomId)
-        .order("created_at", { ascending: true });
-
-      if (error) {
-        console.error("Failed to load support messages:", error.message);
+      if (!roomId) {
         return;
       }
 
-      const nextMessages = (((data as ChatMessageRow[] | null) || [])).map((message) => ({
-        ...message,
-        file_url: message.file_url ? buildStorageObjectUrl(CHAT_FILE_BUCKET, message.file_url) : null,
-        isMine: message.sender_id === userId,
-        timeLabel: formatMessageTime(message.created_at),
-      }));
-
-      const currentMessages = messagesRef.current;
-      const prevLastMessageId = currentMessages[currentMessages.length - 1]?.id;
-      const nextLastMessage = nextMessages[nextMessages.length - 1];
-      const hasNewLastMessage = !!nextLastMessage && nextLastMessage.id !== prevLastMessageId;
-      const isMyNewMessage = !!nextLastMessage && nextLastMessage.sender_id === userId;
-
-      if (hasNewLastMessage && (wasNearBottom || isMyNewMessage)) {
-        shouldScrollToBottomRef.current = true;
+      if (messagesRefreshInFlightRef.current[roomId]) {
+        pendingMessagesRefreshRef.current[roomId] = true;
+        return;
       }
 
-      setMessages(nextMessages);
+      messagesRefreshInFlightRef.current[roomId] = true;
 
-      const hasUnread = nextMessages.some((message) => !message.isMine && !message.is_read);
-      if (hasUnread) {
-        await supabase.from("chat_messages").update({ is_read: true }).eq("room_id", roomId).neq("sender_id", userId).eq("is_read", false);
-        setRooms((prev) => prev.map((room) => (room.id === roomId ? { ...room, unreadCount: 0 } : room)));
+      try {
+        const wasNearBottom = isNearBottom();
+        const { data, error } = await supabase
+          .from("chat_messages")
+          .select("id, room_id, sender_id, content, message_type, is_read, created_at, file_url, file_name, file_size")
+          .eq("room_id", roomId)
+          .order("created_at", { ascending: true });
+
+        if (error) {
+          console.error("Failed to load support messages:", error.message);
+          return;
+        }
+
+        const nextMessages = (((data as ChatMessageRow[] | null) || [])).map(toMessageView);
+
+        const currentMessages = messagesRef.current;
+        const prevLastMessageId = currentMessages[currentMessages.length - 1]?.id;
+        const nextLastMessage = nextMessages[nextMessages.length - 1];
+        const hasNewLastMessage = !!nextLastMessage && nextLastMessage.id !== prevLastMessageId;
+        const isMyNewMessage = !!nextLastMessage && nextLastMessage.sender_id === userId;
+
+        if (hasNewLastMessage && (wasNearBottom || isMyNewMessage)) {
+          shouldScrollToBottomRef.current = true;
+        }
+
+        setMessages(nextMessages);
+
+        const hasUnread = nextMessages.some((message) => !message.isMine && !message.is_read);
+        if (hasUnread) {
+          await markRoomMessagesRead(roomId);
+          void refreshRooms();
+        }
+      } finally {
+        messagesRefreshInFlightRef.current[roomId] = false;
+
+        if (pendingMessagesRefreshRef.current[roomId]) {
+          pendingMessagesRefreshRef.current[roomId] = false;
+          void refreshMessages(roomId);
+        }
       }
     },
-    [isNearBottom, userId]
+    [isNearBottom, markRoomMessagesRead, refreshRooms, toMessageView, userId]
+  );
+
+  const scheduleRoomsRefresh = useCallback(
+    (delay = 150) => {
+      if (refreshRoomsTimeoutRef.current) {
+        window.clearTimeout(refreshRoomsTimeoutRef.current);
+      }
+
+      refreshRoomsTimeoutRef.current = window.setTimeout(() => {
+        refreshRoomsTimeoutRef.current = null;
+        void refreshRooms();
+      }, delay);
+    },
+    [refreshRooms]
+  );
+
+  const scheduleMessagesRefresh = useCallback(
+    (roomId: string, delay = 150) => {
+      if (!roomId) return;
+
+      const existingTimer = refreshMessageTimeoutsRef.current[roomId];
+      if (existingTimer) {
+        window.clearTimeout(existingTimer);
+      }
+
+      refreshMessageTimeoutsRef.current[roomId] = window.setTimeout(() => {
+        delete refreshMessageTimeoutsRef.current[roomId];
+        void refreshMessages(roomId);
+      }, delay);
+    },
+    [refreshMessages]
   );
 
   useEffect(() => {
@@ -293,29 +406,84 @@ export function SupportChatSystem({ userId, isMaster = false, initialRoomId = ""
   }, [refreshMessages, selectedRoomId]);
 
   useEffect(() => {
-    const refreshAll = () => {
-      void refreshRooms();
+    const handleFocus = () => {
+      scheduleRoomsRefresh(0);
       if (selectedRoomIdRef.current) {
-        void refreshMessages(selectedRoomIdRef.current);
+        scheduleMessagesRefresh(selectedRoomIdRef.current, 0);
       }
     };
 
     const channel = supabase
       .channel(`support-chat-${userId}-${isMaster ? "master" : "client"}`)
-      .on("postgres_changes", { event: "*", schema: "public", table: "chat_messages" }, refreshAll)
-      .on("postgres_changes", { event: "*", schema: "public", table: "chat_rooms" }, refreshAll)
+      .on("postgres_changes", { event: "*", schema: "public", table: "chat_messages" }, (payload) => {
+        const payloadRoomId =
+          typeof payload.new === "object" && payload.new && "room_id" in payload.new
+            ? String(payload.new.room_id || "")
+            : typeof payload.old === "object" && payload.old && "room_id" in payload.old
+              ? String(payload.old.room_id || "")
+              : "";
+
+        scheduleRoomsRefresh();
+        if (payloadRoomId && payloadRoomId === selectedRoomIdRef.current) {
+          if (payload.eventType === "INSERT" && payload.new) {
+            const nextMessage = toMessageView(payload.new as ChatMessageRow);
+            const wasNearBottom = isNearBottom();
+
+            if (!nextMessage.isMine) {
+              setRooms((prev) =>
+                prev.map((room) =>
+                  room.id === payloadRoomId
+                    ? {
+                        ...room,
+                        unreadCount: room.id === selectedRoomIdRef.current ? 0 : room.unreadCount + 1,
+                      }
+                    : room
+                )
+              );
+              void markRoomMessagesRead(payloadRoomId);
+            }
+
+            if (wasNearBottom || nextMessage.isMine) {
+              shouldScrollToBottomRef.current = true;
+            }
+
+            replaceMessage(nextMessage);
+            return;
+          }
+
+          if (payload.eventType === "UPDATE" && payload.new) {
+            replaceMessage(toMessageView(payload.new as ChatMessageRow));
+            return;
+          }
+
+          if (payload.eventType === "DELETE" && payload.old && "id" in payload.old) {
+            removeMessage(String(payload.old.id || ""));
+            return;
+          }
+
+          scheduleMessagesRefresh(payloadRoomId);
+        }
+      })
+      .on("postgres_changes", { event: "*", schema: "public", table: "chat_rooms" }, () => {
+        scheduleRoomsRefresh();
+      })
       .on("postgres_changes", { event: "*", schema: "public", table: "profiles" }, () => {
-        void refreshRooms();
+        scheduleRoomsRefresh(300);
       })
       .subscribe();
-
-    const polling = window.setInterval(refreshAll, 10000);
+ 
+    window.addEventListener("focus", handleFocus);
 
     return () => {
-      window.clearInterval(polling);
+      if (refreshRoomsTimeoutRef.current) {
+        window.clearTimeout(refreshRoomsTimeoutRef.current);
+      }
+      Object.values(refreshMessageTimeoutsRef.current).forEach((timer) => window.clearTimeout(timer));
+      refreshMessageTimeoutsRef.current = {};
+      window.removeEventListener("focus", handleFocus);
       void supabase.removeChannel(channel);
     };
-  }, [isMaster, refreshMessages, refreshRooms, userId]);
+  }, [isMaster, isNearBottom, markRoomMessagesRead, removeMessage, replaceMessage, scheduleMessagesRefresh, scheduleRoomsRefresh, toMessageView, userId]);
 
   const sendMessage = async (content: string, file?: File | null) => {
     if (!selectedRoomId) return;
@@ -337,7 +505,7 @@ export function SupportChatSystem({ userId, isMaster = false, initialRoomId = ""
       method: "POST",
       body: formData,
     });
-    const result = (await response.json()) as { error?: string };
+    const result = (await response.json()) as { error?: string; data?: ChatMessageRow };
 
     if (!response.ok) {
       alert(result.error || "메시지 전송에 실패했습니다.");
@@ -346,8 +514,12 @@ export function SupportChatSystem({ userId, isMaster = false, initialRoomId = ""
     }
 
     setMessageInput("");
+    if (result.data) {
+      replaceMessage(toMessageView(result.data));
+    } else {
+      void refreshMessages(selectedRoomId);
+    }
     void refreshRooms();
-    void refreshMessages(selectedRoomId);
     setIsSending(false);
   };
 
