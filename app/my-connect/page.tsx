@@ -17,6 +17,7 @@ import { ClientProjectDetail } from "./_components/ClientProjectDetail";
 import { ClientQuoteRequestHub } from "./_components/ClientQuoteRequestHub";
 import { ClientRefundDisputeCenter } from "./_components/ClientRefundDisputeCenter";
 import { EmptyState } from "./_components/EmptyState";
+import { ManufacturerDashboard } from "./_components/ManufacturerDashboard";
 import { ManufacturerRequestHub } from "./_components/ManufacturerRequestHub";
 import { OrdersManagement } from "./_components/OrdersManagement";
 import { PointsWallet } from "./_components/PointsWallet";
@@ -47,6 +48,7 @@ const CLIENT_TAB_LABELS: Record<string, string> = {
 };
 
 const MANUFACTURER_TAB_LABELS: Record<string, string> = {
+  dashboard: "대시보드",
   "rfq-inbox": "제조사 견적함",
   orders: "수주 관리",
   "manufacturing-requests-new": "신규 요청",
@@ -80,7 +82,7 @@ function resolveManufacturerTab(requestedTab: string | null) {
     return requestedTab;
   }
 
-  return "rfq-inbox";
+  return "dashboard";
 }
 
 export default function MyConnectPage() {
@@ -203,7 +205,7 @@ export default function MyConnectPage() {
     }
 
     const url = new URL(window.location.href);
-    const defaultTab = viewMode === "manufacturer" ? "rfq-inbox" : "dashboard";
+    const defaultTab = "dashboard";
 
     if (activeTab === defaultTab) {
       url.searchParams.delete("tab");
@@ -504,6 +506,23 @@ export default function MyConnectPage() {
   const renderContent = () => {
     if (viewMode === "manufacturer") {
       switch (activeTab) {
+        case "dashboard":
+          return (
+            <ManufacturerDashboard
+              displayName={manufacturerName || displayName}
+              requests={rfqRequests}
+              onRequestSelect={setSelectedRfqId}
+              onTabChange={setActiveTab}
+              onApproveRequest={(requestId) => handleRequestStatusChange(requestId, "reviewing")}
+              onRejectRequest={(requestId, reason) =>
+                handleRequestPatch(requestId, {
+                  status: "rejected",
+                  admin_memo: reason,
+                  updated_at: new Date().toISOString(),
+                })
+              }
+            />
+          );
         case "chat":
           return <ChatSystem userId={userId} viewMode={viewMode} />;
         case "support":

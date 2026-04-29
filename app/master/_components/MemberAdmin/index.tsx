@@ -131,6 +131,15 @@ export function MemberAdmin({ refreshKey = 0 }: { refreshKey?: number }) {
     const currentMember = members.find((member) => member.id === userId);
     if (!currentMember || currentMember.role === newRole) return;
 
+    if (currentMember.role !== "member" || newRole !== "manufacturer") {
+      window.alert("의뢰자에서 제조사로만 변경할 수 있습니다.");
+      return;
+    }
+
+    if (!window.confirm("한 번 제조사로 변경하면 다시 변경할 수 없습니다. 신중하게 진행해주세요.")) {
+      return;
+    }
+
     const roleMap: Record<string, string> = {
       master: "마스터",
       manufacturer: "제조사",

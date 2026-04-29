@@ -1,9 +1,11 @@
 "use client";
 
 import { Suspense, startTransition, useEffect, useState } from "react";
-import { CheckCircle2, ChevronLeft, ChevronRight } from "lucide-react";
+import { useRouter } from "next/navigation";
+import { ChevronLeft, ChevronRight } from "lucide-react";
 import { AuthModal } from "@/components/AuthModal";
 import { authFetch } from "@/lib/client/auth-fetch";
+import type { AppRole } from "@/lib/auth/roles";
 import { DEFAULT_REVIEW_FORM_VALUES, type ReviewFormValues, type RfqRequestRow } from "@/lib/rfq";
 import { supabase } from "@/lib/supabase";
 import { FooterBar } from "./_components/FooterBar";
@@ -19,6 +21,7 @@ import { useEstimate } from "./_hooks/useEstimate";
 
 
 function EstimatePageContent() {
+  const router = useRouter();
   const est = useEstimate();
   const [isAuthModalOpen, setIsAuthModalOpen] = useState(false);
   const [session, setSession] = useState<{ user: { id: string; email?: string } } | null>(null);
@@ -28,6 +31,7 @@ function EstimatePageContent() {
   const [submittedRfq, setSubmittedRfq] = useState<Pick<RfqRequestRow, "request_number" | "order_number"> | null>(null);
   const [pointBalance, setPointBalance] = useState(0);
   const [rfqRequestPointCost, setRfqRequestPointCost] = useState(5000);
+  const [userRole, setUserRole] = useState<AppRole>("member");
 
   useEffect(() => {
     const initializeSession = async () => {
@@ -44,13 +48,15 @@ function EstimatePageContent() {
 
       const { data: profile, error: profileError } = await supabase
         .from("profiles")
-        .select("full_name, email, phone_number")
+        .select("full_name, email, phone_number, role")
         .eq("id", session.user.id)
         .maybeSingle();
 
       if (profileError) {
         console.warn("Profile prefill skipped:", profileError.message);
       }
+
+      setUserRole((profile?.role as AppRole | undefined) || "member");
 
       setReviewForm((prev) => ({
         ...prev,
@@ -96,6 +102,11 @@ function EstimatePageContent() {
       return;
     }
 
+    if (userRole !== "member") {
+      alert("의뢰자만 가능합니다");
+      return;
+    }
+
     if (
       !est.selection.manufacturer ||
       !est.selectedProduct ||
@@ -111,6 +122,13 @@ function EstimatePageContent() {
     if (reviewForm.hasFiles === "yes" && !reviewForm.fileLink.trim()) {
       alert("디자인 파일 링크를 입력해 주세요.");
       return;
+    }
+
+    if (userRole === "member") {
+      const shouldProceed = window.confirm(`${rfqRequestPointCost.toLocaleString()}포인트가 소모됩니다 진행하시겠습니까?`);
+      if (!shouldProceed) {
+        return;
+      }
     }
 
     setIsSubmittingOrder(true);
@@ -313,6 +331,8 @@ function EstimatePageContent() {
                     onReviewFormChange={handleReviewFormChange}
                     pointBalance={pointBalance}
                     pointCost={rfqRequestPointCost}
+                    userRole={userRole}
+                    onPurchasePoints={() => router.push("/purchase")}
                   />
                 ) : null}
 

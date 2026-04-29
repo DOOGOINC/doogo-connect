@@ -181,8 +181,8 @@ export function Sidebar({ activeTab, displayName, isManufacturer, onTabChange, v
   const profileName = viewMode === "manufacturer" ? manufacturerName?.trim() || "제조사 계정" : `${displayName?.trim() || "고객"} 고객님`;
   const profileTypeLabel = isManufacturer ? "제조사" : "의뢰자";
   const profileDescription = isManufacturer ? "제조사 계정" : "의뢰자 계정";
-  const connectLabel = viewMode === "manufacturer" ? "마이커넥트 제조사" : "마이커넥트 의뢰자";
-  const homeTab = viewMode === "manufacturer" ? "rfq-inbox" : "dashboard";
+  const connectLabel = viewMode === "manufacturer" ? "마이커넥트 (제조사)" : "마이커넥트 (의뢰자)";
+  const homeTab = "dashboard";
   const handleLogout = async () => {
     await supabase.auth.signOut();
     window.location.href = "/";

@@ -239,7 +239,7 @@ export function ClientDeliveryHub({ requests, onRequestSelect, onTabChange, onPa
       <div className="flex flex-1 flex-col overflow-auto bg-[#f6f8fb] p-5 lg:p-6">
         <div className="mx-auto flex w-full max-w-[1400px] flex-col gap-5">
           <div>
-            <h2 className="text-[24px] font-bold tracking-tight text-[#1f2937] lg:text-[26px]">제조 진행</h2>
+            <h2 className="text-[24px] font-bold tracking-tight text-[#1f2937] lg:text-[26px]">생산 진행</h2>
             <p className="mt-1.5 text-[14px] text-[#667085] lg:text-[15px]">{tabMeta.description}</p>
           </div>
 

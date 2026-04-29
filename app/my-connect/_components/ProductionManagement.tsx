@@ -130,7 +130,7 @@ export function ProductionManagement({ requests, onStatusChange }: ProductionMan
       <div className="flex flex-1 flex-col overflow-auto bg-[#f6f8fb] p-5 lg:p-6">
         <div className="mx-auto flex w-full max-w-[1400px] flex-col gap-5">
           <div>
-            <h2 className="text-[24px] font-bold tracking-tight text-[#1f2937] lg:text-[26px]">제조 관리</h2>
+            <h2 className="text-[24px] font-bold tracking-tight text-[#1f2937] lg:text-[26px]">생산 진행</h2>
             <p className="mt-1.5 text-[14px] text-[#667085] lg:text-[15px]">
               {activeTab === "payment-confirm" && "의뢰자가 결제를 완료한 주문을 제조사가 수기로 확인합니다."}
               {activeTab === "waiting" && "생산 대기 상태의 주문입니다."}

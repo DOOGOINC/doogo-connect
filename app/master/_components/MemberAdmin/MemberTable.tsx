@@ -157,6 +157,7 @@ export function MemberTable({
             members.map((member) => {
               const isSaving = savingMemberId === member.id;
               const isKakaoAccount = member.is_kakao;
+              const canChangeRole = member.role === "member";
               const attachmentUrl = buildStorageObjectUrl(PARTNER_REQUEST_BUCKET, member.business_attachment_url);
 
               return (
@@ -220,7 +221,7 @@ export function MemberTable({
                       {isSaving ? <Loader2 className="h-3.5 w-3.5 animate-spin text-[#0064FF]" /> : null}
                       <select
                         value={member.role}
-                        disabled={isSaving}
+                        disabled={isSaving || !canChangeRole}
                         onChange={(event) => onRoleChange(member.id, event.target.value)}
                         className="h-7 cursor-pointer rounded-lg border border-[#E5E8EB] bg-white px-2 py-0.5 text-[11px] font-bold outline-none hover:border-[#0064FF] disabled:cursor-not-allowed disabled:bg-gray-50"
                       >
