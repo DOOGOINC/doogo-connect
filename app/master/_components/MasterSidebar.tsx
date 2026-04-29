@@ -3,8 +3,10 @@
 import NextLink from "next/link";
 import Image from "next/image";
 import {
+  LogOut,
   ShieldCheck
 } from "lucide-react";
+import { supabase } from "@/lib/supabase";
 
 interface MasterSidebarProps {
   activeTab: string;
@@ -77,22 +79,28 @@ function getActiveGroupId(activeTab: string) {
 
 export function MasterSidebar({ activeTab, onTabChange }: MasterSidebarProps) {
   const activeGroupId = getActiveGroupId(activeTab);
+  const handleLogout = async () => {
+    await supabase.auth.signOut();
+    window.location.href = "/";
+  };
 
   return (
     <aside className="flex min-h-screen w-[248px] flex-shrink-0 flex-col border-r border-[#edf0f4] bg-[#fff]">
-      <div className="flex-shrink-0 border-b border-[#edf0f4] bg-white px-5 py-6">
-        <NextLink href="/" className="flex flex-col gap-3 group">
-          <div className="flex h-16 items-center">
+      <div className="flex-shrink-0 border-b border-[#edf0f4] bg-white px-5 py-3">
+        <NextLink href="/" className="group">
+          <div className="flex h-16 flex-col items-center justify-center gap-1">
             <Image
               src="/image/doogo_logo_full.png"
               alt="DOGO CONNECT"
               width={120}
               height={28}
-              className="h-[30px] w-auto object-contain"
+              className="h-[28px] w-auto object-contain"
               priority
             />
+            <p className="text-[10px] tracking-widest text-[#7b8597] group-hover:text-[#2f6bff] transition-colors leading-none">
+              총괄 관리자 센터
+            </p>
           </div>
-          <p className="text-[11px] font-extrabold tracking-widest text-[#7b8597] group-hover:text-[#2f6bff] transition-colors">총괄 관리자 센터</p>
         </NextLink>
       </div>
 
@@ -168,6 +176,16 @@ export function MasterSidebar({ activeTab, onTabChange }: MasterSidebarProps) {
       </nav>
 
       <div className="flex-shrink-0 border-t border-[#edf0f4] px-4 py-4">
+        <button
+          type="button"
+          onClick={() => {
+            void handleLogout();
+          }}
+          className="mb-3 flex w-full items-center gap-3 rounded-2xl px-3 py-3 text-left text-[14px] font-semibold text-[#ff3b3b] transition hover:bg-[#fff5f5]"
+        >
+          <LogOut className="h-4 w-4" />
+          <span>로그아웃</span>
+        </button>
         <p className="text-[11px] font-medium text-[#98a2b3]">마스터 포털 전용</p>
       </div>
     </aside>

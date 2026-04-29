@@ -50,6 +50,11 @@ export type RfqRequestRow = {
   commission_amount?: number | null;
   settlement_amount?: number | null;
   commission_locked_at?: string | null;
+  manufacturer_settlement_requested_at?: string | null;
+  manufacturer_settlement_requested_by?: string | null;
+  is_settled?: boolean | null;
+  settled_at?: string | null;
+  settled_by?: string | null;
   selection_snapshot: Record<string, unknown>;
   status: RfqRequestStatus;
   created_at: string;

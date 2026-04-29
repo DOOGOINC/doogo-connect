@@ -5,19 +5,21 @@ import {
   Banknote,
   BriefcaseBusiness,
   ChevronDown,
-  ClipboardList,
   Factory,
   FileText,
   FolderKanban,
   Headphones,
   LayoutDashboard,
+  LogOut,
   MessageSquareText,
   PackageCheck,
-  Settings,
   ShieldCheck,
   UserRound,
 } from "lucide-react";
+import Image from "next/image";
+import NextLink from "next/link";
 import { useState } from "react";
+import { supabase } from "@/lib/supabase";
 
 type ConnectViewMode = "client" | "manufacturer";
 
@@ -34,19 +36,21 @@ interface SidebarGroup {
   children: SidebarLeafItem[];
   defaultOpen?: boolean;
 }
-const Emoji02 = () => <span>📝</span>;
-const Emoji03 = () => <span>🏭</span>;
-const Emoji04 = () => <span>💬</span>;
-const Emoji05 = () => <span>💰</span>;
-const Emoji06 = () => <span>⚡</span>;
-const Emoji07 = () => <span>⚙️</span>;
 
+const EmojiQuote = () => <span>📝</span>;
+const EmojiFactory = () => <span>🏭</span>;
+const EmojiChat = () => <span>💬</span>;
+const EmojiMoney = () => <span>💰</span>;
+const EmojiCoin = () => <span>🪙</span>;
+const EmojiGear = () => <span>⚙️</span>;
+const EmojiBox = () => <span>📦</span>;
+const EmojiRequest = () => <span>📨</span>;
 
 const CLIENT_GROUPS: SidebarGroup[] = [
   {
     id: "quotes",
     label: "견적 진행",
-    icon: Emoji02,
+    icon: EmojiQuote,
     defaultOpen: true,
     children: [
       { id: "quote-request", label: "제조사 견적요청", icon: LayoutDashboard },
@@ -57,26 +61,24 @@ const CLIENT_GROUPS: SidebarGroup[] = [
   {
     id: "production",
     label: "생산 진행",
-    icon: Emoji03,
+    icon: EmojiFactory,
     defaultOpen: true,
-    children: [
-      { id: "delivery", label: "생산", icon: PackageCheck },
-    ],
+    children: [{ id: "delivery", label: "생산", icon: PackageCheck }],
   },
   {
     id: "communication",
     label: "커뮤니케이션",
-    icon: Emoji04,
+    icon: EmojiChat,
     defaultOpen: true,
     children: [
-      { id: "chat", label: "1:1 대화", icon: MessageSquareText },
+      { id: "chat", label: "1:1 채팅", icon: MessageSquareText },
       { id: "support", label: "고객센터", icon: Headphones },
     ],
   },
   {
     id: "transaction",
     label: "거래 관리",
-    icon: Emoji05,
+    icon: EmojiMoney,
     defaultOpen: true,
     children: [
       { id: "payment", label: "결제 내역", icon: Banknote },
@@ -89,7 +91,7 @@ const MANUFACTURER_GROUPS: SidebarGroup[] = [
   {
     id: "quotes",
     label: "견적 진행",
-    icon: ClipboardList,
+    icon: EmojiQuote,
     defaultOpen: true,
     children: [
       { id: "rfq-inbox", label: "제조사 견적함", icon: FileText },
@@ -97,16 +99,26 @@ const MANUFACTURER_GROUPS: SidebarGroup[] = [
     ],
   },
   {
+    id: "manufacturing-requests",
+    label: "제조 요청",
+    icon: EmojiRequest,
+    defaultOpen: true,
+    children: [
+      { id: "manufacturing-requests-new", label: "신규 요청", icon: FileText },
+      { id: "manufacturing-requests-history", label: "요청 확인/거절", icon: FileText },
+    ],
+  },
+  {
     id: "production",
-    label: "생산 진행",
-    icon: Factory,
+    label: "생산",
+    icon: EmojiFactory,
     defaultOpen: true,
     children: [{ id: "production", label: "생산 진행", icon: Factory }],
   },
   {
     id: "catalog",
     label: "OEM 상품 관리",
-    icon: FolderKanban,
+    icon: EmojiBox,
     defaultOpen: true,
     children: [
       { id: "product-list", label: "상품 리스트", icon: FolderKanban },
@@ -116,31 +128,33 @@ const MANUFACTURER_GROUPS: SidebarGroup[] = [
   {
     id: "communication",
     label: "커뮤니케이션",
-    icon: MessageSquareText,
+    icon: EmojiChat,
     defaultOpen: true,
     children: [
-      { id: "chat", label: "1:1 대화", icon: MessageSquareText },
+      { id: "chat", label: "1:1 채팅", icon: MessageSquareText },
       { id: "support", label: "고객센터", icon: Headphones },
     ],
   },
   {
     id: "transaction",
-    label: "거래 관리",
-    icon: Banknote,
+    label: "거래/정산",
+    icon: EmojiMoney,
     defaultOpen: true,
     children: [
-      { id: "transactions", label: "거래 통계", icon: Banknote },
-      { id: "trade-support", label: "거래 지원", icon: ShieldCheck },
+      { id: "transactions", label: "거래 내역", icon: Banknote },
+      { id: "settlement-history", label: "정산 내역", icon: Banknote },
+      { id: "fee-settlement", label: "수수료 내역", icon: Banknote },
+      { id: "trade-support", label: "환불/취소", icon: ShieldCheck },
     ],
   },
 ];
 
 const UTILITY_ITEMS_BY_MODE: Record<ConnectViewMode, SidebarLeafItem[]> = {
   client: [
-    { id: "points", label: "포인트 관리", icon: Emoji06 },
-    { id: "settings", label: "설정", icon: Emoji07 },
+    { id: "points", label: "포인트 관리", icon: EmojiCoin },
+    { id: "settings", label: "설정", icon: EmojiGear },
   ],
-  manufacturer: [{ id: "settings", label: "설정", icon: Settings }],
+  manufacturer: [{ id: "settings", label: "설정", icon: EmojiGear }],
 };
 
 interface SidebarProps {
@@ -167,11 +181,33 @@ export function Sidebar({ activeTab, displayName, isManufacturer, onTabChange, v
   const profileName = viewMode === "manufacturer" ? manufacturerName?.trim() || "제조사 계정" : `${displayName?.trim() || "고객"} 고객님`;
   const profileTypeLabel = isManufacturer ? "제조사" : "의뢰자";
   const profileDescription = isManufacturer ? "제조사 계정" : "의뢰자 계정";
-  const connectLabel = viewMode === "manufacturer" ? "마이커넥트(제조사)" : "마이커넥트(의뢰자)";
+  const connectLabel = viewMode === "manufacturer" ? "마이커넥트 제조사" : "마이커넥트 의뢰자";
   const homeTab = viewMode === "manufacturer" ? "rfq-inbox" : "dashboard";
+  const handleLogout = async () => {
+    await supabase.auth.signOut();
+    window.location.href = "/";
+  };
 
   return (
     <aside className="flex h-full min-h-0 w-[248px] flex-shrink-0 flex-col border-r border-[#edf0f4] bg-white">
+      <div className="flex-shrink-0 border-b border-[#edf0f4] bg-white px-5 py-3">
+        <NextLink href="/" className="group">
+          <div className="flex h-16 flex-col items-center justify-center gap-1.5">
+            <Image
+              src="/image/doogo_logo_full.png"
+              alt="DOGO CONNECT"
+              width={120}
+              height={28}
+              className="h-[30px] w-auto object-contain"
+              priority
+            />
+            <p className="text-[11px] font-extrabold tracking-widest text-[#7b8597] transition-colors group-hover:text-[#2f6bff] leading-none text-center">
+              {viewMode === "manufacturer" ? "제조사 센터" : "의뢰자 센터"}
+            </p>
+          </div>
+        </NextLink>
+      </div>
+
       <div className="flex-shrink-0 border-b border-[#edf0f4] bg-[#edf3ff] px-5 py-5">
         <div className="flex items-start gap-3">
           <div className="flex h-11 w-11 items-center justify-center rounded-full bg-[#2f6bff] text-white">
@@ -187,7 +223,7 @@ export function Sidebar({ activeTab, displayName, isManufacturer, onTabChange, v
           <span className="rounded-full bg-[#2f6bff] px-3 py-1 text-[11px] font-semibold text-white">{profileTypeLabel}</span>
           <span className="inline-flex items-center gap-1 rounded-full bg-[#ddf7e8] px-3 py-1 text-[11px] font-semibold text-[#14904c]">
             <BadgeCheck className="h-3.5 w-3.5" />
-            인증됨
+            인증 완료
           </span>
         </div>
       </div>
@@ -199,7 +235,7 @@ export function Sidebar({ activeTab, displayName, isManufacturer, onTabChange, v
           className={`flex w-full items-center gap-3 rounded-2xl px-4 py-3 text-left text-[15px] font-semibold transition ${activeTab === homeTab ? "bg-[#2f6bff] text-white" : "bg-[#fff] text-[#37507d] hover:bg-[#f7f9fc]"
             }`}
         >
-          🏠
+          <span>🏠</span>
           <span className="truncate">{connectLabel}</span>
         </button>
       </div>
@@ -223,7 +259,7 @@ export function Sidebar({ activeTab, displayName, isManufacturer, onTabChange, v
                 <ChevronDown className={`h-4 w-4 text-[#98a2b3] transition-transform ${isOpen ? "rotate-180" : "rotate-0"}`} />
               </button>
 
-              <div className={`overflow-hidden transition-all duration-200 ${isOpen ? "max-h-80 opacity-100" : "max-h-0 opacity-0"}`}>
+              <div className={`overflow-hidden transition-all duration-200 ${isOpen ? "max-h-[220px] opacity-100" : "max-h-0 opacity-0"}`}>
                 <div className="ml-6 border-[#eef1f5] py-1">
                   {group.children.map((item) => {
                     const isActive = item.id === activeTab;
@@ -237,7 +273,6 @@ export function Sidebar({ activeTab, displayName, isManufacturer, onTabChange, v
                           }`}
                       >
                         <span className={`absolute left-[-5px] h-2 w-2 rounded-full ${isActive ? "bg-[#2f6bff]" : "bg-[#d7dde6]"}`} />
-
                         <span className="truncate">{item.label}</span>
                       </button>
                     );
@@ -267,6 +302,19 @@ export function Sidebar({ activeTab, displayName, isManufacturer, onTabChange, v
           })}
         </div>
       </nav>
+
+      <div className="flex-shrink-0 border-t border-[#edf0f4] px-4 py-4">
+        <button
+          type="button"
+          onClick={() => {
+            void handleLogout();
+          }}
+          className="flex w-full items-center gap-3 rounded-2xl px-3 py-3 text-left text-[14px] font-semibold text-[#ff3b3b] transition hover:bg-[#fff5f5]"
+        >
+          <LogOut className="h-4 w-4" />
+          <span>로그아웃</span>
+        </button>
+      </div>
     </aside>
   );
 }

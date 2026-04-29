@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { PortalPageHeader } from "@/components/header/PortalPageHeader";
 import { supabase } from "@/lib/supabase";
 import { PartnerDashboardPanel } from "./_components/PartnerDashboardPanel";
 import { PartnerMonthlySettlementPanel } from "./_components/PartnerMonthlySettlementPanel";
@@ -10,13 +11,31 @@ import { PartnerSettingsPanel } from "./_components/PartnerSettingsPanel";
 import { PartnerSettlementHistoryPanel } from "./_components/PartnerSettlementHistoryPanel";
 import { PartnerSidebar } from "./_components/PartnerSidebar";
 
+const TAB_LABELS: Record<string, string> = {
+  dashboard: "대시보드",
+  referrals: "추천 회원",
+  "sales-orders": "매출/주문",
+  "monthly-settlement": "월별 정산",
+  "settlement-history": "정산 내역",
+  settings: "설정",
+};
+
 function getDisplayName(value: string | null | undefined) {
   const trimmed = typeof value === "string" ? value.trim() : "";
   return trimmed || "파트너";
 }
 
+function getInitialActiveTab() {
+  if (typeof window === "undefined") {
+    return "dashboard";
+  }
+
+  const requestedTab = new URLSearchParams(window.location.search).get("tab");
+  return requestedTab && requestedTab in TAB_LABELS ? requestedTab : "dashboard";
+}
+
 export default function PartnerDashboardPage() {
-  const [activeTab, setActiveTab] = useState("dashboard");
+  const [activeTab, setActiveTab] = useState(getInitialActiveTab);
   const [displayName, setDisplayName] = useState("파트너");
 
   useEffect(() => {
@@ -54,6 +73,18 @@ export default function PartnerDashboardPage() {
     };
   }, []);
 
+  useEffect(() => {
+    const url = new URL(window.location.href);
+
+    if (activeTab === "dashboard") {
+      url.searchParams.delete("tab");
+    } else {
+      url.searchParams.set("tab", activeTab);
+    }
+
+    window.history.replaceState({}, "", `${url.pathname}${url.search}${url.hash}`);
+  }, [activeTab]);
+
   const renderContent = () => {
     if (activeTab === "dashboard") {
       return <PartnerDashboardPanel />;
@@ -84,9 +115,12 @@ export default function PartnerDashboardPage() {
 
   return (
     <div className="flex min-h-screen flex-col bg-white">
-      <main className="flex h-[calc(100vh-64px)] flex-1 overflow-hidden border-t border-slate-100">
+      <main className="flex min-h-screen flex-1 overflow-hidden">
         <PartnerSidebar activeTab={activeTab} onTabChange={setActiveTab} displayName={displayName} />
-        {renderContent()}
+        <div className="flex min-w-0 flex-1 flex-col overflow-hidden bg-white">
+          <PortalPageHeader portalLabel="파트너 대시보드" sectionLabel={TAB_LABELS[activeTab] || "대시보드"} displayName={displayName} />
+          <div className="min-h-0 flex-1 overflow-hidden">{renderContent()}</div>
+        </div>
       </main>
     </div>
   );

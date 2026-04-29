@@ -1,6 +1,7 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
+import { PortalPageHeader } from "@/components/header/PortalPageHeader";
 import { ManufacturerAdmin } from "./_components/ManufacturerAdmin";
 import { MasterBlockedMembers } from "./_components/MasterBlockedMembers";
 import { MasterCommunicationHub } from "./_components/MasterCommunicationHub";
@@ -18,16 +19,53 @@ import { PointSettingsAdmin } from "./_components/PointSettingsAdmin";
 import { SupportCenterAdmin } from "./_components/SupportCenterAdmin";
 
 const COPY = {
-  manufacturingRequests: "\uC81C\uC870 \uC694\uCCAD",
-  productionManagement: "\uC0DD\uC0B0 \uAD00\uB9AC",
-  comingSoon:
-    "\uD574\uB2F9 \uAE30\uB2A5\uC740 \uD604\uC7AC \uC900\uBE44 \uC911\uC785\uB2C8\uB2E4. \uC6B4\uC601 \uD654\uBA74 \uAD6C\uC131\uC740 \uC21C\uCC28\uC801\uC73C\uB85C \uD655\uC7A5\uB429\uB2C8\uB2E4.",
-  servicePreparing: "\uC900\uBE44 \uC911\uC778 \uC11C\uBE44\uC2A4\uC785\uB2C8\uB2E4.",
+  servicePreparing: "준비 중인 서비스입니다.",
 };
 
+const TAB_LABELS: Record<string, string> = {
+  dashboard: "대시보드",
+  "manufacturing-requests": "제조 요청",
+  "production-management": "생산 관리",
+  manufacturers: "제조사 관리",
+  members: "전체 회원 관리",
+  requesters: "의뢰자 관리",
+  "blocked-members": "회원차단 리스트",
+  "dispute-center": "분쟁/중재 센터",
+  communication: "커뮤니케이션",
+  "partner-requests": "파트너 요청",
+  "support-inquiries": "고객 문의",
+  "point-settings": "포인트",
+  "transaction-management": "거래 관리",
+  "partner-management": "파트너 관리",
+  settings: "설정",
+  support: "고객센터",
+};
+
+function getInitialActiveTab() {
+  if (typeof window === "undefined") {
+    return "dashboard";
+  }
+
+  const requestedTab = new URLSearchParams(window.location.search).get("tab");
+  return requestedTab && requestedTab in TAB_LABELS ? requestedTab : "dashboard";
+}
+
 export default function MasterDashboardPage() {
-  const [activeTab, setActiveTab] = useState("dashboard");
+  const [activeTab, setActiveTab] = useState(getInitialActiveTab);
   const [supportInitialRoomId, setSupportInitialRoomId] = useState("");
+
+  useEffect(() => {
+    const url = new URL(window.location.href);
+
+    if (activeTab === "dashboard") {
+      url.searchParams.delete("tab");
+    } else {
+      url.searchParams.set("tab", activeTab);
+    }
+
+    window.history.replaceState({}, "", `${url.pathname}${url.search}${url.hash}`);
+  }, [activeTab]);
+
   const openSupportRoom = (roomId: string) => {
     setSupportInitialRoomId(roomId);
     setActiveTab("support");
@@ -78,9 +116,12 @@ export default function MasterDashboardPage() {
 
   return (
     <div className="flex min-h-screen flex-col bg-white">
-      <main className="flex min-h-screen flex-1 border-t border-slate-100">
+      <main className="flex min-h-screen flex-1 overflow-hidden">
         <MasterSidebar activeTab={activeTab} onTabChange={setActiveTab} />
-        {renderContent()}
+        <div className="flex min-w-0 flex-1 flex-col overflow-hidden bg-white">
+          <PortalPageHeader portalLabel="마스터 대시보드" sectionLabel={TAB_LABELS[activeTab] || "대시보드"} displayName="DOGO CONNECT" />
+          <div className="min-h-0 flex-1 overflow-hidden">{renderContent()}</div>
+        </div>
       </main>
     </div>
   );

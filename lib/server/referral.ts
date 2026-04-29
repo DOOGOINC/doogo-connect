@@ -114,7 +114,17 @@ export async function applyReferralAttribution(
         referred_by_profile_id: string | null;
         referred_by_code: string | null;
       }>(),
-    admin.from("referral_events").select("id").eq("user_id", userId).limit(1),
+    admin
+      .from("referral_events")
+      .select("id, referrer_profile_id, referral_code, referee_points_awarded")
+      .eq("user_id", userId)
+      .limit(1)
+      .maybeSingle<{
+        id: string;
+        referrer_profile_id: string | null;
+        referral_code: string | null;
+        referee_points_awarded: number | null;
+      }>(),
   ]);
 
   if (currentProfileResult.error) {
@@ -125,13 +135,50 @@ export async function applyReferralAttribution(
   }
 
   const currentProfile = currentProfileResult.data;
+  const existingEvent = existingEventResult.data;
   if (!currentProfile) {
     return { applied: false, reason: "profile_missing" } satisfies ApplyReferralResult;
   }
   if (currentProfile.role !== "member") {
     return { applied: false, reason: "invalid_code" } satisfies ApplyReferralResult;
   }
-  if (currentProfile.referred_by_profile_id || currentProfile.referred_by_code || (existingEventResult.data || []).length > 0) {
+
+  const existingProfileReferralCode = sanitizeReferralCode(currentProfile.referred_by_code);
+  const existingEventReferralCode = sanitizeReferralCode(existingEvent?.referral_code);
+
+  if (existingProfileReferralCode === referralCode || existingEventReferralCode === referralCode) {
+    let matchedReferrerProfileId = existingEvent?.referrer_profile_id || currentProfile.referred_by_profile_id;
+
+    if (!matchedReferrerProfileId) {
+      const { data: matchedReferrerProfile, error: matchedReferrerProfileError } = await admin
+        .from("profiles")
+        .select("id")
+        .eq("referral_code", referralCode)
+        .eq("role", "partner")
+        .maybeSingle<{ id: string }>();
+
+      if (matchedReferrerProfileError) {
+        throw new Error(matchedReferrerProfileError.message);
+      }
+
+      matchedReferrerProfileId = matchedReferrerProfile?.id || null;
+    }
+
+    if (!matchedReferrerProfileId) {
+      return { applied: false, reason: "already_referred" } satisfies ApplyReferralResult;
+    }
+
+    return {
+      applied: true,
+      reason: "applied",
+      referrerProfileId: matchedReferrerProfileId,
+      referralCode,
+      referrerPoints: 0,
+      refereePoints: existingEvent?.referee_points_awarded || 0,
+    } as ApplyReferralResult;
+  }
+
+  if (currentProfile.referred_by_profile_id || currentProfile.referred_by_code || existingEvent?.id) {
     return { applied: false, reason: "already_referred" } satisfies ApplyReferralResult;
   }
 

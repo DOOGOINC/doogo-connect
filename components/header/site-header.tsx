@@ -59,6 +59,7 @@ export function SiteHeader() {
   const observerRef = useRef<IntersectionObserver | null>(null);
   const isMainPage = pathname === "/";
   const isMasterPage = pathname?.startsWith("/master");
+  const isMyConnectPage = pathname?.startsWith("/my-connect");
   const isPartnerDashboardPage = pathname?.startsWith("/partner/dashboard");
 
   const getDisplayName = useCallback((currentSession: Session | null) => {
@@ -291,7 +292,7 @@ export function SiteHeader() {
 
   const isWhiteHeader = !isMainPage || isScrolledPastHero;
 
-  if (isMasterPage || isPartnerDashboardPage) {
+  if (isMasterPage || isMyConnectPage || isPartnerDashboardPage) {
     return null;
   }
 

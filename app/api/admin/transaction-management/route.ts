@@ -23,19 +23,26 @@ type RequestRow = {
   order_number: string | null;
   client_id: string;
   product_id: string | null;
+  manufacturer_id: number | null;
   manufacturer_name: string | null;
   product_name: string | null;
   quantity: number | null;
   currency_code: string | null;
   status: string | null;
   created_at: string | null;
-  design_option_id: string | null;
   selection_snapshot?: {
     pricing?: SnapshotPricing | null;
   } | null;
-  total_price?: number | null;
   commission_amount?: number | null;
   commission_rate_percent?: number | null;
+  settlement_amount?: number | null;
+  is_settled?: boolean | null;
+  settled_at?: string | null;
+};
+
+type FeeSettlementRequestRow = {
+  rfq_request_id: string;
+  requested_at: string;
 };
 
 type ProfileRow = {
@@ -46,6 +53,11 @@ type ProfileRow = {
 type ProductCostRow = {
   id: string;
   cost_price: number | null;
+};
+
+type PatchBody = {
+  requestId?: string;
+  action?: "settle";
 };
 
 const VISIBLE_STATUSES = new Set([
@@ -102,14 +114,18 @@ function getCommissionAmount(request: RequestRow) {
   const storedCommission = toMoney(request.commission_amount);
   if (storedCommission > 0) return storedCommission;
 
-  const rate = Number(
-    request.selection_snapshot?.pricing?.commission_rate_percent ?? request.commission_rate_percent ?? 3
-  );
+  const rate = Number(request.selection_snapshot?.pricing?.commission_rate_percent ?? request.commission_rate_percent ?? 3);
   return Number(((getTotalSaleAmount(request) * rate) / 100).toFixed(2));
 }
 
+function getSettlementAmount(request: RequestRow) {
+  const storedSettlement = toMoney(request.settlement_amount);
+  if (storedSettlement > 0) return storedSettlement;
+  return Math.max(0, getTotalSaleAmount(request) - getCommissionAmount(request));
+}
+
 function getPaymentMethod(currencyCode: string) {
-  return currencyCode === "KRW" ? "포트원" : "유트랜스퍼";
+  return currencyCode === "KRW" ? "PortOne" : "Utransfer";
 }
 
 function isCompletedStatus(status: string) {
@@ -143,40 +159,42 @@ export async function GET(request: Request) {
     const startRange = getDateRange(startYear, startMonth).start;
     const endRange = getDateRange(endYear, endMonth).end;
 
-    const [requestResult, profileResult, productResult] = await Promise.all([
+    const [requestResult, profileResult, productResult, feeRequestResult] = await Promise.all([
       admin
         .from("rfq_requests")
         .select(
-          "id, request_number, order_number, client_id, product_id, manufacturer_name, product_name, quantity, currency_code, status, created_at, design_option_id, selection_snapshot, total_price, commission_amount, commission_rate_percent"
+          "id, request_number, order_number, client_id, product_id, manufacturer_id, manufacturer_name, product_name, quantity, currency_code, status, created_at, selection_snapshot, commission_amount, commission_rate_percent, settlement_amount, is_settled, settled_at"
         )
         .order("created_at", { ascending: false }),
       admin.from("profiles").select("id, full_name"),
       admin.from("manufacturer_products").select("id, cost_price"),
+      admin.from("manufacturer_fee_settlement_requests").select("rfq_request_id, requested_at"),
     ]);
 
     if (requestResult.error) throw new Error(requestResult.error.message);
     if (profileResult.error) throw new Error(profileResult.error.message);
     if (productResult.error) throw new Error(productResult.error.message);
+    if (feeRequestResult.error) throw new Error(feeRequestResult.error.message);
+
+    const feeRequestMap = new Map(
+      (((feeRequestResult.data as FeeSettlementRequestRow[] | null) || []) as FeeSettlementRequestRow[]).map((row) => [row.rfq_request_id, row.requested_at])
+    );
 
     const profileMap = new Map(
-      (((profileResult.data as ProfileRow[] | null) || []) as ProfileRow[]).map((profile) => [
-        profile.id,
-        trimValue(profile.full_name, "회원"),
-      ])
+      (((profileResult.data as ProfileRow[] | null) || []) as ProfileRow[]).map((profile) => [profile.id, trimValue(profile.full_name, "회원")])
     );
+
     const productCostMap = new Map(
-      (((productResult.data as ProductCostRow[] | null) || []) as ProductCostRow[]).map((product) => [
-        product.id,
-        toMoney(product.cost_price),
-      ])
+      (((productResult.data as ProductCostRow[] | null) || []) as ProductCostRow[]).map((product) => [product.id, toMoney(product.cost_price)])
     );
+
     const statusVisibleRows = (((requestResult.data as RequestRow[] | null) || []) as RequestRow[]).filter((requestRow) =>
       VISIBLE_STATUSES.has(trimValue(requestRow.status))
     );
 
-    const manufacturers = Array.from(
-      new Set(statusVisibleRows.map((row) => trimValue(row.manufacturer_name)).filter(Boolean))
-    ).sort((a, b) => a.localeCompare(b, "ko"));
+    const manufacturers = Array.from(new Set(statusVisibleRows.map((row) => trimValue(row.manufacturer_name)).filter(Boolean))).sort((a, b) =>
+      a.localeCompare(b, "ko")
+    );
 
     const availableYears = Array.from(
       new Set(
@@ -187,10 +205,10 @@ export async function GET(request: Request) {
     ).sort((a, b) => b - a);
 
     const visibleRows = statusVisibleRows.filter((requestRow) => {
-        if (!requestRow.created_at) return false;
-        const createdAt = new Date(requestRow.created_at);
-        return createdAt >= startRange && createdAt <= endRange;
-      });
+      if (!requestRow.created_at) return false;
+      const createdAt = new Date(requestRow.created_at);
+      return createdAt >= startRange && createdAt <= endRange;
+    });
 
     const baseFilteredRows = visibleRows.filter((requestRow) => {
       const requestManufacturer = trimValue(requestRow.manufacturer_name, "-");
@@ -245,11 +263,6 @@ export async function GET(request: Request) {
       const currencyCode = trimValue(requestRow.currency_code, "KRW").toUpperCase();
       const quantity = Number(requestRow.quantity || 0);
       const capsuleCost = toMoney(productCostMap.get(trimValue(requestRow.product_id))) * quantity;
-      const capsuleSalePrice = getProductSaleAmount(requestRow);
-      const boxPrice = getBoxAmount(requestRow);
-      const designPrice = getDesignAmount(requestRow);
-      const totalSaleAmount = getTotalSaleAmount(requestRow);
-      const commissionAmount = getCommissionAmount(requestRow);
 
       return {
         id: requestRow.id,
@@ -264,13 +277,17 @@ export async function GET(request: Request) {
         quantity,
         currencyCode,
         capsuleCost,
-        capsuleSalePrice,
-        boxPrice,
-        designPrice,
-        totalSaleAmount,
-        commissionAmount,
+        capsuleSalePrice: getProductSaleAmount(requestRow),
+        boxPrice: getBoxAmount(requestRow),
+        designPrice: getDesignAmount(requestRow),
+        totalSaleAmount: getTotalSaleAmount(requestRow),
+        commissionAmount: getCommissionAmount(requestRow),
+        settlementAmount: getSettlementAmount(requestRow),
         paymentMethod: getPaymentMethod(currencyCode),
         statusLabel: isCompletedStatus(trimValue(requestRow.status)) ? "완료" : "진행중",
+        manufacturerSettlementRequestedAt: feeRequestMap.get(requestRow.id) || null,
+        settledAt: requestRow.settled_at || null,
+        isSettled: Boolean(requestRow.is_settled),
       };
     });
 
@@ -284,12 +301,6 @@ export async function GET(request: Request) {
       filters: {
         availableYears: availableYears.length ? availableYears : [currentYear],
         manufacturers,
-        selectedManufacturer: manufacturer,
-        selectedCurrency: currency,
-        selectedStartYear: startYear,
-        selectedStartMonth: startMonth,
-        selectedEndYear: endYear,
-        selectedEndMonth: endMonth,
       },
       rows: pagedRows,
       pagination: {
@@ -299,6 +310,64 @@ export async function GET(request: Request) {
         totalPages,
       },
     });
+  } catch (error) {
+    return mapRouteError(error);
+  }
+}
+
+export async function PATCH(request: Request) {
+  try {
+    const { supabase, user } = await requireMasterUser(request);
+    const admin = createServiceRoleClient() ?? supabase;
+    const body = (await request.json()) as PatchBody;
+    const requestId = trimValue(body.requestId);
+
+    if (!requestId || body.action !== "settle") {
+      throw new Error("잘못된 요청입니다.");
+    }
+
+    const [rfqResult, feeRequestResult] = await Promise.all([
+      admin
+        .from("rfq_requests")
+        .select("id, status, is_settled, settled_at")
+        .eq("id", requestId)
+        .maybeSingle(),
+      admin
+        .from("manufacturer_fee_settlement_requests")
+        .select("rfq_request_id, requested_at")
+        .eq("rfq_request_id", requestId)
+        .maybeSingle(),
+    ]);
+
+    if (rfqResult.error) throw new Error(rfqResult.error.message);
+    if (feeRequestResult.error) throw new Error(feeRequestResult.error.message);
+
+    const rfqRequest = rfqResult.data;
+    if (!rfqRequest) throw new Error("거래 정보를 찾을 수 없습니다.");
+    if (trimValue(rfqRequest.status) !== "fulfilled") {
+      throw new Error("거래 완료 건만 정산 처리할 수 있습니다.");
+    }
+    if (!feeRequestResult.data?.requested_at) {
+      throw new Error("제조사 정산 요청 후에만 처리할 수 있습니다.");
+    }
+    if (rfqRequest.is_settled) {
+      throw new Error("이미 정산 처리된 거래입니다.");
+    }
+
+    const { data: updated, error: updateError } = await admin
+      .from("rfq_requests")
+      .update({
+        is_settled: true,
+        settled_at: new Date().toISOString(),
+        settled_by: user.id,
+      })
+      .eq("id", requestId)
+      .select("id, settled_at")
+      .single();
+
+    if (updateError) throw new Error(updateError.message);
+
+    return ok({ data: updated });
   } catch (error) {
     return mapRouteError(error);
   }

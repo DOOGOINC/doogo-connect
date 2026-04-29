@@ -247,7 +247,7 @@ export function OrdersManagement({ requests, onStatusChange, onAdminMemoChange }
 
   return (
     <div className="flex flex-1 flex-col overflow-hidden bg-[#f7f8fa] p-8">
-      <div className="mx-auto flex w-full max-w-[1440px] flex-1 flex-col overflow-hidden rounded-[10px] border border-[#e5e8eb] bg-white shadow-sm">
+      <div className="flex w-full  flex-1 flex-col overflow-hidden rounded-[10px] border border-[#e5e8eb] bg-white shadow-sm">
         <div className="flex flex-col gap-4 border-b border-[#f2f4f6] px-8 py-7 lg:flex-row lg:items-center lg:justify-between">
           <div>
             <h2 className="text-[20px] font-bold tracking-tight text-[#191f28]">수주 관리</h2>
@@ -316,7 +316,7 @@ export function OrdersManagement({ requests, onStatusChange, onAdminMemoChange }
             { label: "거래 완료", count: requests.filter((i) => i.status === "fulfilled").length, color: "text-[#191f28]" },
             { label: "환불", count: requests.filter((i) => i.status === "refunded").length, color: "text-[#e11d48]" },
           ].map((stat, idx) => (
-            <div key={idx} className="rounded-2xl border border-[#f2f4f6] bg-white px-6 py-4 shadow-sm">
+            <div key={idx} className="rounded-[10px] border border-[#f2f4f6] bg-white px-6 py-4 shadow-sm">
               <p className="text-[12px] font-bold text-[#8b95a1]">{stat.label}</p>
               <p className={`mt-2 text-[26px] font-bold ${stat.color}`}>{stat.count.toLocaleString()}</p>
             </div>
@@ -325,70 +325,70 @@ export function OrdersManagement({ requests, onStatusChange, onAdminMemoChange }
 
         <div className="flex-1 overflow-x-auto">
           <table className="w-full min-w-[1600px] table-fixed border-collapse">
-            <thead className="sticky top-0 z-10 bg-white shadow-[0_1px_0_rgba(0,0,0,0.05)]">
-              <tr className="text-left text-[11px] font-bold uppercase tracking-wider text-[#8b95a1]">
-                <th className="w-[180px] cursor-pointer px-6 py-4 transition-colors hover:bg-[#f9fafb]" onClick={() => requestSort("display_number")}>
+            <thead className="sticky top-0 z-10 bg-white shadow-sm">
+              <tr className="text-left text-[10px] font-semibold uppercase tracking-wide text-[#6a7282]">
+                <th className="w-[180px] cursor-pointer px-5 py-3 transition-colors hover:bg-[#f9fafb]" onClick={() => requestSort("display_number")}>
                   <div className="flex items-center">수주 번호 <SortIcon columnKey="display_number" /></div>
                 </th>
-                <th className="w-[180px] cursor-pointer px-4 py-4 transition-colors hover:bg-[#f9fafb]" onClick={() => requestSort("brand_name")}>
+                <th className="w-[180px] cursor-pointer px-4 py-3 transition-colors hover:bg-[#f9fafb]" onClick={() => requestSort("brand_name")}>
                   <div className="flex items-center">브랜드명 <SortIcon columnKey="brand_name" /></div>
                 </th>
-                <th className="w-[240px] cursor-pointer px-4 py-4 transition-colors hover:bg-[#f9fafb]" onClick={() => requestSort("product_name")}>
+                <th className="w-[240px] cursor-pointer px-4 py-3 transition-colors hover:bg-[#f9fafb]" onClick={() => requestSort("product_name")}>
                   <div className="flex items-center">제품명 <SortIcon columnKey="product_name" /></div>
                 </th>
-                <th className="w-[140px] cursor-pointer px-4 py-4 transition-colors hover:bg-[#f9fafb]" onClick={() => requestSort("contact_name")}>
+                <th className="w-[140px] cursor-pointer px-4 py-3 transition-colors hover:bg-[#f9fafb]" onClick={() => requestSort("contact_name")}>
                   <div className="flex items-center">담당자 <SortIcon columnKey="contact_name" /></div>
                 </th>
-                <th className="w-[120px] cursor-pointer px-4 py-4 transition-colors hover:bg-[#f9fafb]" onClick={() => requestSort("quantity")}>
+                <th className="w-[120px] cursor-pointer px-4 py-3 transition-colors hover:bg-[#f9fafb]" onClick={() => requestSort("quantity")}>
                   <div className="flex items-center">수량 <SortIcon columnKey="quantity" /></div>
                 </th>
-                <th className="w-[150px] cursor-pointer px-4 py-4 transition-colors hover:bg-[#f9fafb]" onClick={() => requestSort("total_price")}>
+                <th className="w-[150px] cursor-pointer px-4 py-3 transition-colors hover:bg-[#f9fafb]" onClick={() => requestSort("total_price")}>
                   <div className="flex items-center">금액 <SortIcon columnKey="total_price" /></div>
                 </th>
-                <th className="w-[180px] cursor-pointer px-4 py-4 transition-colors hover:bg-[#f9fafb]" onClick={() => requestSort("created_at")}>
+                <th className="w-[180px] cursor-pointer px-4 py-3 transition-colors hover:bg-[#f9fafb]" onClick={() => requestSort("created_at")}>
                   <div className="flex items-center">접수 일시 <SortIcon columnKey="created_at" /></div>
                 </th>
-                <th className="w-[170px] cursor-pointer px-4 py-4 transition-colors hover:bg-[#f9fafb]" onClick={() => requestSort("status")}>
+                <th className="w-[170px] cursor-pointer px-4 py-3 transition-colors hover:bg-[#f9fafb]" onClick={() => requestSort("status")}>
                   <div className="flex items-center">상태 <SortIcon columnKey="status" /></div>
                 </th>
-                <th className="px-6 py-4">관리자 메모</th>
+                <th className="px-5 py-3">관리자 메모</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-[#f2f4f6]">
               {processedRequests.length ? (
                 processedRequests.map((request) => (
                   <tr key={request.id} className="align-middle transition-colors hover:bg-[#fcfdff]">
-                    <td className="px-6 py-5">
-                      <span className="block truncate font-mono text-[12px] font-bold text-[#8b95a1]">{getDisplayOrderNumber(request)}</span>
+                    <td className="px-5 py-3.5">
+                      <span className="block truncate font-mono text-[11px]">{getDisplayOrderNumber(request)}</span>
                     </td>
-                    <td className="px-4 py-5">
-                      <span className="block truncate text-[14px] font-extrabold text-[#191f28]" title={request.brand_name}>
+                    <td className="px-4 py-3.5">
+                      <span className="block truncate text-[13px] font-bold text-[#191f28]" title={request.brand_name}>
                         {request.brand_name}
                       </span>
                     </td>
-                    <td className="px-4 py-5">
-                      <span className="block truncate text-[13px] font-medium text-[#4e5968]" title={request.product_name}>
+                    <td className="px-4 py-3.5">
+                      <span className="block truncate text-[12px]" title={request.product_name}>
                         {request.product_name}
                       </span>
                     </td>
-                    <td className="px-4 py-5">
-                      <span className="block truncate text-[13px] font-bold text-[#191f28]">{request.contact_name}</span>
+                    <td className="px-4 py-3.5">
+                      <span className="block truncate text-[12px] font-bold text-[#191f28]">{request.contact_name}</span>
                     </td>
-                    <td className="px-4 py-5">
-                      <span className="block truncate text-[14px] font-bold text-[#191f28]">{request.quantity.toLocaleString()}개</span>
+                    <td className="px-4 py-3.5">
+                      <span className="block truncate text-[13px] font-bold text-[#191f28]">{request.quantity.toLocaleString()}개</span>
                     </td>
-                    <td className="px-4 py-5">
-                      <span className="block truncate text-[14px] font-bold text-[#0064ff]">{formatRfqCurrency(request.total_price, request.currency_code)}</span>
+                    <td className="px-4 py-3.5">
+                      <span className="block truncate text-[13px] font-bold text-[#0064ff]">{formatRfqCurrency(request.total_price, request.currency_code)}</span>
                     </td>
-                    <td className="px-4 py-5">
-                      <span className="block truncate text-[12px] font-medium text-[#8b95a1]">{formatRfqDateTime(request.created_at)}</span>
+                    <td className="px-4 py-3.5">
+                      <span className="block truncate text-[11px]">{formatRfqDateTime(request.created_at)}</span>
                     </td>
-                    <td className="px-4 py-5">
+                    <td className="px-4 py-3.5">
                       <select
                         value={request.status}
                         disabled={updatingId === request.id || request.status === "fulfilled" || request.status === "refunded"}
                         onChange={(e) => void handleStatusSelect(request.id, e.target.value as RfqRequestStatus)}
-                        className="h-9 w-full cursor-pointer rounded-lg border border-[#e5e8eb] bg-white px-2.5 text-[12px] font-bold text-[#191f28] outline-none transition-colors focus:border-[#0064ff] disabled:cursor-not-allowed disabled:bg-[#f2f4f6]"
+                        className="h-8 w-full cursor-pointer rounded-lg border border-[#e5e8eb] bg-white px-2.5 text-[11px] font-bold text-[#191f28] outline-none transition-colors focus:border-[#0064ff] disabled:cursor-not-allowed disabled:bg-[#f2f4f6]"
                       >
                         {getVisibleStatusOptions(request.status).map((status) => (
                           <option
@@ -401,7 +401,7 @@ export function OrdersManagement({ requests, onStatusChange, onAdminMemoChange }
                         ))}
                       </select>
                     </td>
-                    <td className="px-6 py-5">
+                    <td className="px-5 py-3.5">
                       <input
                         type="text"
                         value={memoDrafts[request.id] ?? ""}
@@ -409,7 +409,7 @@ export function OrdersManagement({ requests, onStatusChange, onAdminMemoChange }
                         onChange={(e) => setMemoDrafts((prev) => ({ ...prev, [request.id]: e.target.value }))}
                         onBlur={() => void handleMemoBlur(request.id)}
                         placeholder={request.status === "fulfilled" || request.status === "refunded" ? "최종 처리된 주문은 메모를 수정할 수 없습니다." : "관리 메모 입력..."}
-                        className="h-10 w-full rounded-lg border border-[#e5e8eb] bg-white px-3 text-[13px] text-[#4e5968] outline-none transition-colors focus:border-[#0064ff] disabled:cursor-not-allowed disabled:bg-[#f2f4f6]"
+                        className="h-9 w-full rounded-lg border border-[#e5e8eb] bg-white px-3 text-[12px] text-[#4e5968] outline-none transition-colors focus:border-[#0064ff] disabled:cursor-not-allowed disabled:bg-[#f2f4f6]"
                       />
                     </td>
                   </tr>

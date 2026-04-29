@@ -109,9 +109,9 @@ export function BusinessRegistrationSection({ onProfileRefresh, profile }: Busin
 
   return (
     <>
-      <section className="mb-6 rounded-[24px] border border-[#e9edf3] bg-white p-8 shadow-[0_8px_24px_rgba(15,23,42,0.05)]">
+      <section className="mb-6 rounded-[14px] border border-[#e9edf3] bg-white p-6 shadow-sm">
         <div className="mb-7 flex items-center justify-between gap-4">
-          <h2 className="text-[18px] font-extrabold text-[#111827]">사업자 등록 정보</h2>
+          <h2 className="text-[18px] font-bold text-[#111827]">사업자 등록 정보</h2>
           <button
             type="button"
             onClick={() => setIsOpen(true)}
@@ -124,9 +124,9 @@ export function BusinessRegistrationSection({ onProfileRefresh, profile }: Busin
 
         <div className="grid gap-4 md:grid-cols-2">
           {infoRows.map((row) => (
-            <div key={row.label} className="rounded-[24px] bg-[#f7f9fc] px-5 py-5">
+            <div key={row.label} className="rounded-[14px] bg-[#f7f9fc] px-5 py-5">
               <p className="text-[14px] font-medium text-[#9aa4b5]">{row.label}</p>
-              <p className="mt-2 break-keep text-[18px] font-extrabold leading-8 text-[#16233b]">{row.value}</p>
+              <p className="mt-2 break-keep text-[18px] font-bold leading-8 text-[#16233b]">{row.value}</p>
             </div>
           ))}
         </div>
@@ -138,7 +138,7 @@ export function BusinessRegistrationSection({ onProfileRefresh, profile }: Busin
                 <FileText className="h-6 w-6" />
               </div>
               <div className="min-w-0">
-                <p className="truncate text-[16px] font-extrabold text-[#007a3d]">사업자등록증 첨부됨</p>
+                <p className="truncate text-[16px] font-bold text-[#007a3d]">사업자등록증 첨부됨</p>
                 <p className="mt-1 truncate text-[15px] font-medium text-[#00a85a]">
                   {profile.business_attachment_name}
                   {profile.business_attachment_uploaded_at ? ` · ${formatUploadedDate(profile.business_attachment_uploaded_at)} 업로드` : ""}
@@ -152,10 +152,10 @@ export function BusinessRegistrationSection({ onProfileRefresh, profile }: Busin
       {isOpen ? (
         <div className="fixed inset-0 z-[90] flex items-center justify-center bg-black/45 px-4 py-8">
 
-          <div className="w-full max-w-[520px] overflow-hidden rounded-[22px] bg-white shadow-[0_24px_70px_rgba(15,23,42,0.26)]">
+          <div className="w-full max-w-[520px] overflow-hidden rounded-[14px] bg-white shadow-sm">
 
             <div className="flex items-center justify-between border-b border-[#edf1f5] px-6 py-4">
-              <h3 className="text-[16px] font-extrabold text-[#111827]">사업자 정보 수정</h3>
+              <h3 className="text-[16px] font-bold text-[#111827]">사업자 정보 수정</h3>
               <button
                 type="button"
                 onClick={() => setIsOpen(false)}
@@ -223,7 +223,7 @@ export function BusinessRegistrationSection({ onProfileRefresh, profile }: Busin
                 type="button"
                 onClick={() => void handleSave()}
                 disabled={isSaving}
-                className="mt-2 h-12 w-full rounded-[16px] bg-[#2f6bff] text-[16px] font-extrabold text-white transition hover:bg-[#1f5af0] disabled:cursor-not-allowed disabled:bg-[#aab4c8]"
+                className="mt-2 h-12 w-full rounded-[16px] bg-[#2f6bff] text-[16px] font-bold text-white transition hover:bg-[#1f5af0] disabled:cursor-not-allowed disabled:bg-[#aab4c8]"
               >
                 {isSaving ? "저장 중..." : "저장하기"}
               </button>

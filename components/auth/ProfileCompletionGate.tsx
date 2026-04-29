@@ -4,7 +4,6 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { usePathname } from "next/navigation";
 import type { Session, User } from "@supabase/supabase-js";
 import { Loader2 } from "lucide-react";
-import { authFetch } from "@/lib/client/auth-fetch";
 import { supabase } from "@/lib/supabase";
 import { clearStoredReferralCode, getStoredReferralCode } from "@/utils/referral";
 
@@ -56,7 +55,7 @@ function isBannedProfile(profile: Pick<ProfileRow, "ban_type" | "ban_expires_at"
 
 function getBanLoginMessage(profile: Pick<ProfileRow, "ban_type" | "ban_expires_at"> | null | undefined) {
   if (!profile) {
-    return "이 계정은 현재 제재 상태입니다. 관리자에게 문의해 주세요.";
+    return "이 계정은 현재 사용할 수 없습니다. 관리자에게 문의해 주세요.";
   }
 
   if (profile.ban_type === "permanent") {
@@ -67,7 +66,7 @@ function getBanLoginMessage(profile: Pick<ProfileRow, "ban_type" | "ban_expires_
     return `이 계정은 ${formatBanDate(profile.ban_expires_at)}까지 로그인할 수 없습니다.`;
   }
 
-  return "이 계정은 현재 제재 상태입니다. 관리자에게 문의해 주세요.";
+  return "이 계정은 현재 사용할 수 없습니다. 관리자에게 문의해 주세요.";
 }
 
 async function readRouteError(response: Response, fallbackMessage: string) {
@@ -79,6 +78,17 @@ async function readRouteError(response: Response, fallbackMessage: string) {
   }
 
   return fallbackMessage;
+}
+
+async function profileSyncFetch(accessToken: string, body: Record<string, unknown>) {
+  return fetch("/api/profile/sync", {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      Authorization: `Bearer ${accessToken}`,
+    },
+    body: JSON.stringify(body),
+  });
 }
 
 export function ProfileCompletionGate() {
@@ -111,16 +121,26 @@ export function ProfileCompletionGate() {
       const referralCode = getStoredReferralCode();
       const kakaoUser = isKakaoUser(nextSession.user);
 
-      if (kakaoUser || referralCode) {
-        const response = await authFetch("/api/profile/sync", {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-          },
-          body: JSON.stringify({
-            email: nextSession.user.email || null,
-            referralCode,
-          }),
+      const loadProfile = async () => {
+        const { data, error: profileError } = await supabase
+          .from("profiles")
+          .select("full_name, phone_number, ban_type, ban_expires_at")
+          .eq("id", nextSession.user.id)
+          .maybeSingle<ProfileRow>();
+
+        if (profileError) {
+          throw new Error(profileError.message);
+        }
+
+        return data || null;
+      };
+
+      let profile = await loadProfile();
+
+      if ((kakaoUser || referralCode || !profile) && nextSession.access_token) {
+        const response = await profileSyncFetch(nextSession.access_token, {
+          email: nextSession.user.email || null,
+          referralCode,
         });
 
         if (!response.ok) {
@@ -130,24 +150,16 @@ export function ProfileCompletionGate() {
         if (referralCode) {
           clearStoredReferralCode();
         }
+
+        profile = await loadProfile();
       }
 
-      const { data, error: profileError } = await supabase
-        .from("profiles")
-        .select("full_name, phone_number, ban_type, ban_expires_at")
-        .eq("id", nextSession.user.id)
-        .maybeSingle<ProfileRow>();
-
-      if (profileError) {
-        throw new Error(profileError.message);
-      }
-
-      if (isBannedProfile(data)) {
+      if (isBannedProfile(profile)) {
         setIsOpen(false);
         setFullName("");
         setPhoneNumber("");
         alertedUserRef.current = null;
-        window.alert(getBanLoginMessage(data));
+        window.alert(getBanLoginMessage(profile));
         await supabase.auth.signOut();
         window.location.href = "/?auth=login";
         return;
@@ -162,8 +174,8 @@ export function ProfileCompletionGate() {
         return;
       }
 
-      const nextFullName = trimValue(data?.full_name);
-      const nextPhoneNumber = normalizePhoneNumber(trimValue(data?.phone_number));
+      const nextFullName = trimValue(profile?.full_name);
+      const nextPhoneNumber = normalizePhoneNumber(trimValue(profile?.phone_number));
       const isIncomplete = !nextFullName || !nextPhoneNumber;
 
       setFullName(nextFullName);
@@ -172,7 +184,7 @@ export function ProfileCompletionGate() {
 
       if (isIncomplete && alertedUserRef.current !== nextSession.user.id) {
         alertedUserRef.current = nextSession.user.id;
-        window.alert("카카오 로그인 이후에는 기본 정보 입력이 필요합니다. 이름과 연락처를 입력해 주세요.");
+        window.alert("카카오 로그인 후에는 기본 정보 입력이 필요합니다. 이름과 연락처를 입력해 주세요.");
       }
     } catch (err) {
       console.error("Profile completion check failed:", err);
@@ -222,17 +234,15 @@ export function ProfileCompletionGate() {
 
     try {
       const referralCode = getStoredReferralCode();
-      const profileResponse = await authFetch("/api/profile/sync", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({
-          fullName: trimmedName,
-          email: session.user.email || null,
-          phoneNumber: normalizedPhone,
-          referralCode,
-        }),
+      if (!session.access_token) {
+        throw new Error("로그인 토큰을 확인하지 못했습니다. 잠시 후 다시 시도해 주세요.");
+      }
+
+      const profileResponse = await profileSyncFetch(session.access_token, {
+        fullName: trimmedName,
+        email: session.user.email || null,
+        phoneNumber: normalizedPhone,
+        referralCode,
       });
 
       if (!profileResponse.ok) {
@@ -280,9 +290,9 @@ export function ProfileCompletionGate() {
       <div className="w-full max-w-md rounded-[14px] bg-white p-8 shadow-2xl">
         <div className="mb-6">
           <p className="mb-2 text-sm font-semibold text-[#0064FF]">카카오 로그인 완료</p>
-          <h2 className="text-2xl font-bold text-[#191F28]">기본 정보를 입력해 주세요.</h2>
+          <h2 className="text-2xl font-bold text-[#191F28]">기본 정보를 입력해 주세요</h2>
           <p className="mt-2 text-sm leading-6 text-[#6B7684]">
-            카카오에서는 이메일만 연동됩니다. 서비스 이용을 위해 이름과 연락처를 한 번만 입력해 주세요.
+            카카오에서는 이메일만 연동됩니다. 서비스 이용을 위해 이름과 연락처를 한 번 입력해 주세요.
           </p>
         </div>
 
@@ -299,7 +309,7 @@ export function ProfileCompletionGate() {
               autoComplete="name"
               disabled={isChecking || isSaving}
               className="h-12 w-full rounded-xl border border-[#E5E8EB] px-4 text-[15px] text-[#191F28] outline-none transition focus:border-[#0064FF] focus:ring-4 focus:ring-[#0064FF]/10 disabled:bg-[#F2F4F6]"
-              placeholder="이름을 입력해 주세요."
+              placeholder="이름을 입력해 주세요"
             />
           </div>
 

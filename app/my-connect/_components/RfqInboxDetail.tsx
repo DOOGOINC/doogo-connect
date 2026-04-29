@@ -20,22 +20,14 @@ export function RfqInboxDetail({ request, onStatusChange, onReject, statusLabelO
   if (!request) {
     return (
       <div className="flex flex-1 items-center justify-center bg-[#f9fafb] p-12">
-        <div className="flex h-[400px] w-full max-w-[420px] flex-col items-center justify-center rounded-[32px] border border-[#e5e9ef] bg-white p-10 shadow-sm">
+        <div className="flex h-[400px] w-full max-w-[420px] flex-col items-center justify-center rounded-[14px] border border-[#e5e9ef] bg-white p-10 shadow-sm">
           <div className="mb-8 flex h-24 w-24 items-center justify-center rounded-[14px] bg-[#f2f4f6] shadow-inner">
             <Box className="h-12 w-12 text-[#adb5bd]" />
           </div>
-          <h4 className="mb-3 text-center text-[20px] font-bold text-[#191f28]">견적 요청을 선택해 주세요</h4>
+          <h4 className="mb-3 text-center text-[20px] font-bold text-[#191f28]">견적 요청이 없습니다.</h4>
           <p className="mb-10 text-center text-[15px] font-medium leading-relaxed text-[#8b95a1]">
-            좌측 목록에서 요청 건을 클릭하시면
-            <br />
             상세한 견적 내역과 요청사항을 볼 수 있습니다.
           </p>
-          <Link
-            href="/estimate"
-            className="flex h-13 items-center gap-2 rounded-2xl bg-[#0064ff] px-10 text-[15px] font-bold text-white shadow-[0_8px_20px_rgba(49,130,246,0.2)] transition-all hover:bg-[#1b64da] hover:shadow-[0_8px_25px_rgba(49,130,246,0.3)] active:scale-[0.98]"
-          >
-            새 견적 요청하기
-          </Link>
         </div>
       </div>
     );

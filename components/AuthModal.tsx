@@ -5,7 +5,6 @@ import { useEffect, useState } from "react";
 import { Loader2, X } from "lucide-react";
 import type { AppRole } from "@/lib/auth/roles";
 import { getLoginEntryByRole, isPrivilegedPortalRole } from "@/lib/auth/roles";
-import { authFetch } from "@/lib/client/auth-fetch";
 import { fetchRefereeRewardPoints, formatRewardPoints } from "@/lib/client/referee-reward";
 import { DEFAULT_REFEREE_REWARD_POINTS } from "@/lib/points/constants";
 import { supabase } from "@/lib/supabase";
@@ -48,18 +47,18 @@ function isBannedProfile(profile: Pick<AuthProfileRow, "ban_type" | "ban_expires
 
 function getBanLoginMessage(profile: Pick<AuthProfileRow, "ban_type" | "ban_expires_at"> | null | undefined) {
   if (!profile) {
-    return "이 계정은 현재 제재 상태여서 로그인할 수 없습니다.";
+    return "이 계정은 현재 로그인할 수 없습니다.";
   }
 
   if (profile.ban_type === "permanent") {
-    return "이 계정은 현재 영구 차단 상태여서 로그인할 수 없습니다.";
+    return "이 계정은 현재 영구 차단 상태입니다.";
   }
 
   if (profile.ban_type === "temporary" && profile.ban_expires_at) {
-    return `이 계정은 현재 제재 상태여서 ${formatBanDate(profile.ban_expires_at)}까지 로그인할 수 없습니다.`;
+    return `이 계정은 현재 ${formatBanDate(profile.ban_expires_at)}까지 로그인할 수 없습니다.`;
   }
 
-  return "이 계정은 현재 제재 상태여서 로그인할 수 없습니다.";
+  return "이 계정은 현재 로그인할 수 없습니다.";
 }
 
 async function getAuthProfile(userId: string) {
@@ -81,7 +80,6 @@ export function AuthModal({ isOpen, onClose, initialMode = "login" }: AuthModalP
   const [mounted, setMounted] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [isOtpSent, setIsOtpSent] = useState(false);
   const [agreedToTerms, setAgreedToTerms] = useState(false);
   const [agreedToPrivacy, setAgreedToPrivacy] = useState(false);
 
@@ -89,7 +87,6 @@ export function AuthModal({ isOpen, onClose, initialMode = "login" }: AuthModalP
   const [password, setPassword] = useState("");
   const [name, setName] = useState("");
   const [phone, setPhone] = useState("");
-  const [verificationCode, setVerificationCode] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
   const [rememberEmail, setRememberEmail] = useState(false);
   const [referralCodeInput, setReferralCodeInput] = useState("");
@@ -101,12 +98,10 @@ export function AuthModal({ isOpen, onClose, initialMode = "login" }: AuthModalP
     setMounted(true);
     setMode(initialMode);
     setError(null);
-    setIsOtpSent(false);
     setEmail(initialMode === "login" ? rememberedLoginEmail : "");
     setPassword("");
     setName("");
     setPhone("");
-    setVerificationCode("");
     setConfirmPassword("");
     setReferralCodeInput(initialMode === "signup" ? getStoredReferralCode() || "" : "");
     setAgreedToTerms(false);
@@ -192,42 +187,6 @@ export function AuthModal({ isOpen, onClose, initialMode = "login" }: AuthModalP
     }
   };
 
-  const handleRequestOtp = async () => {
-    if (!email) {
-      setError("이메일을 입력해 주세요.");
-      return;
-    }
-
-    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-    if (!emailRegex.test(email)) {
-      setError("올바른 이메일 형식을 입력해 주세요.");
-      return;
-    }
-
-    setLoading(true);
-    setError(null);
-
-    try {
-      const { error: otpError } = await supabase.auth.signInWithOtp({
-        email,
-        options: {
-          shouldCreateUser: true,
-        },
-      });
-
-      if (otpError) {
-        throw otpError;
-      }
-
-      setIsOtpSent(true);
-      window.alert("인증번호를 보냈습니다. 메일함을 확인해 주세요.");
-    } catch (err) {
-      setError(err instanceof Error ? err.message : "인증번호 발송에 실패했습니다.");
-    } finally {
-      setLoading(false);
-    }
-  };
-
   const handleAuth = async () => {
     setError(null);
 
@@ -297,24 +256,20 @@ export function AuthModal({ isOpen, onClose, initialMode = "login" }: AuthModalP
     }
 
     const normalizedPhone = normalizePhoneNumber(phone);
+    const normalizedEmail = email.trim().toLowerCase();
 
     if (!name.trim()) {
       setError("이름을 입력해 주세요.");
       return;
     }
 
-    if (!email) {
+    if (!normalizedEmail) {
       setError("이메일을 입력해 주세요.");
       return;
     }
 
-    if (!isOtpSent) {
-      setError("이메일 인증 요청을 먼저 진행해 주세요.");
-      return;
-    }
-
-    if (!verificationCode) {
-      setError("인증 코드를 입력해 주세요.");
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(normalizedEmail)) {
+      setError("올바른 이메일 형식을 입력해 주세요.");
       return;
     }
 
@@ -329,7 +284,7 @@ export function AuthModal({ isOpen, onClose, initialMode = "login" }: AuthModalP
     }
 
     if (!agreedToTerms || !agreedToPrivacy) {
-      setError("필수 항목에 동의해야 회원가입이 가능합니다.");
+      setError("필수 약관에 동의해야 회원가입이 가능합니다.");
       return;
     }
 
@@ -346,7 +301,7 @@ export function AuthModal({ isOpen, onClose, initialMode = "login" }: AuthModalP
     const normalizedReferralCode = sanitizeReferralCode(referralCodeInput);
     if (referralCodeInput.trim()) {
       if (!normalizedReferralCode) {
-        setError("추천인 코드가 맞지않습니다.");
+        setError("추천인 코드가 올바르지 않습니다.");
         return;
       }
 
@@ -362,9 +317,10 @@ export function AuthModal({ isOpen, onClose, initialMode = "login" }: AuthModalP
       const referralValidationPayload = (await referralValidationResponse.json()) as { error?: string; valid?: boolean };
 
       if (!referralValidationResponse.ok || !referralValidationPayload.valid) {
-        setError(referralValidationPayload.error || "추천인 코드가 맞지않습니다.");
+        setError(referralValidationPayload.error || "추천인 코드가 올바르지 않습니다.");
         return;
       }
+
       persistReferralCode(normalizedReferralCode);
     } else {
       clearStoredReferralCode();
@@ -373,78 +329,37 @@ export function AuthModal({ isOpen, onClose, initialMode = "login" }: AuthModalP
     setLoading(true);
 
     try {
-      const { error: verifyError } = await supabase.auth.verifyOtp({
-        email,
-        token: verificationCode,
-        type: "email",
-      });
-
-      if (verifyError) {
-        const { error: verifySignupError } = await supabase.auth.verifyOtp({
-          email,
-          token: verificationCode,
-          type: "signup",
-        });
-
-        if (verifySignupError) {
-          throw new Error("인증 코드가 올바르지 않거나 만료되었습니다.");
-        }
-      }
-
-      const { error: updateError } = await supabase.auth.updateUser({
+      const next = `${window.location.pathname}${window.location.search}`;
+      const redirectTo = `${window.location.origin}/auth/callback?next=${encodeURIComponent(next)}`;
+      const { data: signUpData, error: signUpError } = await supabase.auth.signUp({
+        email: normalizedEmail,
         password,
-        data: {
-          name: name.trim(),
-          full_name: name.trim(),
-          phone_number: normalizedPhone,
+        options: {
+          emailRedirectTo: redirectTo,
+          data: {
+            name: name.trim(),
+            full_name: name.trim(),
+            phone_number: normalizedPhone,
+          },
         },
       });
 
-      if (updateError) {
-        throw updateError;
+      if (signUpError) {
+        throw signUpError;
       }
 
-      const {
-        data: { user },
-      } = await supabase.auth.getUser();
-
-      if (user) {
-        const referralCode = getStoredReferralCode();
-        const profileResponse = await authFetch("/api/profile/sync", {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-          },
-          body: JSON.stringify({
-            fullName: name.trim(),
-            email,
-            phoneNumber: normalizedPhone,
-            referralCode,
-          }),
-        });
-        const profilePayload = (await profileResponse.json()) as { error?: string };
-
-        if (!profileResponse.ok) {
-          throw new Error(profilePayload.error || "프로필 저장에 실패했습니다.");
-        }
-
-        if (referralCode) {
-          clearStoredReferralCode();
-        }
+      if (signUpData.user?.identities?.length === 0) {
+        throw new Error("이미 가입된 계정이거나 이메일 인증 대기 상태입니다.");
       }
 
-      await supabase.auth.signOut();
-
-      window.alert("회원가입이 완료되었습니다. 로그인 후 이용해 주세요.");
+      window.alert("인증 메일을 발송했습니다. 메일의 링크를 완료하면 회원가입이 마무리됩니다.");
       setMode("login");
       setError(null);
-      setIsOtpSent(false);
+      setEmail(normalizedEmail);
       setPassword("");
       setName("");
       setPhone("");
-      setVerificationCode("");
       setConfirmPassword("");
-      setReferralCodeInput("");
       setAgreedToTerms(false);
       setAgreedToPrivacy(false);
     } catch (err) {
@@ -461,8 +376,7 @@ export function AuthModal({ isOpen, onClose, initialMode = "login" }: AuthModalP
   return (
     <div className="fixed inset-0 z-[100] flex animate-in items-center justify-center bg-black/60 px-6 fade-in duration-200">
       <div
-        className={`relative w-full animate-in rounded-[14px] bg-white p-6 shadow-2xl zoom-in-95 duration-200 ${mode === "signup" ? "max-w-[520px]" : "max-w-[400px]"
-          }`}
+        className={`relative w-full animate-in rounded-[14px] bg-white p-6 shadow-2xl zoom-in-95 duration-200 ${mode === "signup" ? "max-w-[520px]" : "max-w-[400px]"}`}
         onClick={(event) => event.stopPropagation()}
       >
         <button
@@ -517,31 +431,12 @@ export function AuthModal({ isOpen, onClose, initialMode = "login" }: AuthModalP
                 autoComplete="name"
                 className="h-12 w-full rounded-xl border border-slate-200 bg-white px-4 text-[14px] font-medium text-[#191f28] outline-none transition-all placeholder:text-[#adb5bd] focus:border-[#0064FF] focus:ring-4 focus:ring-[#0064FF]/5"
               />
-              <div className="flex gap-2">
-                <input
-                  type="email"
-                  placeholder="이메일"
-                  value={email}
-                  onChange={(event) => updateEmail(event.target.value)}
-                  autoComplete="email"
-                  disabled={isOtpSent}
-                  className="h-12 flex-1 rounded-xl border border-slate-200 bg-white px-4 text-[14px] font-medium text-[#191f28] outline-none transition-all placeholder:text-[#adb5bd] focus:border-[#0064FF] focus:ring-4 focus:ring-[#0064FF]/5 disabled:bg-slate-50 disabled:text-slate-400"
-                />
-                <button
-                  type="button"
-                  onClick={() => void handleRequestOtp()}
-                  disabled={loading || isOtpSent}
-                  className="h-12 whitespace-nowrap rounded-xl bg-[#f2f4f6] px-4 text-[13px] font-bold text-[#4e5968] transition-all hover:bg-[#e5e8eb] disabled:opacity-50"
-                >
-                  {isOtpSent ? "전송 완료" : "인증 요청"}
-                </button>
-              </div>
               <input
-                type="text"
-                placeholder="인증 코드"
-                value={verificationCode}
-                onChange={(event) => setVerificationCode(event.target.value)}
-                autoComplete="one-time-code"
+                type="email"
+                placeholder="이메일"
+                value={email}
+                onChange={(event) => updateEmail(event.target.value)}
+                autoComplete="email"
                 className="h-12 w-full rounded-xl border border-slate-200 bg-white px-4 text-[14px] font-medium text-[#191f28] outline-none transition-all placeholder:text-[#adb5bd] focus:border-[#0064FF] focus:ring-4 focus:ring-[#0064FF]/5"
               />
               <input
@@ -551,14 +446,6 @@ export function AuthModal({ isOpen, onClose, initialMode = "login" }: AuthModalP
                 onChange={(event) => setPhone(normalizePhoneNumber(event.target.value))}
                 autoComplete="tel"
                 className="h-12 w-full rounded-xl border border-slate-200 bg-white px-4 text-[14px] font-medium text-[#191f28] outline-none transition-all placeholder:text-[#adb5bd] focus:border-[#0064FF] focus:ring-4 focus:ring-[#0064FF]/5"
-              />
-              <input
-                type="text"
-                placeholder="추천인 코드 (선택)"
-                value={referralCodeInput}
-                onChange={(event) => setReferralCodeInput(event.target.value.toUpperCase())}
-                autoComplete="off"
-                className="hidden"
               />
             </>
           ) : (
@@ -617,9 +504,10 @@ export function AuthModal({ isOpen, onClose, initialMode = "login" }: AuthModalP
                   </span>
                 </div>
                 <p className="mt-3 flex items-center gap-2 text-[12px] font-bold text-[#16A34A]">
-                  <span aria-hidden="true">🎁</span>
+                  <span aria-hidden="true">*</span>
                   추천인 코드 입력 시 {formatRewardPoints(refereeRewardPoints)}를 즉시 지급합니다
                 </p>
+                <p className="mt-2 text-[12px] font-medium text-[#6b7684]">가입 완료 후 인증 메일의 링크를 눌러야 로그인할 수 있습니다.</p>
               </div>
               <label className="flex items-start gap-3 rounded-xl border border-slate-200 bg-slate-50 px-4 py-3 text-[13px] text-[#4E5968]">
                 <input
@@ -685,7 +573,6 @@ export function AuthModal({ isOpen, onClose, initialMode = "login" }: AuthModalP
               onClick={() => {
                 setMode(mode === "login" ? "signup" : "login");
                 setError(null);
-                setIsOtpSent(false);
                 setReferralCodeInput("");
                 setAgreedToTerms(false);
                 setAgreedToPrivacy(false);

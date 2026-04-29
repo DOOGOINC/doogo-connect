@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useState } from "react";
+import { PortalPageHeader } from "@/components/header/PortalPageHeader";
 import { getPortalHomeByRole, type AppRole } from "@/lib/auth/roles";
 import { authFetch } from "@/lib/client/auth-fetch";
 import type { RfqRequestRow, RfqRequestStatus } from "@/lib/rfq";
@@ -16,6 +17,7 @@ import { ClientProjectDetail } from "./_components/ClientProjectDetail";
 import { ClientQuoteRequestHub } from "./_components/ClientQuoteRequestHub";
 import { ClientRefundDisputeCenter } from "./_components/ClientRefundDisputeCenter";
 import { EmptyState } from "./_components/EmptyState";
+import { ManufacturerRequestHub } from "./_components/ManufacturerRequestHub";
 import { OrdersManagement } from "./_components/OrdersManagement";
 import { PointsWallet } from "./_components/PointsWallet";
 import { ProductionManagement } from "./_components/ProductionManagement";
@@ -29,6 +31,57 @@ import { ManufacturerTradeSupport } from "./_components/ManufacturerTradeSupport
 
 type ConnectViewMode = "client" | "manufacturer";
 type ProjectView = "new" | "rejected" | "expired";
+
+const CLIENT_TAB_LABELS: Record<string, string> = {
+  dashboard: "대시보드",
+  "quote-request": "제조사 견적요청",
+  "manufacturer-list": "제조사 목록",
+  project: "프로젝트",
+  delivery: "생산",
+  chat: "1:1 채팅",
+  support: "고객센터",
+  payment: "결제 내역",
+  "refund-disputes": "환불/ 취소/ 분쟁",
+  settings: "설정",
+  points: "포인트 관리",
+};
+
+const MANUFACTURER_TAB_LABELS: Record<string, string> = {
+  "rfq-inbox": "제조사 견적함",
+  orders: "수주 관리",
+  "manufacturing-requests-new": "신규 요청",
+  "manufacturing-requests-history": "요청 확인/거절",
+  production: "생산 진행",
+  transactions: "거래 내역",
+  "settlement-history": "정산 내역",
+  "fee-settlement": "수수료 내역",
+  "trade-support": "거래 지원",
+  "product-list": "상품 리스트",
+  "product-create": "상품 등록",
+  chat: "1:1 채팅",
+  support: "고객센터",
+  settings: "설정",
+};
+
+function resolveClientTab(requestedTab: string | null) {
+  if (requestedTab && requestedTab in CLIENT_TAB_LABELS) {
+    return requestedTab;
+  }
+
+  return "dashboard";
+}
+
+function resolveManufacturerTab(requestedTab: string | null) {
+  if (requestedTab === "manufacturing-requests") {
+    return "manufacturing-requests-new";
+  }
+
+  if (requestedTab && requestedTab in MANUFACTURER_TAB_LABELS) {
+    return requestedTab;
+  }
+
+  return "rfq-inbox";
+}
 
 export default function MyConnectPage() {
   const [userId, setUserId] = useState<string>("");
@@ -99,23 +152,13 @@ export default function MyConnectPage() {
 
       if (nextRole === "manufacturer" && hasLinkedManufacturer) {
         setViewMode("manufacturer");
-        setActiveTab(requestedTab === "support" ? "support" : requestedTab === "chat" ? "chat" : "rfq-inbox");
+        setActiveTab(resolveManufacturerTab(requestedTab));
 
         setManufacturerId(manufacturer?.id ?? null);
         setManufacturerName(manufacturer?.name || "");
       } else {
         setViewMode("client");
-        if (requestedTab === "support") {
-          setActiveTab("support");
-        } else if (requestedTab === "delivery") {
-          setActiveTab("delivery");
-        } else if (requestedTab === "points") {
-          setActiveTab("points");
-        } else if (requestedTab === "chat") {
-          setActiveTab("chat");
-        } else {
-          setActiveTab("dashboard");
-        }
+        setActiveTab(resolveClientTab(requestedTab));
         setManufacturerId(null);
         setManufacturerName("");
       }
@@ -153,6 +196,23 @@ export default function MyConnectPage() {
 
     return () => window.clearTimeout(timeoutId);
   }, [fetchRfqRequests]);
+
+  useEffect(() => {
+    if (isLoading) {
+      return;
+    }
+
+    const url = new URL(window.location.href);
+    const defaultTab = viewMode === "manufacturer" ? "rfq-inbox" : "dashboard";
+
+    if (activeTab === defaultTab) {
+      url.searchParams.delete("tab");
+    } else {
+      url.searchParams.set("tab", activeTab);
+    }
+
+    window.history.replaceState({}, "", `${url.pathname}${url.search}${url.hash}`);
+  }, [activeTab, isLoading, viewMode]);
 
   const handleRequestPatch = async (requestId: string, patch: Partial<Pick<RfqRequestRow, "status" | "admin_memo" | "updated_at">>) => {
     const currentRequest = rfqRequests.find((r) => r.id === requestId);
@@ -262,7 +322,6 @@ export default function MyConnectPage() {
     () => visibleManufacturerRequests.find((request) => request.id === selectedRfqId) || visibleManufacturerRequests[0] || null,
     [visibleManufacturerRequests, selectedRfqId]
   );
-
   if (isLoading) {
     return (
       <div className="fixed inset-0 z-[70] flex items-center justify-center bg-white">
@@ -449,6 +508,22 @@ export default function MyConnectPage() {
           return <ChatSystem userId={userId} viewMode={viewMode} />;
         case "support":
           return <SupportChatSystem userId={userId} />;
+        case "manufacturing-requests-new":
+        case "manufacturing-requests-history":
+          return (
+            <ManufacturerRequestHub
+              requests={rfqRequests}
+              initialTab={activeTab === "manufacturing-requests-history" ? "history" : "pending"}
+              onApprove={(requestId) => handleRequestStatusChange(requestId, "reviewing")}
+              onReject={(requestId, reason) =>
+                handleRequestPatch(requestId, {
+                  status: "rejected",
+                  admin_memo: reason,
+                  updated_at: new Date().toISOString(),
+                })
+              }
+            />
+          );
         case "rfq-inbox":
           return renderManufacturerRfqInbox();
         case "orders":
@@ -462,8 +537,12 @@ export default function MyConnectPage() {
         case "production":
           return <ProductionManagement requests={rfqRequests} onStatusChange={handleRequestStatusChange} />;
         case "transactions":
-          return <TransactionsSettlement requests={rfqRequests} />;
-      case "trade-support":
+          return <TransactionsSettlement requests={rfqRequests} view="transactions" onRequestsRefresh={fetchRfqRequests} />;
+        case "settlement-history":
+          return <TransactionsSettlement requests={rfqRequests} view="settlements" onRequestsRefresh={fetchRfqRequests} />;
+        case "fee-settlement":
+          return <TransactionsSettlement requests={rfqRequests} view="fees" onRequestsRefresh={fetchRfqRequests} />;
+        case "trade-support":
           return <ManufacturerTradeSupport requests={rfqRequests} />;
         case "quote-submissions":
         case "active-projects":
@@ -532,8 +611,8 @@ export default function MyConnectPage() {
   };
 
   return (
-    <div className="mt-16 flex h-[calc(100vh-4rem)] flex-col overflow-hidden bg-white">
-      <main className="flex min-h-0 flex-1 overflow-hidden border-t border-slate-100">
+    <div className="flex min-h-screen flex-col overflow-hidden bg-white">
+      <main className="flex min-h-0 flex-1 overflow-hidden">
         <Sidebar
           activeTab={activeTab}
           displayName={displayName}
@@ -542,7 +621,15 @@ export default function MyConnectPage() {
           viewMode={viewMode}
           manufacturerName={manufacturerName}
         />
-        {renderContent()}
+        <div className="flex min-w-0 flex-1 flex-col overflow-hidden bg-white">
+          <PortalPageHeader
+            portalLabel={viewMode === "manufacturer" ? "제조사 대시보드" : "의뢰자 대시보드"}
+            sectionLabel={(viewMode === "manufacturer" ? MANUFACTURER_TAB_LABELS : CLIENT_TAB_LABELS)[activeTab] || "대시보드"}
+            displayName={viewMode === "manufacturer" ? manufacturerName : displayName}
+            showPoints={viewMode === "client" && userRole === "member"}
+          />
+          <div className="min-h-0 flex-1 overflow-hidden">{renderContent()}</div>
+        </div>
       </main>
       {viewMode === "client" && userRole === "member" ? <ClientDailyPopup /> : null}
     </div>

@@ -1,7 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
-import { CalendarDays, Search } from "lucide-react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { authFetch } from "@/lib/client/auth-fetch";
 import { MasterLoadingState } from "./MasterLoadingState";
 import { MasterTablePagination } from "./MasterTablePagination";
@@ -28,8 +27,12 @@ type TransactionRow = {
   designPrice: number;
   totalSaleAmount: number;
   commissionAmount: number;
+  settlementAmount: number;
   paymentMethod: string;
   statusLabel: string;
+  manufacturerSettlementRequestedAt: string | null;
+  settledAt: string | null;
+  isSettled: boolean;
 };
 
 type ResponsePayload = {
@@ -54,10 +57,7 @@ function formatDate(value: string | null) {
   if (!value) return "-";
   const date = new Date(value);
   if (Number.isNaN(date.getTime())) return "-";
-  const year = date.getFullYear();
-  const month = String(date.getMonth() + 1).padStart(2, "0");
-  const day = String(date.getDate()).padStart(2, "0");
-  return `${year}-${month}-${day}`;
+  return date.toLocaleDateString("en-CA", { timeZone: "Asia/Seoul" });
 }
 
 function formatQuantity(value: number) {
@@ -69,7 +69,7 @@ function formatMoney(value: number, currencyCode: string) {
   if (currencyCode === "NZD") {
     return `NZD ${rounded.toLocaleString("en-NZ")}`;
   }
-  return `₩${rounded.toLocaleString("ko-KR")}`;
+  return `KRW ${rounded.toLocaleString("ko-KR")}`;
 }
 
 function getCurrencyBadgeClass(currencyCode: string) {
@@ -92,6 +92,7 @@ export function MasterTransactionManagement() {
   const currentMonth = today.getMonth() + 1;
   const monthOptions = Array.from({ length: 12 }, (_, index) => index + 1);
   const [loading, setLoading] = useState(true);
+  const [settlingId, setSettlingId] = useState("");
   const [error, setError] = useState("");
   const [summary, setSummary] = useState<SummaryPayload>({
     totalSalesNzd: 0,
@@ -123,49 +124,49 @@ export function MasterTransactionManagement() {
     return () => window.clearTimeout(timeout);
   }, [searchTerm]);
 
-  useEffect(() => {
-    const fetchData = async () => {
-      setLoading(true);
-      setError("");
+  const fetchData = useCallback(async () => {
+    setLoading(true);
+    setError("");
 
-      try {
-        const query = new URLSearchParams({
-          page: String(currentPage),
-          pageSize: String(PAGE_SIZE),
-          startYear: String(startYear),
-          startMonth: String(startMonth),
-          endYear: String(endYear),
-          endMonth: String(endMonth),
-          manufacturer: selectedManufacturer,
-          currency: selectedCurrency,
-        });
+    try {
+      const query = new URLSearchParams({
+        page: String(currentPage),
+        pageSize: String(PAGE_SIZE),
+        startYear: String(startYear),
+        startMonth: String(startMonth),
+        endYear: String(endYear),
+        endMonth: String(endMonth),
+        manufacturer: selectedManufacturer,
+        currency: selectedCurrency,
+      });
 
-        if (debouncedSearch) {
-          query.set("search", debouncedSearch);
-        }
-
-        const response = await authFetch(`/api/admin/transaction-management?${query.toString()}`);
-        const payload = (await response.json()) as ResponsePayload;
-
-        if (!response.ok) {
-          throw new Error(payload.error || "거래 관리 데이터를 불러오지 못했습니다.");
-        }
-
-        setSummary(payload.summary);
-        setRows(payload.rows || []);
-        setAvailableYears(payload.filters.availableYears?.length ? payload.filters.availableYears : [currentYear]);
-        setManufacturers(payload.filters.manufacturers || []);
-        setTotalCount(payload.pagination.totalCount || 0);
-        setTotalPages(payload.pagination.totalPages || 1);
-      } catch (fetchError) {
-        setError(fetchError instanceof Error ? fetchError.message : "거래 관리 데이터를 불러오지 못했습니다.");
-      } finally {
-        setLoading(false);
+      if (debouncedSearch) {
+        query.set("search", debouncedSearch);
       }
-    };
 
-    void fetchData();
+      const response = await authFetch(`/api/admin/transaction-management?${query.toString()}`);
+      const payload = (await response.json()) as ResponsePayload;
+
+      if (!response.ok) {
+        throw new Error(payload.error || "거래 관리 데이터를 불러오지 못했습니다.");
+      }
+
+      setSummary(payload.summary);
+      setRows(payload.rows || []);
+      setAvailableYears(payload.filters.availableYears?.length ? payload.filters.availableYears : [currentYear]);
+      setManufacturers(payload.filters.manufacturers || []);
+      setTotalCount(payload.pagination.totalCount || 0);
+      setTotalPages(payload.pagination.totalPages || 1);
+    } catch (fetchError) {
+      setError(fetchError instanceof Error ? fetchError.message : "거래 관리 데이터를 불러오지 못했습니다.");
+    } finally {
+      setLoading(false);
+    }
   }, [currentPage, currentYear, debouncedSearch, endMonth, endYear, selectedCurrency, selectedManufacturer, startMonth, startYear]);
+
+  useEffect(() => {
+    void fetchData();
+  }, [fetchData]);
 
   useEffect(() => {
     if (currentPage > totalPages) {
@@ -174,11 +175,52 @@ export function MasterTransactionManagement() {
   }, [currentPage, totalPages]);
 
   const summaryCards = [
-    { label: "NZD 총 판매금액", value: formatMoney(summary.totalSalesNzd, "NZD") },
-    { label: "KRW 총 판매금액", value: formatMoney(summary.totalSalesKrw, "KRW") },
+    { label: "NZD 총 매출금액", value: formatMoney(summary.totalSalesNzd, "NZD") },
+    { label: "KRW 총 매출금액", value: formatMoney(summary.totalSalesKrw, "KRW") },
     { label: "NZD 수수료(3%)", value: formatMoney(summary.totalCommissionNzd, "NZD") },
     { label: "KRW 수수료(3%)", value: formatMoney(summary.totalCommissionKrw, "KRW") },
   ];
+
+  const handleSettle = async (row: TransactionRow) => {
+    if (!window.confirm("정산처리하시겠습니까?")) {
+      return;
+    }
+
+    setSettlingId(row.id);
+    try {
+      const response = await authFetch("/api/admin/transaction-management", {
+        method: "PATCH",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          requestId: row.id,
+          action: "settle",
+        }),
+      });
+      const payload = (await response.json()) as { error?: string };
+
+      if (!response.ok) {
+        throw new Error(payload.error || "정산 처리에 실패했습니다.");
+      }
+
+      setRows((prev) =>
+        prev.map((item) =>
+          item.id === row.id
+            ? {
+              ...item,
+              isSettled: true,
+              settledAt: new Date().toISOString(),
+            }
+            : item
+        )
+      );
+    } catch (settleError) {
+      window.alert(settleError instanceof Error ? settleError.message : "정산 처리에 실패했습니다.");
+    } finally {
+      setSettlingId("");
+    }
+  };
 
   if (loading && totalCount === 0 && rows.length === 0) {
     return <MasterLoadingState message="거래 관리 데이터를 불러오는 중입니다." />;
@@ -193,7 +235,7 @@ export function MasterTransactionManagement() {
               <span className="text-[20px]">💳</span>
               <h1>거래 관리</h1>
             </div>
-            <p className="text-[14px] font-medium text-[#8C96A8]">두고커넥트 운영 관리 시스템</p>
+            <p className="text-[14px] font-medium text-[#8C96A8]">제조사 요청 이후에만 최종 정산 처리를 진행합니다.</p>
           </div>
         </section>
 
@@ -201,7 +243,7 @@ export function MasterTransactionManagement() {
           <div className="flex flex-col gap-4 xl:flex-row xl:items-end">
             <div className="min-w-0 flex-1">
               <label className="mb-1.5 flex items-center gap-1 text-[12px] font-semibold text-[#6b7280]">
-                🔍 검색 (거래번호·의뢰자·제품·제조사)
+                검색 (거래번호, 의뢰자, 제조사, 상품명)
               </label>
               <input
                 type="text"
@@ -214,9 +256,7 @@ export function MasterTransactionManagement() {
 
             <div className="flex flex-wrap items-end gap-3">
               <div>
-                <label className="mb-1.5 flex items-center gap-1 text-[12px] font-semibold text-[#6b7280]">
-                  📅 시작
-                </label>
+                <label className="mb-1.5 flex items-center gap-1 text-[12px] font-semibold text-[#6b7280]">조회 시작</label>
                 <div className="flex gap-1.5">
                   <select
                     value={startYear}
@@ -252,9 +292,7 @@ export function MasterTransactionManagement() {
               <span className="pb-3 text-[14px] font-bold text-[#6b7280]">~</span>
 
               <div>
-                <label className="mb-1.5 flex items-center gap-1 text-[12px] font-semibold text-[#6b7280]">
-                  📅 종료
-                </label>
+                <label className="mb-1.5 flex items-center gap-1 text-[12px] font-semibold text-[#6b7280]">조회 종료</label>
                 <div className="flex gap-1.5">
                   <select
                     value={endYear}
@@ -315,7 +353,7 @@ export function MasterTransactionManagement() {
               </div>
             </div>
 
-            <div className="inline-flex h-[32px] items-center rounded-full bg-[#F2F4F7]  p-0.4 shadow-sm">
+            <div className="inline-flex h-[32px] items-center rounded-full bg-[#F2F4F7] p-0.4 shadow-sm">
               {[
                 { id: "ALL", label: "전체" },
                 { id: "NZD", label: "NZD" },
@@ -352,7 +390,7 @@ export function MasterTransactionManagement() {
 
         <section className="overflow-hidden rounded-[14px] border border-[#E8EDF3] bg-white shadow-sm">
           <div className="w-full overflow-x-auto">
-            <table className="min-w-[1720px] w-full table-auto">
+            <table className="min-w-[2100px] w-full table-auto">
               <thead>
                 <tr className="border-b border-[#EEF2F6] text-left text-[11px] font-bold text-[#6A7282]">
                   {[
@@ -360,7 +398,7 @@ export function MasterTransactionManagement() {
                     "날짜",
                     "의뢰자",
                     "제조사",
-                    "제품",
+                    "상품",
                     "수량",
                     "통화",
                     "캡슐 원가",
@@ -369,8 +407,12 @@ export function MasterTransactionManagement() {
                     "디자인비",
                     "총판매금액",
                     "수수료(3%)",
+                    "정산금액",
                     "결제",
                     "상태",
+                    "정산 요청일",
+                    "정산일",
+                    "정산처리",
                   ].map((label) => (
                     <th key={label} className="whitespace-nowrap px-3 py-3">
                       {label}
@@ -381,50 +423,83 @@ export function MasterTransactionManagement() {
               <tbody>
                 {loading ? (
                   <tr>
-                    <td colSpan={15} className="px-3 py-14 text-center">
+                    <td colSpan={19} className="px-3 py-14 text-center">
                       <MasterLoadingState variant="inline" />
                     </td>
                   </tr>
                 ) : error ? (
                   <tr>
-                    <td colSpan={15} className="px-3 py-14 text-center text-[13px] font-semibold text-[#EF4444]">
+                    <td colSpan={19} className="px-3 py-14 text-center text-[13px] font-semibold text-[#EF4444]">
                       {error}
                     </td>
                   </tr>
                 ) : rows.length === 0 ? (
                   <tr>
-                    <td colSpan={15} className="px-3 py-14 text-center text-[13px] font-semibold text-[#98A2B3]">
+                    <td colSpan={19} className="px-3 py-14 text-center text-[13px] font-semibold text-[#98A2B3]">
                       조회된 거래 내역이 없습니다.
                     </td>
                   </tr>
                 ) : (
-                  rows.map((row) => (
-                    <tr key={row.id} className="border-b border-[#F2F5F8] text-[12px] text-[#475467] last:border-b-0">
-                      <td className="whitespace-nowrap px-3 py-3">{row.orderNumber}</td>
-                      <td className="whitespace-nowrap px-3 py-3">{formatDate(row.createdAt)}</td>
-                      <td className="whitespace-nowrap px-3 py-3 font-semibold text-[#344054]">{row.requesterName}</td>
-                      <td className="whitespace-nowrap px-3 py-3">{row.manufacturerName}</td>
-                      <td className="max-w-[190px] truncate px-3 py-3">{row.productName}</td>
-                      <td className="whitespace-nowrap px-3 py-3">{formatQuantity(row.quantity)}</td>
-                      <td className="whitespace-nowrap px-3 py-3">
-                        <span className={`inline-flex rounded-full px-3 py-1 text-[11px] font-bold ${getCurrencyBadgeClass(row.currencyCode)}`}>
-                          {row.currencyCode}
-                        </span>
-                      </td>
-                      <td className="whitespace-nowrap px-3 py-3">{formatMoney(row.capsuleCost, row.currencyCode)}</td>
-                      <td className="whitespace-nowrap px-3 py-3">{formatMoney(row.capsuleSalePrice, row.currencyCode)}</td>
-                      <td className="whitespace-nowrap px-3 py-3">{formatMoney(row.boxPrice, row.currencyCode)}</td>
-                      <td className="whitespace-nowrap px-3 py-3">{formatMoney(row.designPrice, row.currencyCode)}</td>
-                      <td className="whitespace-nowrap px-3 py-3 font-bold text-[#344054]">{formatMoney(row.totalSaleAmount, row.currencyCode)}</td>
-                      <td className="whitespace-nowrap px-3 py-3 font-bold text-[#344054]">{formatMoney(row.commissionAmount, row.currencyCode)}</td>
-                      <td className="whitespace-nowrap px-3 py-3">{row.paymentMethod}</td>
-                      <td className="whitespace-nowrap px-3 py-3">
-                        <span className={`inline-flex rounded-full px-3 py-1 text-[11px] font-bold ${getStatusBadgeClass(row.statusLabel)}`}>
-                          {row.statusLabel}
-                        </span>
-                      </td>
-                    </tr>
-                  ))
+                  rows.map((row) => {
+                    const canSettle = !row.isSettled && row.statusLabel === "완료" && Boolean(row.manufacturerSettlementRequestedAt);
+
+                    return (
+                      <tr key={row.id} className="border-b border-[#F2F5F8] text-[12px] text-[#475467] last:border-b-0">
+                        <td className="whitespace-nowrap px-3 py-3">{row.orderNumber}</td>
+                        <td className="whitespace-nowrap px-3 py-3">{formatDate(row.createdAt)}</td>
+                        <td className="whitespace-nowrap px-3 py-3 font-semibold text-[#344054]">{row.requesterName}</td>
+                        <td className="whitespace-nowrap px-3 py-3">{row.manufacturerName}</td>
+                        <td className="max-w-[190px] truncate px-3 py-3">{row.productName}</td>
+                        <td className="whitespace-nowrap px-3 py-3">{formatQuantity(row.quantity)}</td>
+                        <td className="whitespace-nowrap px-3 py-3">
+                          <span className={`inline-flex rounded-full px-3 py-1 text-[11px] font-bold ${getCurrencyBadgeClass(row.currencyCode)}`}>
+                            {row.currencyCode}
+                          </span>
+                        </td>
+                        <td className="whitespace-nowrap px-3 py-3">{formatMoney(row.capsuleCost, row.currencyCode)}</td>
+                        <td className="whitespace-nowrap px-3 py-3">{formatMoney(row.capsuleSalePrice, row.currencyCode)}</td>
+                        <td className="whitespace-nowrap px-3 py-3">{formatMoney(row.boxPrice, row.currencyCode)}</td>
+                        <td className="whitespace-nowrap px-3 py-3">{formatMoney(row.designPrice, row.currencyCode)}</td>
+                        <td className="whitespace-nowrap px-3 py-3 font-bold text-[#344054]">{formatMoney(row.totalSaleAmount, row.currencyCode)}</td>
+                        <td className="whitespace-nowrap px-3 py-3 font-bold text-[#344054]">{formatMoney(row.commissionAmount, row.currencyCode)}</td>
+                        <td className="whitespace-nowrap px-3 py-3 font-bold text-[#2563EB]">{formatMoney(row.settlementAmount, row.currencyCode)}</td>
+                        <td className="whitespace-nowrap px-3 py-3">{row.paymentMethod}</td>
+                        <td className="whitespace-nowrap px-3 py-3">
+                          <span className={`inline-flex rounded-full px-3 py-1 text-[11px] font-bold ${getStatusBadgeClass(row.statusLabel)}`}>
+                            {row.statusLabel}
+                          </span>
+                        </td>
+                        <td className="whitespace-nowrap px-3 py-3">
+                          {row.manufacturerSettlementRequestedAt ? (
+                            <span className="inline-flex rounded-full bg-[#ECFDF3] px-3 py-1 text-[11px] font-bold text-[#027A48]">
+                              {formatDate(row.manufacturerSettlementRequestedAt)}
+                            </span>
+                          ) : (
+                            <span className="text-[11px] font-semibold text-[#98A2B3]">미요청</span>
+                          )}
+                        </td>
+                        <td className="whitespace-nowrap px-3 py-3">{formatDate(row.settledAt)}</td>
+                        <td className="whitespace-nowrap px-3 py-3">
+                          {row.isSettled ? (
+                            <span className="inline-flex rounded-full bg-[#DCFCE7] px-3 py-1 text-[11px] font-bold text-[#16A34A]">정산 완료</span>
+                          ) : canSettle ? (
+                            <button
+                              type="button"
+                              onClick={() => void handleSettle(row)}
+                              disabled={settlingId === row.id}
+                              className="rounded-full bg-[#2563EB] px-3 py-1 text-[11px] font-bold text-white transition hover:bg-[#1D4ED8] disabled:cursor-not-allowed disabled:opacity-60"
+                            >
+                              {settlingId === row.id ? "처리 중..." : "정산 처리"}
+                            </button>
+                          ) : row.statusLabel !== "완료" ? (
+                            <span className="text-[11px] font-semibold text-[#98A2B3]">거래 완료 후 가능</span>
+                          ) : (
+                            <span className="text-[11px] font-semibold text-[#F59E0B]">제조사 요청 대기</span>
+                          )}
+                        </td>
+                      </tr>
+                    );
+                  })
                 )}
               </tbody>
             </table>

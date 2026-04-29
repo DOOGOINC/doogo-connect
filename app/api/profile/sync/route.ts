@@ -47,16 +47,15 @@ export async function POST(request: Request) {
     const adminClient = createServiceRoleClient();
     const profileClient = adminClient ?? supabase;
 
-    const metadataRole = user.user_metadata?.role;
-    const safeRole = (["master", "manufacturer", "member", "partner"] as const).includes(metadataRole as AppRole)
-      ? (metadataRole as AppRole)
+    const authRole = user.app_metadata?.role;
+    const safeRole = (["master", "manufacturer", "member", "partner"] as const).includes(authRole as AppRole)
+      ? (authRole as AppRole)
       : undefined;
     const providerInfo = getProviderInfo(user);
 
     const metadataFullName = trimOrNull(user.user_metadata?.full_name) ?? trimOrNull(user.user_metadata?.name);
     const metadataPhoneNumber = trimOrNull(user.user_metadata?.phone_number);
     const submittedFullName = trimOrNull(body.fullName);
-    const email = trimOrNull(body.email) || user.email || null;
     const submittedPhoneNumber = trimOrNull(body.phoneNumber);
     const submittedReferralCode = sanitizeReferralCode(body.referralCode);
 
@@ -70,6 +69,7 @@ export async function POST(request: Request) {
       throw new Error(profileReadError.message);
     }
 
+    const email = user.email?.trim() || trimOrNull(existingProfile?.email) || null;
     const fullName = submittedFullName ?? trimOrNull(existingProfile?.full_name) ?? metadataFullName;
     const phoneNumber = submittedPhoneNumber ?? trimOrNull(existingProfile?.phone_number) ?? metadataPhoneNumber;
 

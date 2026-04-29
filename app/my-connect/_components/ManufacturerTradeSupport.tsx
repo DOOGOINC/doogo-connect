@@ -77,7 +77,7 @@ export function ManufacturerTradeSupport({ refreshKey = 0, requests }: { refresh
         ) : disputes.length === 0 ? (
           <div className="flex min-h-[300px] flex-col items-center justify-center text-center">
             <div className="flex h-16 w-16 items-center justify-center rounded-full bg-[#f0fdf4]">
-              <ShieldCheck className="h-8 w-8 text-[#60a5fa]" />
+              <div className="text-[28px]">🛡️</div>
             </div>
             <p className="mt-5 text-[15px] font-bold text-[#111827]">환불/취소 내역이 없습니다</p>
             <p className="mt-3 text-[13px] font-semibold text-[#9ca3af]">이 메뉴는 분쟁 또는 특수 상황에서 발생한 건들이 표시됩니다.</p>
