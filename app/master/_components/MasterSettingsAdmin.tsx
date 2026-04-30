@@ -61,7 +61,7 @@ const TABS: Array<{ id: SettingsTab; label: string; icon: string }> = [
   { id: "platform", label: "플랫폼 기본 설정", icon: "🔧" },
   { id: "popup", label: "팝업 설정", icon: "💬" },
   { id: "admin", label: "관리자 계정", icon: "🔑" },
-  { id: "manager", label: "매니저 관리", icon: "👤" },
+  // { id: "manager", label: "매니저 관리", icon: "👤" },
 ];
 
 function toPointValue(value: string | number) {
@@ -240,9 +240,8 @@ export function MasterSettingsAdmin() {
                 key={tab.id}
                 type="button"
                 onClick={() => setActiveTab(tab.id)}
-                className={`h-9 rounded-full px-4 text-[13px] font-bold transition ${
-                  active ? "bg-white text-[#2563EB] shadow-sm ring-1 ring-[#E5E7EB]" : "bg-[#F3F4F6] text-[#6B7280] hover:bg-white"
-                }`}
+                className={`h-9 rounded-full px-4 text-[13px] font-bold transition ${active ? "bg-white text-[#2563EB] shadow-sm ring-1 ring-[#E5E7EB]" : "bg-[#F3F4F6] text-[#6B7280] hover:bg-white"
+                  }`}
               >
                 <span className="mr-2">{tab.icon}</span>
                 {tab.label}

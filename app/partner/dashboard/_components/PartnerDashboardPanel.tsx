@@ -30,6 +30,7 @@ type DashboardResponse = {
     currencyCode: string;
     baseAmount: number;
     partnerProfit: number;
+    commissionRate: number;
   }>;
   error?: string;
 };

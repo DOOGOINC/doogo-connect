@@ -113,6 +113,7 @@ export async function POST(request: Request) {
         profile_id: partnerUser.id,
         started_at: now,
         ended_at: null,
+        commission_rate_percent: commissionRate,
         created_by: user.id,
       });
 
@@ -197,15 +198,16 @@ export async function PATCH(request: Request) {
 
     const { data: existingPartnerProfile, error: existingPartnerProfileError } = await admin
       .from("partner_profiles")
-      .select("status, deleted_at")
+      .select("status, deleted_at, commission_rate_percent")
       .eq("profile_id", id)
-      .maybeSingle<{ status: string | null; deleted_at: string | null }>();
+      .maybeSingle<{ status: string | null; deleted_at: string | null; commission_rate_percent: number | null }>();
 
     if (existingPartnerProfileError) {
       throw new Error(existingPartnerProfileError.message);
     }
 
     const previousStatus = existingPartnerProfile?.deleted_at ? "inactive" : normalizePartnerStatus(existingPartnerProfile?.status);
+    const previousCommissionRate = normalizePartnerCommissionRate(existingPartnerProfile?.commission_rate_percent);
 
     const updatedUser = await admin.auth.admin.updateUserById(id, updatePayload);
     if (updatedUser.error) {
@@ -266,6 +268,7 @@ export async function PATCH(request: Request) {
             profile_id: id,
             started_at: existingProfile.created_at || now,
             ended_at: now,
+            commission_rate_percent: previousCommissionRate,
             created_by: user.id,
           });
 
@@ -309,6 +312,7 @@ export async function PATCH(request: Request) {
             profile_id: id,
             started_at: (existingPeriods || []).length ? now : existingProfile.created_at || now,
             ended_at: null,
+            commission_rate_percent: commissionRate,
             created_by: user.id,
           });
 
@@ -316,6 +320,30 @@ export async function PATCH(request: Request) {
             throw new Error(insertPeriodError.message);
           }
         }
+      }
+    }
+
+    if (previousStatus === "active" && status === "active" && previousCommissionRate !== commissionRate) {
+      const { error: closePeriodError } = await admin
+        .from("partner_compensation_periods")
+        .update({ ended_at: now })
+        .eq("profile_id", id)
+        .is("ended_at", null);
+
+      if (closePeriodError) {
+        throw new Error(closePeriodError.message);
+      }
+
+      const { error: insertPeriodError } = await admin.from("partner_compensation_periods").insert({
+        profile_id: id,
+        started_at: now,
+        ended_at: null,
+        commission_rate_percent: commissionRate,
+        created_by: user.id,
+      });
+
+      if (insertPeriodError) {
+        throw new Error(insertPeriodError.message);
       }
     }
 
@@ -354,6 +382,16 @@ export async function DELETE(request: Request) {
       throw new Error("삭제할 파트너 계정을 찾을 수 없습니다.");
     }
 
+    const { data: existingPartnerProfile, error: existingPartnerProfileError } = await admin
+      .from("partner_profiles")
+      .select("commission_rate_percent")
+      .eq("profile_id", id)
+      .maybeSingle<{ commission_rate_percent: number | null }>();
+
+    if (existingPartnerProfileError) {
+      throw new Error(existingPartnerProfileError.message);
+    }
+
     const now = new Date().toISOString();
     const { data: openPeriod, error: openPeriodError } = await admin
       .from("partner_compensation_periods")
@@ -371,6 +409,7 @@ export async function DELETE(request: Request) {
         profile_id: id,
         started_at: existingProfile.created_at || now,
         ended_at: now,
+        commission_rate_percent: normalizePartnerCommissionRate(existingPartnerProfile?.commission_rate_percent),
         created_by: user.id,
       });
 

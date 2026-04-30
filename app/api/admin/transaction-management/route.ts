@@ -139,6 +139,56 @@ function getDateRange(year: number, month: number) {
   };
 }
 
+function buildSearchClauses(search: string, matchingClientIds: string[]) {
+  if (!search) {
+    return [];
+  }
+
+  const safeSearch = search.replace(/[%]/g, "").replace(/,/g, " ");
+  const clauses = [
+    `request_number.ilike.%${safeSearch}%`,
+    `order_number.ilike.%${safeSearch}%`,
+    `manufacturer_name.ilike.%${safeSearch}%`,
+    `product_name.ilike.%${safeSearch}%`,
+  ];
+
+  if (matchingClientIds.length) {
+    clauses.push(`client_id.in.(${matchingClientIds.join(",")})`);
+  }
+
+  return clauses;
+}
+
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+function applyRequestFilters(query: any, options: {
+  startIso: string;
+  endIso: string;
+  manufacturer: string;
+  currency: string;
+  search: string;
+  matchingClientIds: string[];
+}) {
+  let nextQuery = query
+    .in("status", Array.from(VISIBLE_STATUSES))
+    .gte("created_at", options.startIso)
+    .lte("created_at", options.endIso);
+
+  if (options.manufacturer !== "all") {
+    nextQuery = nextQuery.eq("manufacturer_name", options.manufacturer);
+  }
+
+  if (options.currency !== "ALL") {
+    nextQuery = nextQuery.eq("currency_code", options.currency);
+  }
+
+  const searchClauses = buildSearchClauses(options.search, options.matchingClientIds);
+  if (searchClauses.length) {
+    nextQuery = nextQuery.or(searchClauses.join(","));
+  }
+
+  return nextQuery;
+}
+
 export async function GET(request: Request) {
   try {
     const { supabase } = await requireMasterUser(request);
@@ -159,76 +209,45 @@ export async function GET(request: Request) {
     const startRange = getDateRange(startYear, startMonth).start;
     const endRange = getDateRange(endYear, endMonth).end;
 
-    const [requestResult, profileResult, productResult, feeRequestResult] = await Promise.all([
-      admin
-        .from("rfq_requests")
-        .select(
-          "id, request_number, order_number, client_id, product_id, manufacturer_id, manufacturer_name, product_name, quantity, currency_code, status, created_at, selection_snapshot, commission_amount, commission_rate_percent, settlement_amount, is_settled, settled_at"
-        )
-        .order("created_at", { ascending: false }),
-      admin.from("profiles").select("id, full_name"),
-      admin.from("manufacturer_products").select("id, cost_price"),
-      admin.from("manufacturer_fee_settlement_requests").select("rfq_request_id, requested_at"),
+    const startIso = startRange.toISOString();
+    const endIso = endRange.toISOString();
+    const matchingClientIds =
+      search
+        ? (((await admin.from("profiles").select("id").ilike("full_name", `%${search}%`)).data as Array<{ id: string }> | null) || [])
+            .map((profile) => profile.id)
+            .slice(0, 200)
+        : [];
+
+    const [filterMetaResult, totalCountResult, summaryResult] = await Promise.all([
+      admin.from("rfq_requests").select("created_at, manufacturer_name").in("status", Array.from(VISIBLE_STATUSES)),
+      applyRequestFilters(
+        admin.from("rfq_requests").select("id", { count: "exact", head: true }),
+        { startIso, endIso, manufacturer, currency, search, matchingClientIds }
+      ),
+      applyRequestFilters(
+        admin.from("rfq_requests").select("selection_snapshot, commission_amount, commission_rate_percent, currency_code"),
+        { startIso, endIso, manufacturer, currency: "ALL", search, matchingClientIds }
+      ),
     ]);
 
-    if (requestResult.error) throw new Error(requestResult.error.message);
-    if (profileResult.error) throw new Error(profileResult.error.message);
-    if (productResult.error) throw new Error(productResult.error.message);
-    if (feeRequestResult.error) throw new Error(feeRequestResult.error.message);
+    if (filterMetaResult.error) throw new Error(filterMetaResult.error.message);
+    if (totalCountResult.error) throw new Error(totalCountResult.error.message);
+    if (summaryResult.error) throw new Error(summaryResult.error.message);
 
-    const feeRequestMap = new Map(
-      (((feeRequestResult.data as FeeSettlementRequestRow[] | null) || []) as FeeSettlementRequestRow[]).map((row) => [row.rfq_request_id, row.requested_at])
-    );
-
-    const profileMap = new Map(
-      (((profileResult.data as ProfileRow[] | null) || []) as ProfileRow[]).map((profile) => [profile.id, trimValue(profile.full_name, "회원")])
-    );
-
-    const productCostMap = new Map(
-      (((productResult.data as ProductCostRow[] | null) || []) as ProductCostRow[]).map((product) => [product.id, toMoney(product.cost_price)])
-    );
-
-    const statusVisibleRows = (((requestResult.data as RequestRow[] | null) || []) as RequestRow[]).filter((requestRow) =>
-      VISIBLE_STATUSES.has(trimValue(requestRow.status))
-    );
-
-    const manufacturers = Array.from(new Set(statusVisibleRows.map((row) => trimValue(row.manufacturer_name)).filter(Boolean))).sort((a, b) =>
+    const filterMetaRows = (filterMetaResult.data as Array<{ created_at: string | null; manufacturer_name: string | null }> | null) || [];
+    const manufacturers = Array.from(new Set(filterMetaRows.map((row) => trimValue(row.manufacturer_name)).filter(Boolean))).sort((a, b) =>
       a.localeCompare(b, "ko")
     );
-
     const availableYears = Array.from(
       new Set(
-        statusVisibleRows
+        filterMetaRows
           .map((row) => (row.created_at ? new Date(row.created_at).getFullYear() : null))
           .filter((year): year is number => Boolean(year))
       )
     ).sort((a, b) => b - a);
 
-    const visibleRows = statusVisibleRows.filter((requestRow) => {
-      if (!requestRow.created_at) return false;
-      const createdAt = new Date(requestRow.created_at);
-      return createdAt >= startRange && createdAt <= endRange;
-    });
-
-    const baseFilteredRows = visibleRows.filter((requestRow) => {
-      const requestManufacturer = trimValue(requestRow.manufacturer_name, "-");
-      if (manufacturer !== "all" && requestManufacturer !== manufacturer) {
-        return false;
-      }
-
-      if (!search) return true;
-
-      const orderNumber = getDisplayOrderNumber({
-        order_number: requestRow.order_number,
-        request_number: requestRow.request_number,
-      });
-      const customerName = profileMap.get(requestRow.client_id) || "회원";
-      const values = [orderNumber, customerName, requestManufacturer, trimValue(requestRow.product_name, "-")];
-
-      return values.some((value) => value.toLowerCase().includes(search));
-    });
-
-    const summary = baseFilteredRows.reduce(
+    const summaryRows = (((summaryResult.data as RequestRow[] | null) || []) as RequestRow[]);
+    const summary = summaryRows.reduce(
       (acc, requestRow) => {
         const currencyCode = trimValue(requestRow.currency_code, "KRW").toUpperCase();
         const totalSaleAmount = getTotalSaleAmount(requestRow);
@@ -253,13 +272,55 @@ export async function GET(request: Request) {
         totalCommissionKrw: 0,
       }
     );
+    const totalCount = totalCountResult.count || 0;
+    const totalPages = Math.max(1, Math.ceil(totalCount / pageSize));
+    const safePage = Math.min(page, totalPages);
+    const rangeFrom = (safePage - 1) * pageSize;
+    const rangeTo = rangeFrom + pageSize - 1;
 
-    const currencyFilteredRows = baseFilteredRows.filter((requestRow) => {
-      if (currency === "ALL") return true;
-      return trimValue(requestRow.currency_code, "KRW").toUpperCase() === currency;
-    });
+    const pageResult = await applyRequestFilters(
+      admin
+        .from("rfq_requests")
+        .select(
+          "id, request_number, order_number, client_id, product_id, manufacturer_id, manufacturer_name, product_name, quantity, currency_code, status, created_at, selection_snapshot, commission_amount, commission_rate_percent, settlement_amount, is_settled, settled_at"
+        )
+        .order("created_at", { ascending: false })
+        .range(rangeFrom, rangeTo),
+      { startIso, endIso, manufacturer, currency, search, matchingClientIds }
+    );
 
-    const mappedRows = currencyFilteredRows.map((requestRow) => {
+    if (pageResult.error) throw new Error(pageResult.error.message);
+
+    const pagedRequestRows = (((pageResult.data as RequestRow[] | null) || []) as RequestRow[]);
+    const clientIds = Array.from(new Set(pagedRequestRows.map((row) => row.client_id).filter(Boolean)));
+    const productIds = Array.from(new Set(pagedRequestRows.map((row) => trimValue(row.product_id)).filter(Boolean)));
+    const requestIds = pagedRequestRows.map((row) => row.id);
+
+    const [profileResult, productResult, feeRequestResult] = await Promise.all([
+      clientIds.length ? admin.from("profiles").select("id, full_name").in("id", clientIds) : Promise.resolve({ data: [], error: null }),
+      productIds.length ? admin.from("manufacturer_products").select("id, cost_price").in("id", productIds) : Promise.resolve({ data: [], error: null }),
+      requestIds.length
+        ? admin.from("manufacturer_fee_settlement_requests").select("rfq_request_id, requested_at").in("rfq_request_id", requestIds)
+        : Promise.resolve({ data: [], error: null }),
+    ]);
+
+    if (profileResult.error) throw new Error(profileResult.error.message);
+    if (productResult.error) throw new Error(productResult.error.message);
+    if (feeRequestResult.error) throw new Error(feeRequestResult.error.message);
+
+    const feeRequestMap = new Map(
+      (((feeRequestResult.data as FeeSettlementRequestRow[] | null) || []) as FeeSettlementRequestRow[]).map((row) => [row.rfq_request_id, row.requested_at])
+    );
+
+    const profileMap = new Map(
+      (((profileResult.data as ProfileRow[] | null) || []) as ProfileRow[]).map((profile) => [profile.id, trimValue(profile.full_name, "회원")])
+    );
+
+    const productCostMap = new Map(
+      (((productResult.data as ProductCostRow[] | null) || []) as ProductCostRow[]).map((product) => [product.id, toMoney(product.cost_price)])
+    );
+
+    const mappedRows = pagedRequestRows.map((requestRow) => {
       const currencyCode = trimValue(requestRow.currency_code, "KRW").toUpperCase();
       const quantity = Number(requestRow.quantity || 0);
       const capsuleCost = toMoney(productCostMap.get(trimValue(requestRow.product_id))) * quantity;
@@ -291,18 +352,13 @@ export async function GET(request: Request) {
       };
     });
 
-    const totalCount = mappedRows.length;
-    const totalPages = Math.max(1, Math.ceil(totalCount / pageSize));
-    const safePage = Math.min(page, totalPages);
-    const pagedRows = mappedRows.slice((safePage - 1) * pageSize, safePage * pageSize);
-
     return ok({
       summary,
       filters: {
         availableYears: availableYears.length ? availableYears : [currentYear],
         manufacturers,
       },
-      rows: pagedRows,
+      rows: mappedRows,
       pagination: {
         page: safePage,
         pageSize,

@@ -1,6 +1,6 @@
 "use client";
 
-import { Minus, Package2, Plus, RotateCcw, Check } from "lucide-react";
+import { Minus, Package2, Plus, RotateCcw } from "lucide-react";
 import Image from "next/image";
 import { formatCurrency } from "@/lib/currency";
 
@@ -174,7 +174,7 @@ export function Step3Quantity({
                   <div className="flex w-full items-center gap-3">
                     <div className="relative h-14 w-14 shrink-0 overflow-hidden rounded-[8px] border border-[#f2f4f6] bg-[#f7f9fa]">
                       {container.image ? (
-                        <Image src={container.image} alt={container.name} fill className="object-cover" />
+                        <Image src={container.image} alt={container.name} fill sizes="56px" className="object-cover" />
                       ) : (
                         <div className="flex h-full items-center justify-center">
                           <Package2 className="h-5 w-5 text-[#d1d6db]" />

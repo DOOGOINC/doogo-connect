@@ -6,6 +6,7 @@ import { authFetch } from "@/lib/client/auth-fetch";
 import { supabase } from "@/lib/supabase";
 import { MasterLoadingState } from "./MasterLoadingState";
 import { MasterTablePagination } from "./MasterTablePagination";
+import { useIsClient } from "./useIsClient";
 
 type ProfileRow = {
   id: string;
@@ -115,6 +116,7 @@ function getBanLabel(profile: Pick<ProfileRow, "ban_type" | "ban_expires_at">) {
 
 export function MasterRequesterManagement({ refreshKey = 0 }: { refreshKey?: number }) {
   const today = useMemo(() => new Date(), []);
+  const mounted = useIsClient();
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState("");
   const [activeFilter, setActiveFilter] = useState<RequesterFilter>("all");
@@ -130,16 +132,13 @@ export function MasterRequesterManagement({ refreshKey = 0 }: { refreshKey?: num
   useEffect(() => {
     const fetchData = async () => {
       setLoading(true);
+      let loadedProfiles: ProfileRow[] = [];
 
-      const [profileResult, walletResult, requestResult] = await Promise.all([
-        supabase
-          .from("profiles")
-          .select("id, full_name, email, created_at, role, ban_type, ban_expires_at, ban_updated_at, ban_reason")
-          .eq("role", "member")
-          .order("created_at", { ascending: false }),
-        supabase.from("user_point_wallets").select("user_id, balance"),
-        supabase.from("rfq_requests").select("client_id, status, created_at"),
-      ]);
+      const profileResult = await supabase
+        .from("profiles")
+        .select("id, full_name, email, created_at, role, ban_type, ban_expires_at, ban_updated_at, ban_reason")
+        .eq("role", "member")
+        .order("created_at", { ascending: false });
 
       if (profileResult.error) {
         if (profileResult.error.message.includes("ban_reason")) {
@@ -156,14 +155,27 @@ export function MasterRequesterManagement({ refreshKey = 0 }: { refreshKey?: num
               ...profile,
               ban_reason: null,
             }));
+            loadedProfiles = nextProfiles;
             setProfiles(nextProfiles);
           }
         } else {
           console.error("Failed to fetch requester profiles:", profileResult.error.message);
         }
       } else {
-        setProfiles((profileResult.data as ProfileRow[] | null) || []);
+        loadedProfiles = (profileResult.data as ProfileRow[] | null) || [];
+        setProfiles(loadedProfiles);
       }
+
+      const memberIds = Array.from(new Set(loadedProfiles.map((profile) => profile.id).filter(Boolean)));
+
+      const [walletResult, requestResult] = await Promise.all([
+        memberIds.length
+          ? supabase.from("user_point_wallets").select("user_id, balance").in("user_id", memberIds)
+          : Promise.resolve({ data: [], error: null }),
+        memberIds.length
+          ? supabase.from("rfq_requests").select("client_id, status, created_at").in("client_id", memberIds).eq("status", "fulfilled")
+          : Promise.resolve({ data: [], error: null }),
+      ]);
 
       if (walletResult.error) {
         console.error("Failed to fetch requester wallets:", walletResult.error.message);
@@ -317,6 +329,8 @@ export function MasterRequesterManagement({ refreshKey = 0 }: { refreshKey?: num
       setUpdatingBanAction(null);
     }
   };
+
+  if (!mounted) return null;
 
   return (
     <div className="flex flex-1 flex-col overflow-auto bg-[#F8FAFC] px-5 py-5">

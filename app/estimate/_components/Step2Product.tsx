@@ -1,7 +1,7 @@
 "use client";
 
 import { useMemo, useState } from "react";
-import { ChevronLeft, ChevronRight, Loader2, RotateCcw, Search, Check } from "lucide-react";
+import { ChevronLeft, ChevronRight, Loader2, Search, Check } from "lucide-react";
 import Image from "next/image";
 
 import { type EstimateSelection, type Product } from "../_data/catalog";
@@ -9,12 +9,12 @@ import { ProductCard } from "./ProductCard";
 import { ProductPreviewModal } from "./ProductPreviewModal";
 
 export function Step2Product({
-  manufacturerName,
+  manufacturerName: _manufacturerName,
   products,
   catalogLoading,
   selection,
   setSelection,
-  onReset,
+  onReset: _onReset,
 }: {
   manufacturerName: string;
   products: Product[];
@@ -27,6 +27,8 @@ export function Step2Product({
   const [searchQuery, setSearchQuery] = useState("");
   const [page, setPage] = useState(1);
   const pageSize = 4;
+  void _manufacturerName;
+  void _onReset;
 
   const filteredProducts = useMemo(() => {
     const query = searchQuery.toLowerCase().trim();
@@ -144,6 +146,7 @@ export function Step2Product({
                                 src={selectedProductData.image} 
                                 alt={selectedProductData.name} 
                                 fill 
+                                sizes="36px"
                                 className="object-cover"
                               />
                             )}

@@ -85,7 +85,10 @@ export function ManufacturerAdmin() {
 
   const fetchManufacturers = useCallback(async () => {
     setLoading(true);
-    const { data, error } = await supabase.from("manufacturers").select("*").order("id", { ascending: true });
+    const { data, error } = await supabase
+      .from("manufacturers")
+      .select("id, owner_id, name, location, address, rating, description, tags, products, image, logo, is_active")
+      .order("id", { ascending: true });
 
     if (error) {
       console.error("Fetch error:", error);
@@ -348,7 +351,7 @@ export function ManufacturerAdmin() {
           ))}
         </section>
 
-        <div className="relative max-w-sm"> {/* max-w-sm 등을 추가해 전체 너비를 제한할 수 있습니다 */}
+        <div className="relative max-w-sm">
           <Search className="pointer-events-none absolute left-4 top-1/2 h-4 w-4 -translate-y-1/2 text-[#9ca3af]" />
           <input
             type="text"

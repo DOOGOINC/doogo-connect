@@ -69,7 +69,11 @@ const MASTER_GROUPS: SidebarGroup[] = [
     label: "전략",
     emoji: "🎯",
     colorClass: "bg-[#9d33f6]",
-    items: [{ id: "partner-management", label: "파트너 관리", icon: "🤝" }],
+    items: [
+      { id: "partner-management", label: "파트너 관리", icon: "🤝" },
+      { id: "partner-settlement", label: "파트너 정산 관리", icon: "💸" },
+      { id: "statistics", label: "통계", icon: "📊" },
+    ],
   },
 ];
 
@@ -92,9 +96,9 @@ export function MasterSidebar({ activeTab, onTabChange }: MasterSidebarProps) {
             <Image
               src="/image/doogo_logo_full.png"
               alt="DOGO CONNECT"
-              width={120}
-              height={28}
-              className="h-[28px] w-auto object-contain"
+              width={163}
+              height={30}
+              className="object-contain"
               priority
             />
             <p className="text-[10px] tracking-widest text-[#7b8597] group-hover:text-[#2f6bff] transition-colors leading-none">

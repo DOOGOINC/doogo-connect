@@ -44,6 +44,7 @@ export function ProductPreviewModal({ product, onClose }: { product: Product | n
               src={product.image}
               alt={product.name}
               fill
+              sizes="(max-width: 768px) calc(100vw - 64px), 400px"
               className="object-contain"
             />
           </div>

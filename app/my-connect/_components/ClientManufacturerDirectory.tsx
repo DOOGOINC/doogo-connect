@@ -25,6 +25,7 @@ type ProductCurrencyRow = {
 };
 
 const CURRENCY_ORDER = ["USD", "KRW", "NZD"];
+const MANUFACTURER_PAGE_SIZE = 40;
 
 function sortCurrencyCodes(codes: string[]) {
   return [...codes].sort((a, b) => {
@@ -61,9 +62,16 @@ export function ClientManufacturerDirectory({
   const [startingChatId, setStartingChatId] = useState<number | null>(null);
 
   useEffect(() => {
+    let isCancelled = false;
+
     const fetchManufacturers = async () => {
-      const [manufacturerResult, productCurrencyResult] = await Promise.all([
-        supabase.from("manufacturers").select("*").order("id", { ascending: true }),
+      const manufacturerQuery = supabase
+        .from("manufacturers")
+        .select("id, name, location, description, tags, image, logo, catalog_currency")
+        .order("id", { ascending: true });
+
+      const [firstManufacturerResult, productCurrencyResult] = await Promise.all([
+        manufacturerQuery.range(0, MANUFACTURER_PAGE_SIZE - 1),
         supabase.from("manufacturer_products").select("manufacturer_id, payment_currency").eq("is_active", true),
       ]);
 
@@ -79,8 +87,39 @@ export function ClientManufacturerDirectory({
         setCurrencyMap(nextCurrencyMap);
       }
 
-      if (!manufacturerResult.error && manufacturerResult.data && manufacturerResult.data.length > 0) {
-        setManufacturers(manufacturerResult.data as Manufacturer[]);
+      if (!firstManufacturerResult.error && firstManufacturerResult.data && firstManufacturerResult.data.length > 0) {
+        const allManufacturers = [...(firstManufacturerResult.data as Manufacturer[])];
+        setManufacturers(allManufacturers);
+
+        let from = MANUFACTURER_PAGE_SIZE;
+        let hasMore = firstManufacturerResult.data.length === MANUFACTURER_PAGE_SIZE;
+
+        while (hasMore && !isCancelled) {
+          const { data, error } = await manufacturerQuery.range(from, from + MANUFACTURER_PAGE_SIZE - 1);
+          if (error) {
+            console.error("Failed to fetch manufacturers:", error.message);
+            break;
+          }
+
+          const pageRows = (data as Manufacturer[] | null) || [];
+          if (!pageRows.length || isCancelled) {
+            break;
+          }
+
+          allManufacturers.push(...pageRows);
+          setManufacturers([...allManufacturers]);
+          hasMore = pageRows.length === MANUFACTURER_PAGE_SIZE;
+          from += MANUFACTURER_PAGE_SIZE;
+
+          if (hasMore) {
+            await new Promise((resolve) => window.setTimeout(resolve, 0));
+          }
+        }
+
+        if (isCancelled) {
+          return;
+        }
+
         return;
       }
 
@@ -89,6 +128,9 @@ export function ClientManufacturerDirectory({
     };
 
     void fetchManufacturers();
+    return () => {
+      isCancelled = true;
+    };
   }, [refreshKey]);
 
   const visibleManufacturers = useMemo(() => {

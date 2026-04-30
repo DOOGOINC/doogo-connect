@@ -106,6 +106,84 @@ type CatalogSnapshot = {
   designServiceRows: DesignServiceRow[];
   designPackageRows: DesignPackageRow[];
   designExtraRows: DesignExtraRow[];
+  hasDesignData: boolean;
+};
+
+type SignedUrlCacheEntry = {
+  url: string;
+  expiresAt: number;
+};
+
+const MAX_CATALOG_CACHE_SIZE = 3;
+const CATALOG_IMAGE_URL_TTL_MS = 1000 * 60 * 60 * 24;
+
+const MANUFACTURER_SELECT_FIELDS =
+  "id, name, location, address, rating, description, tags, products, image, logo, catalog_currency";
+const PRODUCT_SELECT_FIELDS =
+  "id, manufacturer_id, category, name, description, payment_currency, base_price, discount_config, image, key_features, ingredients, directions, cautions, container_ids, design_service_ids, design_package_ids, design_extra_ids";
+const CONTAINER_SELECT_FIELDS = "id, manufacturer_id, name, description, add_price, image, payment_currency";
+const DESIGN_OPTION_SELECT_FIELDS = "id, manufacturer_id, name, price, is_default";
+const DESIGN_SERVICE_SELECT_FIELDS = "id, manufacturer_id, name, description, price, payment_currency";
+const DESIGN_PACKAGE_SELECT_FIELDS = "id, manufacturer_id, name, badge, description, price, included, payment_currency";
+const DESIGN_EXTRA_SELECT_FIELDS = "id, manufacturer_id, name, description, price, payment_currency";
+
+const setCatalogCacheEntry = (cache: Map<number, CatalogSnapshot>, manufacturerId: number, snapshot: CatalogSnapshot) => {
+  if (cache.has(manufacturerId)) {
+    cache.delete(manufacturerId);
+  }
+
+  cache.set(manufacturerId, snapshot);
+
+  while (cache.size > MAX_CATALOG_CACHE_SIZE) {
+    const oldestKey = cache.keys().next().value;
+    if (oldestKey == null) {
+      break;
+    }
+    cache.delete(oldestKey);
+  }
+};
+
+const buildSignedUrlMap = (cache: Record<string, SignedUrlCacheEntry>) => {
+  const now = Date.now();
+  return Object.fromEntries(
+    Object.entries(cache)
+      .filter(([, entry]) => entry.expiresAt > now)
+      .map(([path, entry]) => [path, entry.url])
+  );
+};
+
+const getMissingSignedUrlPaths = (paths: string[], cache: Record<string, SignedUrlCacheEntry>) => {
+  const now = Date.now();
+  return paths.filter((path) => {
+    const cachedEntry = cache[path];
+    return !cachedEntry || cachedEntry.expiresAt <= now;
+  });
+};
+
+const mergeSignedUrlCache = (cache: Record<string, SignedUrlCacheEntry>, nextUrls: Record<string, string>) => {
+  const expiresAt = Date.now() + CATALOG_IMAGE_URL_TTL_MS;
+  const nextCache = { ...cache };
+
+  Object.entries(nextUrls).forEach(([path, url]) => {
+    nextCache[path] = { url, expiresAt };
+  });
+
+  return nextCache;
+};
+
+const getVisibleCatalogImagePaths = (snapshot: CatalogSnapshot, currentStep: number) => {
+  if (currentStep < 2) {
+    return [] as string[];
+  }
+
+  if (currentStep < 3) {
+    return collectCatalogImagePaths(snapshot.productRows.map((row) => row.image));
+  }
+
+  return collectCatalogImagePaths([
+    ...snapshot.productRows.map((row) => row.image),
+    ...snapshot.containerRows.map((row) => row.image),
+  ]);
 };
 
 const mapProduct = (
@@ -199,7 +277,7 @@ export const useEstimate = () => {
   const [designPackages, setDesignPackages] = useState<DesignPackageItem[]>([]);
   const [designExtras, setDesignExtras] = useState<DesignExtraItem[]>([]);
   const catalogCacheRef = useRef(new Map<number, CatalogSnapshot>());
-  const signedUrlCacheRef = useRef<Record<string, string>>({});
+  const signedUrlCacheRef = useRef<Record<string, SignedUrlCacheEntry>>({});
   const [selection, setSelection] = useState({
     manufacturer: initialManufacturerId as number | null,
     product: null as string | null,
@@ -210,10 +288,22 @@ export const useEstimate = () => {
     designPackage: null as string | null,
     designExtras: [] as string[],
   });
+  const selectedManufacturerId = selection.manufacturer;
+  const selectedProductId = selection.product;
+  const selectedContainerId = selection.container;
+  const selectedDesignId = selection.design;
+  const selectedDesignServiceIds = selection.designServices;
+  const selectedDesignPackageId = selection.designPackage;
+  const selectedDesignExtraIds = selection.designExtras;
+  const selectedQuantity = selection.quantity;
+
   useEffect(() => {
     const fetchManufacturers = async () => {
       setLoading(true);
-      const { data, error } = await supabase.from("manufacturers").select("*").order("id", { ascending: true });
+      const { data, error } = await supabase
+        .from("manufacturers")
+        .select(MANUFACTURER_SELECT_FIELDS)
+        .order("id", { ascending: true });
 
       if (!error && data && data.length > 0) {
         setManufacturers(data as Manufacturer[]);
@@ -227,17 +317,84 @@ export const useEstimate = () => {
   }, []);
 
   useEffect(() => {
-    const manufacturerId = selection.manufacturer;
+    const catalogCache = catalogCacheRef.current;
+
+    return () => {
+      catalogCache.clear();
+      signedUrlCacheRef.current = {};
+    };
+  }, []);
+
+  useEffect(() => {
+    const manufacturerId = selectedManufacturerId;
     let ignore = false;
 
     const applyCatalogSnapshot = (snapshot: CatalogSnapshot) => {
-      const signedUrls = signedUrlCacheRef.current;
+      const signedUrls = buildSignedUrlMap(signedUrlCacheRef.current);
       setProducts(snapshot.productRows.map((row) => mapProduct(row, signedUrls, snapshot.manufacturerCurrency)));
       setContainers(snapshot.containerRows.map((row) => mapContainer(row, signedUrls)));
       setDesignOptions(snapshot.designOptionRows.map(mapDesignOption));
       setDesignServices(snapshot.designServiceRows.map(mapDesignService));
       setDesignPackages(snapshot.designPackageRows.map(mapDesignPackage));
       setDesignExtras(snapshot.designExtraRows.map(mapDesignExtra));
+    };
+
+    const fetchCoreCatalog = async (nextManufacturerId: number) => {
+      const [productsResult, containersResult] = await Promise.all([
+        supabase
+          .from("manufacturer_products")
+          .select(PRODUCT_SELECT_FIELDS)
+          .eq("manufacturer_id", nextManufacturerId)
+          .eq("is_active", true)
+          .order("name", { ascending: true }),
+        supabase
+          .from("manufacturer_container_options")
+          .select(CONTAINER_SELECT_FIELDS)
+          .eq("manufacturer_id", nextManufacturerId)
+          .eq("is_active", true)
+          .order("sort_order", { ascending: true }),
+      ]);
+
+      return {
+        productRows: (productsResult.data as ProductRow[] | null) || [],
+        containerRows: (containersResult.data as ContainerRow[] | null) || [],
+      };
+    };
+
+    const fetchDesignCatalog = async (nextManufacturerId: number) => {
+      const [designOptionsResult, designServicesResult, designPackagesResult, designExtrasResult] = await Promise.all([
+        supabase
+          .from("manufacturer_design_options")
+          .select(DESIGN_OPTION_SELECT_FIELDS)
+          .eq("manufacturer_id", nextManufacturerId)
+          .eq("is_active", true)
+          .order("sort_order", { ascending: true }),
+        supabase
+          .from("manufacturer_design_services")
+          .select(DESIGN_SERVICE_SELECT_FIELDS)
+          .eq("manufacturer_id", nextManufacturerId)
+          .eq("is_active", true)
+          .order("sort_order", { ascending: true }),
+        supabase
+          .from("manufacturer_design_packages")
+          .select(DESIGN_PACKAGE_SELECT_FIELDS)
+          .eq("manufacturer_id", nextManufacturerId)
+          .eq("is_active", true)
+          .order("sort_order", { ascending: true }),
+        supabase
+          .from("manufacturer_design_extras")
+          .select(DESIGN_EXTRA_SELECT_FIELDS)
+          .eq("manufacturer_id", nextManufacturerId)
+          .eq("is_active", true)
+          .order("sort_order", { ascending: true }),
+      ]);
+
+      return {
+        designOptionRows: (designOptionsResult.data as DesignOptionRow[] | null) || [],
+        designServiceRows: (designServicesResult.data as DesignServiceRow[] | null) || [],
+        designPackageRows: (designPackagesResult.data as DesignPackageRow[] | null) || [],
+        designExtraRows: (designExtrasResult.data as DesignExtraRow[] | null) || [],
+      };
     };
 
     const fetchCatalog = async () => {
@@ -258,74 +415,42 @@ export const useEstimate = () => {
       if (!snapshot) {
         const manufacturerCurrency =
           manufacturers.find((manufacturer) => manufacturer.id === manufacturerId)?.catalog_currency || null;
-
-        const [
-          productsResult,
-          containersResult,
-          designOptionsResult,
-          designServicesResult,
-          designPackagesResult,
-          designExtrasResult,
-        ] = await Promise.all([
-          supabase
-            .from("manufacturer_products")
-            .select("*")
-            .eq("manufacturer_id", manufacturerId)
-            .eq("is_active", true)
-            .order("name", { ascending: true }),
-          supabase
-            .from("manufacturer_container_options")
-            .select("*")
-            .eq("manufacturer_id", manufacturerId)
-            .eq("is_active", true)
-            .order("sort_order", { ascending: true }),
-          supabase
-            .from("manufacturer_design_options")
-            .select("*")
-            .eq("manufacturer_id", manufacturerId)
-            .eq("is_active", true)
-            .order("sort_order", { ascending: true }),
-          supabase
-            .from("manufacturer_design_services")
-            .select("*")
-            .eq("manufacturer_id", manufacturerId)
-            .eq("is_active", true)
-            .order("sort_order", { ascending: true }),
-          supabase
-            .from("manufacturer_design_packages")
-            .select("*")
-            .eq("manufacturer_id", manufacturerId)
-            .eq("is_active", true)
-            .order("sort_order", { ascending: true }),
-          supabase
-            .from("manufacturer_design_extras")
-            .select("*")
-            .eq("manufacturer_id", manufacturerId)
-            .eq("is_active", true)
-            .order("sort_order", { ascending: true }),
-        ]);
+        const coreCatalog = await fetchCoreCatalog(manufacturerId);
 
         snapshot = {
           manufacturerCurrency,
-          productRows: (productsResult.data as ProductRow[] | null) || [],
-          containerRows: (containersResult.data as ContainerRow[] | null) || [],
-          designOptionRows: (designOptionsResult.data as DesignOptionRow[] | null) || [],
-          designServiceRows: (designServicesResult.data as DesignServiceRow[] | null) || [],
-          designPackageRows: (designPackagesResult.data as DesignPackageRow[] | null) || [],
-          designExtraRows: (designExtrasResult.data as DesignExtraRow[] | null) || [],
+          productRows: coreCatalog.productRows,
+          containerRows: coreCatalog.containerRows,
+          designOptionRows: [],
+          designServiceRows: [],
+          designPackageRows: [],
+          designExtraRows: [],
+          hasDesignData: false,
         };
-        catalogCacheRef.current.set(manufacturerId, snapshot);
+        setCatalogCacheEntry(catalogCacheRef.current, manufacturerId, snapshot);
       }
 
       if (ignore) return;
 
+      if (currentStep >= 4 && !snapshot.hasDesignData) {
+        const designCatalog = await fetchDesignCatalog(manufacturerId);
+        snapshot = {
+          ...snapshot,
+          ...designCatalog,
+          hasDesignData: true,
+        };
+        setCatalogCacheEntry(catalogCacheRef.current, manufacturerId, snapshot);
+
+        if (ignore) return;
+      }
+
       applyCatalogSnapshot(snapshot);
       setCatalogLoading(false);
 
-      const missingPaths = collectCatalogImagePaths([
-        ...snapshot.productRows.map((row) => row.image),
-        ...snapshot.containerRows.map((row) => row.image),
-      ]).filter((path) => !signedUrlCacheRef.current[path]);
+      const missingPaths = getMissingSignedUrlPaths(
+        getVisibleCatalogImagePaths(snapshot, currentStep),
+        signedUrlCacheRef.current
+      );
 
       if (missingPaths.length === 0) {
         return;
@@ -337,12 +462,9 @@ export const useEstimate = () => {
           return;
         }
 
-        signedUrlCacheRef.current = {
-          ...signedUrlCacheRef.current,
-          ...nextSignedImageUrls,
-        };
+        signedUrlCacheRef.current = mergeSignedUrlCache(signedUrlCacheRef.current, nextSignedImageUrls);
 
-        if (selection.manufacturer === manufacturerId) {
+        if (selectedManufacturerId === manufacturerId) {
           applyCatalogSnapshot(snapshot);
         }
       } catch (error) {
@@ -355,13 +477,13 @@ export const useEstimate = () => {
     return () => {
       ignore = true;
     };
-  }, [manufacturers, selection.manufacturer]);
+  }, [currentStep, manufacturers, selectedManufacturerId]);
 
-  const selectedProduct = useMemo(() => getProductById(products, selection.product), [products, selection.product]);
+  const selectedProduct = useMemo(() => getProductById(products, selectedProductId), [products, selectedProductId]);
 
   const selectedManufacturer = useMemo(
-    () => manufacturers.find((manufacturer) => manufacturer.id === selection.manufacturer) || null,
-    [manufacturers, selection.manufacturer]
+    () => manufacturers.find((manufacturer) => manufacturer.id === selectedManufacturerId) || null,
+    [manufacturers, selectedManufacturerId]
   );
 
   const selectedContainer = useMemo(
@@ -369,10 +491,10 @@ export const useEstimate = () => {
       selectedProduct
         ? getContainerById(
             containers.filter((container) => selectedProduct.containerIds.includes(container.id) && container.paymentCurrency === selectedProduct.paymentCurrency),
-            selection.container
+            selectedContainerId
           )
         : null,
-    [containers, selectedProduct, selection.container]
+    [containers, selectedContainerId, selectedProduct]
   );
 
   const availableDesignServices = useMemo(() => {
@@ -400,36 +522,38 @@ export const useEstimate = () => {
         designServices: availableDesignServices,
         designPackages: availableDesignPackages,
         designExtras: availableDesignExtras,
-        design: selection.design,
-        selectedServiceIds: selection.designServices,
-        selectedPackageId: selection.designPackage,
-        selectedExtraIds: selection.designExtras,
+        design: selectedDesignId,
+        selectedServiceIds: selectedDesignServiceIds,
+        selectedPackageId: selectedDesignPackageId,
+        selectedExtraIds: selectedDesignExtraIds,
       }),
     [
       availableDesignExtras,
       designOptions,
       availableDesignPackages,
       availableDesignServices,
-      selection.design,
-      selection.designExtras,
-      selection.designPackage,
-      selection.designServices,
+      selectedDesignExtraIds,
+      selectedDesignId,
+      selectedDesignPackageId,
+      selectedDesignServiceIds,
     ]
   );
+
+  const selectedDesignPrice = selectedDesign?.price || 0;
 
   const pricing = useMemo(
     () =>
       getPricingBySelection({
         product: selectedProduct,
         container: selectedContainer,
-        quantity: selection.quantity,
-        designPrice: selectedDesign?.price || 0,
+        quantity: selectedQuantity,
+        designPrice: selectedDesignPrice,
       }),
-    [selectedProduct, selectedContainer, selection.quantity, selectedDesign]
+    [selectedContainer, selectedDesignPrice, selectedProduct, selectedQuantity]
   );
 
-  const unitPrice = selection.product && currentStep > 1 ? pricing.unitPrice : 0;
-  const totalPrice = selection.product && currentStep > 1 ? pricing.totalPrice : 0;
+  const unitPrice = selectedProductId && currentStep > 1 ? pricing.unitPrice : 0;
+  const totalPrice = selectedProductId && currentStep > 1 ? pricing.totalPrice : 0;
 
   const handleNext = () => {
     if (currentStep < 6) setCurrentStep(currentStep + 1);

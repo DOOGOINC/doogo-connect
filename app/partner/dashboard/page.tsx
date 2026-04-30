@@ -119,7 +119,7 @@ export default function PartnerDashboardPage() {
         <PartnerSidebar activeTab={activeTab} onTabChange={setActiveTab} displayName={displayName} />
         <div className="flex min-w-0 flex-1 flex-col overflow-hidden bg-white">
           <PortalPageHeader portalLabel="파트너 대시보드" sectionLabel={TAB_LABELS[activeTab] || "대시보드"} displayName={displayName} />
-          <div className="min-h-0 flex-1 overflow-hidden">{renderContent()}</div>
+          <div className="min-h-0 flex-1 overflow-hidden bg-[#f9fafb]">{renderContent()}</div>
         </div>
       </main>
     </div>

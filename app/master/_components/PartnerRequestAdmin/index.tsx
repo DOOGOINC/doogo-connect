@@ -26,6 +26,20 @@ interface PartnerRequestAdminProps {
   onUnreadCountChange?: (updater: (prev: number) => number) => void;
 }
 
+function formatPartnerRequestDate(value: string) {
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return "-";
+
+  return new Intl.DateTimeFormat("ko-KR", {
+    timeZone: "Asia/Seoul",
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+    hour: "2-digit",
+    minute: "2-digit",
+  }).format(date);
+}
+
 export function PartnerRequestAdmin({ refreshKey = 0, onUnreadCountChange }: PartnerRequestAdminProps) {
   const [requests, setRequests] = useState<PartnerRequest[]>([]);
   const [loading, setLoading] = useState(true);
@@ -39,7 +53,7 @@ export function PartnerRequestAdmin({ refreshKey = 0, onUnreadCountChange }: Par
     try {
       let query = supabase
         .from("partner_requests")
-        .select("*")
+        .select("id, company_name, business_number, manager_name, manager_phone, manager_email, company_description, attachment_url, status, created_at, source_ip")
         .order("created_at", { ascending: false });
 
       if (statusFilter === "unread") {
@@ -111,7 +125,7 @@ export function PartnerRequestAdmin({ refreshKey = 0, onUnreadCountChange }: Par
       r.manager_name,
       r.manager_phone,
       r.manager_email,
-      new Date(r.created_at).toLocaleString(),
+      formatPartnerRequestDate(r.created_at),
       r.status === "pending" ? "미읽음" : "읽음"
     ]);
     const csvContent = "\uFEFF" + [headers.join(","), ...rows.map(row => row.join(","))].join("\n");
@@ -205,7 +219,7 @@ export function PartnerRequestAdmin({ refreshKey = 0, onUnreadCountChange }: Par
                       <td className="px-4 py-3 font-semibold text-[#4E5968]">{req.manager_name}</td>
                       <td className="px-4 py-3 text-[#4E5968]">{req.manager_phone}</td>
                       <td className="px-4 py-3 text-[#4E5968]">{req.manager_email}</td>
-                      <td className="px-4 py-3 text-[13px] text-[#4E5968]">{new Date(req.created_at).toLocaleString("ko-KR")}</td>
+                      <td className="px-4 py-3 text-[13px] text-[#4E5968]">{formatPartnerRequestDate(req.created_at)}</td>
                       <td className="px-4 py-3">{getStatusBadge(req.status)}</td>
                       <td className="px-4 py-3">
                         {req.attachment_url ? (
@@ -274,7 +288,7 @@ export function PartnerRequestAdmin({ refreshKey = 0, onUnreadCountChange }: Par
                   { label: "담당자명", value: selectedRequest.manager_name },
                   { label: "연락처", value: selectedRequest.manager_phone },
                   { label: "이메일", value: selectedRequest.manager_email },
-                  { label: "문의일시", value: new Date(selectedRequest.created_at).toLocaleString("ko-KR") },
+                  { label: "문의일시", value: formatPartnerRequestDate(selectedRequest.created_at) },
                 ].map((item) => (
                   <div key={item.label} className="rounded-[16px] border border-[#E7ECF3] bg-[#FCFDFE] p-4">
                     <p className="text-[12px] font-semibold text-[#98A2B3]">{item.label}</p>

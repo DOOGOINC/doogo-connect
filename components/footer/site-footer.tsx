@@ -24,7 +24,7 @@ const supportLinks = [
 export function SiteFooter() {
   const pathname = usePathname();
 
-  if (pathname?.startsWith("/master") || pathname?.startsWith("/partner/dashboard")) {
+  if (pathname?.startsWith("/master") || pathname?.startsWith("/partner/dashboard") || pathname?.startsWith("/my-connect")) {
     return null;
   }
 
@@ -39,7 +39,7 @@ export function SiteFooter() {
                 alt="DOOGO CONNECT"
                 width={160}
                 height={40}
-                className="w-[160px] h-auto object-contain brightness-0 invert"
+                className="object-contain brightness-0 invert"
               />
             </div>
             <div className="text-[14px] leading-relaxed">

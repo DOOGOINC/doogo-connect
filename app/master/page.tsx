@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { use, useEffect, useState } from "react";
 import { PortalPageHeader } from "@/components/header/PortalPageHeader";
 import { ManufacturerAdmin } from "./_components/ManufacturerAdmin";
 import { MasterBlockedMembers } from "./_components/MasterBlockedMembers";
@@ -15,8 +15,11 @@ import { MasterSidebar } from "./_components/MasterSidebar";
 import { MasterSettingsAdmin } from "./_components/MasterSettingsAdmin";
 import { MasterTransactionManagement } from "./_components/MasterTransactionManagement";
 import { MemberAdmin } from "./_components/MemberAdmin";
+import { PartnerSettlementAdmin } from "./_components/PartnerSettlementAdmin";
+import { MasterStatisticsAdmin } from "./_components/MasterStatisticsAdmin";
 import { PointSettingsAdmin } from "./_components/PointSettingsAdmin";
 import { SupportCenterAdmin } from "./_components/SupportCenterAdmin";
+
 
 const COPY = {
   servicePreparing: "준비 중인 서비스입니다.",
@@ -37,21 +40,24 @@ const TAB_LABELS: Record<string, string> = {
   "point-settings": "포인트",
   "transaction-management": "거래 관리",
   "partner-management": "파트너 관리",
+  "partner-settlement": "파트너 정산 관리",
   settings: "설정",
   support: "고객센터",
 };
 
-function getInitialActiveTab() {
-  if (typeof window === "undefined") {
-    return "dashboard";
-  }
+type MasterPageSearchParams = Promise<Record<string, string | string[] | undefined>>;
 
-  const requestedTab = new URLSearchParams(window.location.search).get("tab");
-  return requestedTab && requestedTab in TAB_LABELS ? requestedTab : "dashboard";
-}
+export default function MasterDashboardPage({ searchParams }: { searchParams: MasterPageSearchParams }) {
+  const resolvedSearchParams = use(searchParams);
+  const requestedTab = resolvedSearchParams?.tab;
+  const initialTab =
+    typeof requestedTab === "string" && requestedTab in TAB_LABELS
+      ? requestedTab
+      : Array.isArray(requestedTab) && requestedTab[0] && requestedTab[0] in TAB_LABELS
+        ? requestedTab[0]
+        : "dashboard";
 
-export default function MasterDashboardPage() {
-  const [activeTab, setActiveTab] = useState(getInitialActiveTab);
+  const [activeTab, setActiveTab] = useState(initialTab);
   const [supportInitialRoomId, setSupportInitialRoomId] = useState("");
 
   useEffect(() => {
@@ -101,6 +107,10 @@ export default function MasterDashboardPage() {
         return <MasterTransactionManagement />;
       case "partner-management":
         return <MasterPartnerManagement />;
+      case "partner-settlement":
+        return <PartnerSettlementAdmin />;
+      case "statistics":
+        return <MasterStatisticsAdmin />;
       case "settings":
         return <MasterSettingsAdmin />;
       case "support":
@@ -120,9 +130,11 @@ export default function MasterDashboardPage() {
         <MasterSidebar activeTab={activeTab} onTabChange={setActiveTab} />
         <div className="flex min-w-0 flex-1 flex-col overflow-hidden bg-white">
           <PortalPageHeader portalLabel="마스터 대시보드" sectionLabel={TAB_LABELS[activeTab] || "대시보드"} displayName="DOGO CONNECT" />
-          <div className="min-h-0 flex-1 overflow-hidden">{renderContent()}</div>
+          <div className="min-h-0 flex-1 overflow-hidden bg-[#F8F9FA]">{renderContent()}</div>
         </div>
       </main>
     </div>
   );
 }
+
+

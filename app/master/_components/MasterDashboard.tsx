@@ -26,13 +26,6 @@ type DashboardRequest = {
 type DashboardProfile = {
   id: string;
   full_name: string | null;
-  role: "master" | "partner" | "manufacturer" | "member" | null;
-};
-
-type DashboardPartnerRequest = {
-  id: string;
-  status: string;
-  created_at: string;
 };
 
 type DashboardDispute = {
@@ -275,7 +268,8 @@ export function MasterDashboard({ refreshKey = 0, onOpenDisputeCenter }: MasterD
   const [loading, setLoading] = useState(true);
   const [requests, setRequests] = useState<DashboardRequest[]>([]);
   const [profiles, setProfiles] = useState<DashboardProfile[]>([]);
-  const [partnerRequests, setPartnerRequests] = useState<DashboardPartnerRequest[]>([]);
+  const [activeMemberCount, setActiveMemberCount] = useState(0);
+  const [pendingPartnerRequestCount, setPendingPartnerRequestCount] = useState(0);
   const [disputes, setDisputes] = useState<DashboardDispute[]>([]);
   const [auditLogs, setAuditLogs] = useState<DashboardAuditLog[]>([]);
   const mounted = useIsClient();
@@ -284,41 +278,64 @@ export function MasterDashboard({ refreshKey = 0, onOpenDisputeCenter }: MasterD
     const fetchDashboard = async () => {
       setLoading(true);
 
-      const [requestResult, profileResult, partnerResult, disputeResult, auditResult] = await Promise.all([
+      const rangeStart = new Date(currentYear - 1, 0, 1).toISOString();
+      const rangeEnd = new Date(currentYear, 11, 31, 23, 59, 59, 999).toISOString();
+
+      const [requestResult, activeMemberResult, partnerPendingResult, disputeResult] = await Promise.all([
         supabase
           .from("rfq_requests")
           .select("id, request_number, client_id, manufacturer_name, product_name, status, total_price, commission_rate_percent, commission_amount, settlement_amount, commission_locked_at, currency_code, created_at")
+          .gte("created_at", rangeStart)
+          .lte("created_at", rangeEnd)
           .order("created_at", { ascending: false }),
-        supabase.from("profiles").select("id, full_name, role"),
-        supabase.from("partner_requests").select("id, status, created_at").order("created_at", { ascending: false }),
+        supabase.from("profiles").select("id", { count: "exact", head: true }).not("role", "is", null).neq("role", "master"),
+        supabase.from("partner_requests").select("id", { count: "exact", head: true }).eq("status", "pending"),
         supabase
           .from("master_disputes")
           .select("id, dispute_number, applicant_name, reason, status, created_at")
           .order("created_at", { ascending: false })
           .limit(5),
-        supabase
-          .from("rfq_audit_logs")
-          .select("rfq_request_id, next_status, created_at")
-          .in("next_status", Array.from(SALES_RECORDED_STATUSES))
-          .order("created_at", { ascending: true }),
+      ]);
+
+      const requestRows = (requestResult.data as DashboardRequest[] | null) || [];
+      const recentClientIds = Array.from(new Set(requestRows.slice(0, 5).map((request) => request.client_id).filter(Boolean)));
+
+      const [profileResult, auditResult] = await Promise.all([
+        recentClientIds.length
+          ? supabase.from("profiles").select("id, full_name").in("id", recentClientIds)
+          : Promise.resolve({ data: [], error: null }),
+        requestRows.length
+          ? supabase
+              .from("rfq_audit_logs")
+              .select("rfq_request_id, next_status, created_at")
+              .in("next_status", Array.from(SALES_RECORDED_STATUSES))
+              .in("rfq_request_id", requestRows.map((request) => request.id))
+              .order("created_at", { ascending: true })
+          : Promise.resolve({ data: [], error: null }),
       ]);
 
       if (requestResult.error) {
         console.error("Failed to fetch dashboard requests:", requestResult.error.message);
       } else {
-        setRequests((requestResult.data as DashboardRequest[] | null) || []);
+        setRequests(requestRows);
+      }
+
+      if (activeMemberResult.error) {
+        console.error("Failed to fetch dashboard member count:", activeMemberResult.error.message);
+      } else {
+        setActiveMemberCount(activeMemberResult.count || 0);
+      }
+
+      if (partnerPendingResult.error) {
+        console.error("Failed to fetch dashboard partner requests:", partnerPendingResult.error.message);
+      } else {
+        setPendingPartnerRequestCount(partnerPendingResult.count || 0);
       }
 
       if (profileResult.error) {
         console.error("Failed to fetch dashboard profiles:", profileResult.error.message);
       } else {
         setProfiles((profileResult.data as DashboardProfile[] | null) || []);
-      }
-
-      if (partnerResult.error) {
-        console.error("Failed to fetch dashboard partner requests:", partnerResult.error.message);
-      } else {
-        setPartnerRequests((partnerResult.data as DashboardPartnerRequest[] | null) || []);
       }
 
       if (disputeResult.error) {
@@ -337,7 +354,7 @@ export function MasterDashboard({ refreshKey = 0, onOpenDisputeCenter }: MasterD
     };
 
     void fetchDashboard();
-  }, [refreshKey]);
+  }, [currentYear, refreshKey]);
 
   const selectedPeriod = useMemo(
     () => getPeriodMeta(selectedYear, currentMonth, selectedMonthOffset),
@@ -380,16 +397,13 @@ export function MasterDashboard({ refreshKey = 0, onOpenDisputeCenter }: MasterD
   const topSummary = useMemo(() => {
     const newRequests = monthRequests.filter((request) => request.status === "pending").length;
     const producing = monthRequests.filter((request) => ["reviewing", "quoted", "ordered"].includes(request.status)).length;
-    const activeMembers = profiles.filter((profile) => profile.role && profile.role !== "master").length;
-    const unansweredPartners = partnerRequests.filter((request) => request.status === "pending").length;
-
     return {
       newRequests,
       producing,
-      activeMembers,
-      unansweredPartners,
+      activeMembers: activeMemberCount,
+      unansweredPartners: pendingPartnerRequestCount,
     };
-  }, [monthRequests, partnerRequests, profiles]);
+  }, [activeMemberCount, monthRequests, pendingPartnerRequestCount]);
 
   const salesSummary = useMemo(() => {
     const currencyRequests = monthSalesRequests.filter(

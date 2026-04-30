@@ -41,7 +41,7 @@ const EmojiQuote = () => <span>📝</span>;
 const EmojiFactory = () => <span>🏭</span>;
 const EmojiChat = () => <span>💬</span>;
 const EmojiMoney = () => <span>💰</span>;
-const EmojiCoin = () => <span>🪙</span>;
+const EmojiCoin = () => <span>⚡</span>;
 const EmojiGear = () => <span>⚙️</span>;
 const EmojiBox = () => <span>📦</span>;
 const EmojiRequest = () => <span>📨</span>;
@@ -196,9 +196,9 @@ export function Sidebar({ activeTab, displayName, isManufacturer, onTabChange, v
             <Image
               src="/image/doogo_logo_full.png"
               alt="DOGO CONNECT"
-              width={120}
-              height={28}
-              className="h-[30px] w-auto object-contain"
+              width={163}
+              height={30}
+              className="object-contain"
               priority
             />
             <p className="text-[11px] font-extrabold tracking-widest text-[#7b8597] transition-colors group-hover:text-[#2f6bff] leading-none text-center">

@@ -1,6 +1,10 @@
 import { getDisplayOrderNumber } from "@/lib/rfq";
 import { mapRouteError, ok } from "@/lib/server/http";
-import { getPartnerCompensationAccessByUserId, isTimestampWithinPartnerCompensationPeriods } from "@/lib/server/partners";
+import {
+  getPartnerCompensationAccessByUserId,
+  getPartnerCommissionRateForTimestamp,
+  isTimestampWithinPartnerCompensationPeriods,
+} from "@/lib/server/partners";
 import { createServiceRoleClient, requirePartnerUser } from "@/lib/server/supabase";
 
 type ProfileRow = {
@@ -153,7 +157,8 @@ export async function GET(request: Request) {
       if (!createdAt) continue;
 
       const baseAmount = getBaseAmount(order);
-      const profitAmount = Number((baseAmount * (commissionRate / 100)).toFixed(2));
+      const appliedCommissionRate = getPartnerCommissionRateForTimestamp(createdAt, partnerAccess.periods, commissionRate);
+      const profitAmount = Number((baseAmount * (appliedCommissionRate / 100)).toFixed(2));
       const currencyCode = trimValue(order.currency_code, "KRW").toUpperCase();
       const monthKey = createdAt.slice(0, 7);
       const monthRow = monthlyProfitMap.get(monthKey);
@@ -187,7 +192,12 @@ export async function GET(request: Request) {
     const recentOrders = orders.slice(0, 5).map((order) => {
       const currencyCode = trimValue(order.currency_code, "KRW").toUpperCase();
       const baseAmount = getBaseAmount(order);
-      const partnerProfit = Number((baseAmount * (commissionRate / 100)).toFixed(2));
+      const appliedCommissionRate = getPartnerCommissionRateForTimestamp(
+        getCompensationRecordedAt(order),
+        partnerAccess.periods,
+        commissionRate
+      );
+      const partnerProfit = Number((baseAmount * (appliedCommissionRate / 100)).toFixed(2));
 
       return {
         id: order.id,
@@ -200,6 +210,7 @@ export async function GET(request: Request) {
         currencyCode,
         baseAmount,
         partnerProfit,
+        commissionRate: appliedCommissionRate,
       };
     });
 

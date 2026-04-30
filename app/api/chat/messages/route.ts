@@ -32,7 +32,11 @@ export async function POST(request: Request) {
       throw new Error("채팅방 정보가 없습니다.");
     }
 
-    const { data: room, error: roomError } = await supabase.from("chat_rooms").select("*").eq("id", roomId).maybeSingle();
+    const { data: room, error: roomError } = await supabase
+      .from("chat_rooms")
+      .select("id, room_type, approval_status")
+      .eq("id", roomId)
+      .maybeSingle();
     if (roomError || !room) {
       throw new Error("채팅방을 찾을 수 없습니다.");
     }
@@ -84,7 +88,7 @@ export async function POST(request: Request) {
         file_name: fileName,
         file_size: fileSize,
       })
-      .select("*")
+      .select("id, room_id, sender_id, content, message_type, is_read, created_at, file_url, file_name, file_size")
       .single();
 
     if (error) {

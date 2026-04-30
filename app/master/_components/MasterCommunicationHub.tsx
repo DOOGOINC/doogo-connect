@@ -52,6 +52,17 @@ export function MasterCommunicationHub({ initialSection = "notices", refreshKey 
     };
 
     void fetchPartnerUnreadCount();
+
+    const channel = supabase
+      .channel("master-partner-requests-unread")
+      .on("postgres_changes", { event: "*", schema: "public", table: "partner_requests" }, () => {
+        void fetchPartnerUnreadCount();
+      })
+      .subscribe();
+
+    return () => {
+      void supabase.removeChannel(channel);
+    };
   }, [refreshKey]);
 
   const renderSection = () => {

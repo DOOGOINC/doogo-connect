@@ -8,6 +8,8 @@ import type { ChatMessageView, ChatRoomView } from "./types";
 interface ChatMessagePanelProps {
   selectedRoom: ChatRoomView | null;
   messages: ChatMessageView[];
+  hasOlderMessages?: boolean;
+  isLoadingOlderMessages?: boolean;
   messageInput: string;
   isSending: boolean;
   isUploading: boolean;
@@ -23,10 +25,9 @@ interface ChatMessagePanelProps {
   inputPlaceholder?: string;
   composerHint?: string;
   hideFileButton?: boolean;
+  onLoadOlderMessages?: () => void;
 }
 
-const INITIAL_VISIBLE_MESSAGE_COUNT = 21;
-const MESSAGE_PAGE_SIZE = 21;
 const FILE_EXPIRY_DAYS = 7;
 const FILE_EXPIRY_MS = FILE_EXPIRY_DAYS * 24 * 60 * 60 * 1000;
 
@@ -77,6 +78,8 @@ function buildDownloadUrl(fileUrl: string | null | undefined) {
 export function ChatMessagePanel({
   selectedRoom,
   messages,
+  hasOlderMessages = false,
+  isLoadingOlderMessages = false,
   messageInput,
   isSending,
   isUploading,
@@ -92,20 +95,19 @@ export function ChatMessagePanel({
   inputPlaceholder = "메시지를 입력해 주세요.",
   composerHint = "Shift + Enter로 줄바꿈",
   hideFileButton = false,
+  onLoadOlderMessages,
 }: ChatMessagePanelProps) {
-  const [visibleCount, setVisibleCount] = useState(INITIAL_VISIBLE_MESSAGE_COUNT);
   const [isFileModalOpen, setIsFileModalOpen] = useState(false);
 
   useEffect(() => {
-    setVisibleCount(INITIAL_VISIBLE_MESSAGE_COUNT);
-    setIsFileModalOpen(false);
+    const timer = window.setTimeout(() => {
+      setIsFileModalOpen(false);
+    }, 0);
+
+    return () => window.clearTimeout(timer);
   }, [selectedRoom?.id]);
 
-  const hiddenMessageCount = Math.max(messages.length - visibleCount, 0);
-  const visibleMessages = useMemo(
-    () => (hiddenMessageCount > 0 ? messages.slice(-visibleCount) : messages),
-    [hiddenMessageCount, messages, visibleCount]
-  );
+  const hiddenMessageCount = hasOlderMessages ? 10 : 0;
 
   const sharedFiles = useMemo(
     () =>
@@ -145,7 +147,7 @@ export function ChatMessagePanel({
 
   return (
     <>
-      <div className="flex h-full min-w-0 flex-1 flex-col overflow-hidden bg-white">
+      <div className="flex h-full min-h-0 min-w-0 flex-1 flex-col overflow-hidden bg-white">
         <div className="flex h-[72px] shrink-0 items-center justify-between border-b border-gray-100 bg-white px-6">
           <div className="flex items-center gap-3">
             <div className="relative h-10 w-10 shrink-0 overflow-hidden rounded-full border border-gray-100 bg-gray-50">
@@ -175,22 +177,23 @@ export function ChatMessagePanel({
           </div>
         </div>
 
-        <div ref={messageListRef} className="min-h-0 flex-1 overflow-y-auto bg-[#F2F4F7]/40 p-4 md:p-6">
+        <div ref={messageListRef} className="h-0 min-h-0 flex-1 overflow-y-auto overscroll-contain bg-[#F2F4F7]/40 p-4 md:p-6">
           <div className="mx-auto flex max-w-[800px] flex-col space-y-6">
             {statusNotice ? <div>{statusNotice}</div> : null}
-            {hiddenMessageCount > 0 ? (
+            {hasOlderMessages ? (
               <div className="sticky top-0 z-10 flex justify-center pb-2 pt-1">
                 <button
                   type="button"
-                  onClick={() => setVisibleCount((prev) => prev + MESSAGE_PAGE_SIZE)}
+                  onClick={onLoadOlderMessages}
+                  disabled={isLoadingOlderMessages}
                   className="rounded-full border border-[#D6E4FF] bg-white px-4 py-2 text-[12px] font-bold text-[#2563EB] shadow-sm transition hover:bg-[#F8FBFF]"
                 >
                   채팅내역 더보기 ({hiddenMessageCount}개 이전 메시지)
                 </button>
               </div>
             ) : null}
-            {visibleMessages.map((msg, idx) => {
-              const prev = visibleMessages[idx - 1];
+            {messages.map((msg, idx) => {
+              const prev = messages[idx - 1];
               const showAvatar = !msg.isMine && (!prev || prev.sender_id !== msg.sender_id);
 
               return (

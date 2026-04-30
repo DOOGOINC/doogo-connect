@@ -68,9 +68,9 @@ export function PartnerSidebar({ activeTab, onTabChange, displayName }: PartnerS
             <Image
               src="/image/doogo_logo_full.png"
               alt="DOGO CONNECT"
-              width={120}
-              height={28}
-              className="h-[28px] w-auto object-contain"
+              width={163}
+              height={30}
+              className="object-contain"
               priority
             />
             <p className="text-[11px] tracking-widest text-[#7b8597] transition-colors group-hover:text-[#2f6bff] leading-none">

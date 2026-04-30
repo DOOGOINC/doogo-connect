@@ -34,11 +34,13 @@ type PartnerCompensationProfileRow = {
 export type PartnerCompensationPeriod = {
   startedAt: string;
   endedAt: string | null;
+  commissionRate: number;
 };
 
 type PartnerCompensationPeriodRow = {
   started_at: string | null;
   ended_at: string | null;
+  commission_rate_percent?: number | null;
 };
 
 type ProfileRow = {
@@ -175,7 +177,7 @@ export async function getPartnerCompensationAccessByUserId(supabase: SupabaseCli
       .maybeSingle<PartnerCompensationProfileRow>(),
     supabase
       .from("partner_compensation_periods")
-      .select("started_at, ended_at")
+      .select("started_at, ended_at, commission_rate_percent")
       .eq("profile_id", userId)
       .order("started_at", { ascending: true }),
   ]);
@@ -188,11 +190,13 @@ export async function getPartnerCompensationAccessByUserId(supabase: SupabaseCli
   }
 
   const status = profileData?.deleted_at ? "inactive" : normalizePartnerStatus(profileData?.status);
+  const fallbackCommissionRate = normalizePartnerCommissionRate(profileData?.commission_rate_percent);
   const periods = (((periodData as PartnerCompensationPeriodRow[] | null) || []) as PartnerCompensationPeriodRow[])
     .filter((row) => typeof row.started_at === "string" && row.started_at.trim())
     .map((row) => ({
       startedAt: row.started_at as string,
       endedAt: row.ended_at,
+      commissionRate: normalizePartnerCommissionRate(row.commission_rate_percent ?? fallbackCommissionRate),
     }));
 
   if (!periods.length) {
@@ -200,11 +204,13 @@ export async function getPartnerCompensationAccessByUserId(supabase: SupabaseCli
     periods.push({
       startedAt: fallbackStart,
       endedAt: status === "active" ? null : profileData?.deleted_at || profileData?.updated_at || fallbackStart,
+      commissionRate: fallbackCommissionRate,
     });
   } else if (status === "active" && !periods.some((period) => !period.endedAt)) {
     periods.push({
       startedAt: profileData?.updated_at || periods[periods.length - 1]?.endedAt || profileData?.created_at || "1970-01-01T00:00:00.000Z",
       endedAt: null,
+      commissionRate: fallbackCommissionRate,
     });
   } else if (
     status === "active" &&
@@ -217,13 +223,14 @@ export async function getPartnerCompensationAccessByUserId(supabase: SupabaseCli
     periods[0] = {
       startedAt: profileData.created_at,
       endedAt: null,
+      commissionRate: fallbackCommissionRate,
     };
   }
 
   return {
     status,
     isEligible: status === "active",
-    commissionRate: normalizePartnerCommissionRate(profileData?.commission_rate_percent),
+    commissionRate: fallbackCommissionRate,
     periods,
   };
 }
@@ -244,4 +251,30 @@ export function isTimestampWithinPartnerCompensationPeriods(
     if (Number.isNaN(endedAt)) return true;
     return time < endedAt;
   });
+}
+
+export function getPartnerCommissionRateForTimestamp(
+  timestamp: string | null | undefined,
+  periods: PartnerCompensationPeriod[],
+  fallbackRate: number
+) {
+  if (!timestamp) {
+    return normalizePartnerCommissionRate(fallbackRate);
+  }
+
+  const time = new Date(timestamp).getTime();
+  if (Number.isNaN(time)) {
+    return normalizePartnerCommissionRate(fallbackRate);
+  }
+
+  const matchedPeriod = periods.find((period) => {
+    const startedAt = new Date(period.startedAt).getTime();
+    if (Number.isNaN(startedAt) || time < startedAt) return false;
+    if (!period.endedAt) return true;
+    const endedAt = new Date(period.endedAt).getTime();
+    if (Number.isNaN(endedAt)) return true;
+    return time < endedAt;
+  });
+
+  return normalizePartnerCommissionRate(matchedPeriod?.commissionRate ?? fallbackRate);
 }

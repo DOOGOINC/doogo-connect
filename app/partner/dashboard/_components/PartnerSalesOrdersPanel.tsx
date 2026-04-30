@@ -19,6 +19,7 @@ type SalesOrderItem = {
   boxPrice: number;
   baseAmount: number;
   partnerProfit: number;
+  commissionRate: number;
   paymentMethod: string;
   statusLabel: "완료" | "거래중";
 };
@@ -67,6 +68,14 @@ function formatNzd(value: number) {
 
 function formatMoney(value: number, currencyCode: string) {
   return currencyCode === "NZD" ? formatNzd(value) : formatKrw(value);
+}
+
+function formatPartnerProfit(value: number, currencyCode: string, commissionRateLabel: string) {
+  return `${formatMoney(value, currencyCode)} (${commissionRateLabel})`;
+}
+
+function formatCommissionRateLabel(value: number) {
+  return Number.isInteger(value) ? `${value}%` : `${value.toFixed(1)}%`;
 }
 
 function downloadCsv(filename: string, rows: string[][]) {
@@ -162,7 +171,7 @@ export function PartnerSalesOrdersPanel() {
     downloadCsv(
       `partner-sales-orders-${selectedYear}-${selectedMonth || "all"}-${selectedCurrency.toLowerCase()}.csv`,
       [
-        ["거래번호", "날짜", "고객", "제조사", "제품", "수량", "통화", "원가", "캡슐판매가", "박스비", "기준금액", `파트너수익(${commissionRateLabel})`, "결제", "상태"],
+        ["거래번호", "날짜", "고객", "제조사", "제품", "수량", "통화", "원가", "캡슐판매가", "박스비", "기준금액", "파트너수익", "결제", "상태"],
         ...data.orders.map((order) => [
           order.orderNumber,
           formatDate(order.createdAt),
@@ -175,7 +184,7 @@ export function PartnerSalesOrdersPanel() {
           formatMoney(order.capsuleSalePrice, order.currencyCode),
           formatMoney(order.boxPrice, order.currencyCode),
           formatMoney(order.baseAmount, order.currencyCode),
-          formatMoney(order.partnerProfit, order.currencyCode),
+          formatPartnerProfit(order.partnerProfit, order.currencyCode, formatCommissionRateLabel(order.commissionRate)),
           order.paymentMethod,
           order.statusLabel,
         ]),
@@ -280,7 +289,7 @@ export function PartnerSalesOrdersPanel() {
                   <th className="px-4 py-3">캡슐판매가</th>
                   <th className="px-4 py-3">박스비</th>
                   <th className="px-4 py-3">기준금액</th>
-                  <th className="px-4 py-3">파트너수익({commissionRateLabel})</th>
+                  <th className="px-4 py-3">파트너수익</th>
                   <th className="px-4 py-3">결제</th>
                   <th className="px-4 py-3">상태</th>
                 </tr>
@@ -309,7 +318,9 @@ export function PartnerSalesOrdersPanel() {
                         <td className="px-4 py-3 text-[12px] text-[#344054]">{formatMoney(order.capsuleSalePrice, order.currencyCode)}</td>
                         <td className="px-4 py-3 text-[12px] text-[#344054]">{formatMoney(order.boxPrice, order.currencyCode)}</td>
                         <td className="px-4 py-3 text-[12px] text-[#344054]">{formatMoney(order.baseAmount, order.currencyCode)}</td>
-                        <td className="px-4 py-3 text-[12px] text-[#344054]">{formatMoney(order.partnerProfit, order.currencyCode)}</td>
+                        <td className="px-4 py-3 text-[12px] text-[#344054]">
+                          {formatPartnerProfit(order.partnerProfit, order.currencyCode, formatCommissionRateLabel(order.commissionRate))}
+                        </td>
                         <td className="px-4 py-3 text-[12px] text-[#344054]">{order.paymentMethod}</td>
                         <td className="px-4 py-3">
                           <span

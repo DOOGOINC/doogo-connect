@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { PortalPageHeader } from "@/components/header/PortalPageHeader";
 import { getPortalHomeByRole, type AppRole } from "@/lib/auth/roles";
 import { authFetch } from "@/lib/client/auth-fetch";
@@ -65,6 +65,50 @@ const MANUFACTURER_TAB_LABELS: Record<string, string> = {
   settings: "설정",
 };
 
+const RFQ_REQUEST_LIST_SELECT = [
+  "id",
+  "request_number",
+  "order_number",
+  "client_id",
+  "manufacturer_id",
+  "manufacturer_name",
+  "brand_name",
+  "contact_name",
+  "contact_email",
+  "contact_phone",
+  "request_note",
+  "admin_memo",
+  "has_files",
+  "file_link",
+  "product_id",
+  "product_name",
+  "container_id",
+  "container_name",
+  "design_option_id",
+  "design_summary",
+  "design_package_id",
+  "design_service_ids",
+  "design_extra_ids",
+  "currency_code",
+  "quantity",
+  "unit_price",
+  "total_price",
+  "commission_rate_percent",
+  "commission_amount",
+  "settlement_amount",
+  "commission_locked_at",
+  "manufacturer_settlement_requested_at",
+  "manufacturer_settlement_requested_by",
+  "is_settled",
+  "settled_at",
+  "settled_by",
+  "status",
+  "created_at",
+  "updated_at",
+].join(", ");
+
+const RFQ_REQUEST_PAGE_SIZE = 100;
+
 function resolveClientTab(requestedTab: string | null) {
   if (requestedTab && requestedTab in CLIENT_TAB_LABELS) {
     return requestedTab;
@@ -99,6 +143,7 @@ export default function MyConnectPage() {
   const [rfqRequests, setRfqRequests] = useState<RfqRequestRow[]>([]);
   const [selectedRfqId, setSelectedRfqId] = useState<string | null>(null);
   const [chatInitialRoomId, setChatInitialRoomId] = useState("");
+  const rfqRequestFetchIdRef = useRef(0);
 
   useEffect(() => {
     const initializePage = async () => {
@@ -174,21 +219,50 @@ export default function MyConnectPage() {
   const fetchRfqRequests = useCallback(async () => {
     if (!userId) return;
 
+    const fetchId = rfqRequestFetchIdRef.current + 1;
+    rfqRequestFetchIdRef.current = fetchId;
+
     const query =
       viewMode === "manufacturer" && manufacturerId
-        ? supabase.from("rfq_requests").select("*").eq("manufacturer_id", manufacturerId)
-        : supabase.from("rfq_requests").select("*").eq("client_id", userId);
+        ? supabase.from("rfq_requests").select(RFQ_REQUEST_LIST_SELECT).eq("manufacturer_id", manufacturerId)
+        : supabase.from("rfq_requests").select(RFQ_REQUEST_LIST_SELECT).eq("client_id", userId);
 
-    const { data, error } = await query.order("created_at", { ascending: false });
+    let from = 0;
+    let hasMore = true;
+    let isFirstPage = true;
+    const allRequests: RfqRequestRow[] = [];
 
-    if (error) {
-      console.error("Failed to fetch rfq requests:", error.message);
-      return;
+    while (hasMore) {
+      const { data, error } = await query.order("created_at", { ascending: false }).range(from, from + RFQ_REQUEST_PAGE_SIZE - 1);
+
+      if (rfqRequestFetchIdRef.current !== fetchId) {
+        return;
+      }
+
+      if (error) {
+        console.error("Failed to fetch rfq requests:", error.message);
+        return;
+      }
+
+      const pageRequests = ((data as unknown as RfqRequestRow[] | null) || []);
+      allRequests.push(...pageRequests);
+
+      if (isFirstPage) {
+        setRfqRequests(pageRequests);
+        setSelectedRfqId((prev) => (pageRequests.some((request) => request.id === prev) ? prev : pageRequests[0]?.id ?? null));
+        isFirstPage = false;
+      } else {
+        setRfqRequests([...allRequests]);
+        setSelectedRfqId((prev) => (allRequests.some((request) => request.id === prev) ? prev : allRequests[0]?.id ?? null));
+      }
+
+      hasMore = pageRequests.length === RFQ_REQUEST_PAGE_SIZE;
+      from += RFQ_REQUEST_PAGE_SIZE;
+
+      if (hasMore) {
+        await new Promise((resolve) => window.setTimeout(resolve, 0));
+      }
     }
-
-    const requests = (data as RfqRequestRow[] | null) || [];
-    setRfqRequests(requests);
-    setSelectedRfqId((prev) => (requests.some((request) => request.id === prev) ? prev : requests[0]?.id ?? null));
   }, [manufacturerId, userId, viewMode]);
 
   useEffect(() => {
@@ -629,9 +703,11 @@ export default function MyConnectPage() {
     }
   };
 
+  const isFixedHeightTab = activeTab === "chat" || activeTab === "support";
+
   return (
-    <div className="flex min-h-screen flex-col overflow-hidden bg-white">
-      <main className="flex min-h-0 flex-1 overflow-hidden">
+    <div className={`flex flex-col bg-white ${isFixedHeightTab ? "h-[100dvh] overflow-hidden" : "min-h-screen"}`}>
+      <main className={`flex flex-1 ${isFixedHeightTab ? "min-h-0 overflow-hidden" : ""}`}>
         <Sidebar
           activeTab={activeTab}
           displayName={displayName}
@@ -640,14 +716,14 @@ export default function MyConnectPage() {
           viewMode={viewMode}
           manufacturerName={manufacturerName}
         />
-        <div className="flex min-w-0 flex-1 flex-col overflow-hidden bg-white">
+        <div className={`flex min-w-0 flex-1 flex-col bg-white ${isFixedHeightTab ? "overflow-hidden" : ""}`}>
           <PortalPageHeader
             portalLabel={viewMode === "manufacturer" ? "제조사 대시보드" : "의뢰자 대시보드"}
             sectionLabel={(viewMode === "manufacturer" ? MANUFACTURER_TAB_LABELS : CLIENT_TAB_LABELS)[activeTab] || "대시보드"}
             displayName={viewMode === "manufacturer" ? manufacturerName : displayName}
             showPoints={viewMode === "client" && userRole === "member"}
           />
-          <div className="min-h-0 flex-1 overflow-hidden">{renderContent()}</div>
+          <div className={`flex-1 bg-[#F8F9FA]${isFixedHeightTab ? "min-h-0 overflow-hidden" : ""}`}>{renderContent()}</div>
         </div>
       </main>
       {viewMode === "client" && userRole === "member" ? <ClientDailyPopup /> : null}

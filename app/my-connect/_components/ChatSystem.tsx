@@ -24,6 +24,9 @@ type SendMessagePayload = {
   file?: File | null;
 };
 
+const MESSAGE_PAGE_SIZE = 10;
+const PRESENCE_UPDATE_INTERVAL_MS = 5 * 60 * 1000;
+
 export function ChatSystem({
   userId,
   viewMode,
@@ -42,6 +45,8 @@ export function ChatSystem({
   const [isSending, setIsSending] = useState(false);
   const [isUploading, setIsUploading] = useState(false);
   const [manufacturerId, setManufacturerId] = useState<number | null>(null);
+  const [hasOlderMessages, setHasOlderMessages] = useState(false);
+  const [isLoadingOlderMessages, setIsLoadingOlderMessages] = useState(false);
 
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const messageListRef = useRef<HTMLDivElement>(null);
@@ -49,6 +54,7 @@ export function ChatSystem({
   const prevRoomIdRef = useRef("");
   const shouldScrollToBottomRef = useRef(false);
   const messagesRef = useRef<ChatMessageView[]>([]);
+  const roomsRef = useRef<ChatRoomView[]>([]);
   const selectedRoomIdRef = useRef("");
   const roomsRefreshInFlightRef = useRef(false);
   const pendingRoomsRefreshRef = useRef(false);
@@ -57,10 +63,15 @@ export function ChatSystem({
   const readReceiptInFlightRef = useRef<Record<string, boolean>>({});
   const refreshRoomsTimeoutRef = useRef<number | null>(null);
   const refreshMessageTimeoutsRef = useRef<Record<string, number>>({});
+  const lastPresenceUpdateRef = useRef(0);
 
   useEffect(() => {
     messagesRef.current = messages;
   }, [messages]);
+
+  useEffect(() => {
+    roomsRef.current = rooms;
+  }, [rooms]);
 
   useEffect(() => {
     selectedRoomIdRef.current = selectedRoomId;
@@ -124,6 +135,36 @@ export function ChatSystem({
     setMessages((prev) => prev.filter((message) => message.id !== messageId));
   }, []);
 
+  const fetchMessagePage = useCallback(
+    async (roomId: string, beforeCreatedAt?: string | null, pageSize = MESSAGE_PAGE_SIZE) => {
+      let query = supabase
+        .from("chat_messages")
+        .select("id, room_id, sender_id, content, message_type, is_read, created_at, file_url, file_name, file_size")
+        .eq("room_id", roomId)
+        .order("created_at", { ascending: false })
+        .limit(pageSize + 1);
+
+      if (beforeCreatedAt) {
+        query = query.lt("created_at", beforeCreatedAt);
+      }
+
+      const { data, error } = await query;
+      if (error) {
+        throw error;
+      }
+
+      const rows = ((data as ChatMessageRow[] | null) || []).filter(Boolean);
+      const hasMore = rows.length > pageSize;
+      const pageRows = (hasMore ? rows.slice(0, pageSize) : rows).slice().reverse();
+
+      return {
+        messages: pageRows.map(toMessageView),
+        hasMore,
+      };
+    },
+    [toMessageView]
+  );
+
   const markRoomMessagesRead = useCallback(
     async (roomId: string) => {
       if (!roomId || readReceiptInFlightRef.current[roomId]) {
@@ -142,6 +183,34 @@ export function ChatSystem({
     [userId]
   );
 
+  const loadPresenceMap = useCallback(async (profileIds: string[]) => {
+    if (!profileIds.length) {
+      return {};
+    }
+
+    try {
+      const response = await authFetch("/api/chat/presence/status", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({ userIds: profileIds }),
+      });
+
+      if (!response.ok) {
+        return {};
+      }
+
+      const result = (await response.json()) as {
+        presence?: Record<string, string | null>;
+      };
+
+      return result.presence || {};
+    } catch {
+      return {};
+    }
+  }, []);
+
   useEffect(() => {
     const roomChanged = prevRoomIdRef.current !== selectedRoomId;
     if (!roomChanged) return;
@@ -157,36 +226,44 @@ export function ChatSystem({
     scrollToBottom("auto");
   }, [messages, scrollToBottom]);
 
-  const touchPresence = useCallback(async () => {
-    await supabase.from("profiles").update({ last_seen_at: new Date().toISOString() }).eq("id", userId);
-  }, [userId]);
+  const touchPresence = useCallback(async (force = false) => {
+    const now = Date.now();
+    if (!force && now - lastPresenceUpdateRef.current < PRESENCE_UPDATE_INTERVAL_MS) {
+      return;
+    }
+
+    lastPresenceUpdateRef.current = now;
+    await authFetch("/api/chat/presence/heartbeat", {
+      method: "POST",
+    });
+  }, []);
 
   useEffect(() => {
-    void touchPresence();
+    void touchPresence(true);
 
     const handleFocus = () => {
-      void touchPresence();
+      void touchPresence(true);
     };
 
     const handleVisibilityChange = () => {
       if (document.visibilityState === "visible") {
-        void touchPresence();
+        void touchPresence(true);
       }
     };
-
-    const interval = window.setInterval(() => {
-      void touchPresence();
-    }, 30000);
 
     window.addEventListener("focus", handleFocus);
     document.addEventListener("visibilitychange", handleVisibilityChange);
 
     return () => {
-      window.clearInterval(interval);
       window.removeEventListener("focus", handleFocus);
       document.removeEventListener("visibilitychange", handleVisibilityChange);
     };
   }, [touchPresence]);
+
+  useEffect(() => {
+    if (!selectedRoomId) return;
+    void touchPresence();
+  }, [selectedRoomId, touchPresence]);
 
   useEffect(() => {
     const bootstrapManufacturer = async () => {
@@ -222,12 +299,12 @@ export function ChatSystem({
         viewMode === "manufacturer" && effectiveManufacturerId
           ? supabase
               .from("chat_rooms")
-              .select("*")
+              .select("id, client_id, manufacturer_id, room_type, last_message, last_message_at")
               .eq("manufacturer_id", effectiveManufacturerId)
               .or("room_type.is.null,room_type.eq.manufacturer")
           : supabase
               .from("chat_rooms")
-              .select("*")
+              .select("id, client_id, manufacturer_id, room_type, last_message, last_message_at")
               .eq("client_id", userId)
               .or("room_type.is.null,room_type.eq.manufacturer");
 
@@ -269,6 +346,7 @@ export function ChatSystem({
         .neq("sender_id", userId)
         .eq("is_read", false),
     ]);
+    const presenceMap = await loadPresenceMap(profileIds);
 
     const profileMap = new Map((((profiles as ProfileRow[] | null) || []) as ProfileRow[]).map((profile) => [profile.id, profile]));
     const unreadMap = new Map<string, number>();
@@ -276,6 +354,11 @@ export function ChatSystem({
     ((unreadMessages as Array<{ room_id: string }> | null) || []).forEach((message) => {
       unreadMap.set(message.room_id, (unreadMap.get(message.room_id) || 0) + 1);
     });
+
+    const resolvePresence = (profileId: string | null | undefined, fallbackLastSeen: string | null | undefined) => {
+      if (!profileId) return fallbackLastSeen || null;
+      return presenceMap[profileId] || fallbackLastSeen || null;
+    };
 
     const nextRooms: ChatRoomView[] = roomsData.map((room) => {
       if (viewMode === "manufacturer") {
@@ -290,8 +373,8 @@ export function ChatSystem({
           unreadCount: unreadMap.get(room.id) || 0,
           lastMessage: room.last_message || "상담이 시작되었습니다.",
           lastTime: room.last_message_at ? formatRelativeTime(room.last_message_at) : "",
-          isOnline: isRecentlyOnline(clientProfile?.last_seen_at || null),
-          lastSeenLabel: getPresenceLabel(clientProfile?.last_seen_at || null),
+          isOnline: isRecentlyOnline(resolvePresence(clientProfile?.id, clientProfile?.last_seen_at)),
+          lastSeenLabel: getPresenceLabel(resolvePresence(clientProfile?.id, clientProfile?.last_seen_at)),
         };
       }
 
@@ -306,8 +389,8 @@ export function ChatSystem({
         unreadCount: unreadMap.get(room.id) || 0,
         lastMessage: room.last_message || "상담이 시작되었습니다.",
         lastTime: room.last_message_at ? formatRelativeTime(room.last_message_at) : "",
-        isOnline: isRecentlyOnline(ownerProfile?.last_seen_at || null),
-        lastSeenLabel: getPresenceLabel(ownerProfile?.last_seen_at || null),
+        isOnline: isRecentlyOnline(resolvePresence(ownerProfile?.id, ownerProfile?.last_seen_at)),
+        lastSeenLabel: getPresenceLabel(resolvePresence(ownerProfile?.id, ownerProfile?.last_seen_at)),
       };
     });
 
@@ -326,7 +409,7 @@ export function ChatSystem({
         void refreshRooms();
       }
     }
-  }, [initialRoomId, manufacturerId, userId, viewMode]);
+  }, [initialRoomId, loadPresenceMap, manufacturerId, userId, viewMode]);
 
   const refreshMessages = useCallback(
     async (roomId: string) => {
@@ -343,18 +426,8 @@ export function ChatSystem({
 
       try {
         const wasNearBottom = isNearBottom();
-        const { data, error } = await supabase
-          .from("chat_messages")
-          .select("id, room_id, sender_id, content, message_type, is_read, created_at, file_url, file_name, file_size")
-          .eq("room_id", roomId)
-          .order("created_at", { ascending: true });
-
-        if (error) {
-          console.error("Failed to load messages:", error.message);
-          return;
-        }
-
-        const nextMessages = (((data as ChatMessageRow[] | null) || [])).map(toMessageView);
+        const targetPageSize = Math.max(messagesRef.current.length || 0, MESSAGE_PAGE_SIZE);
+        const { messages: nextMessages, hasMore } = await fetchMessagePage(roomId, null, targetPageSize);
 
         const currentMessages = messagesRef.current;
         const prevLastMessageId = currentMessages[currentMessages.length - 1]?.id;
@@ -367,6 +440,7 @@ export function ChatSystem({
         }
 
         setMessages(nextMessages);
+        setHasOlderMessages(hasMore);
 
         const hasUnread = nextMessages.some((message) => !message.isMine && !message.is_read);
         if (hasUnread) {
@@ -382,7 +456,7 @@ export function ChatSystem({
         }
       }
     },
-    [isNearBottom, markRoomMessagesRead, refreshRooms, toMessageView, userId]
+    [fetchMessagePage, isNearBottom, markRoomMessagesRead, refreshRooms, userId]
   );
 
   const scheduleRoomsRefresh = useCallback(
@@ -416,6 +490,28 @@ export function ChatSystem({
     [refreshMessages]
   );
 
+  const loadOlderMessages = useCallback(async () => {
+    if (!selectedRoomId || isLoadingOlderMessages || !hasOlderMessages) {
+      return;
+    }
+
+    const oldestCreatedAt = messagesRef.current[0]?.created_at;
+    if (!oldestCreatedAt) {
+      return;
+    }
+
+    setIsLoadingOlderMessages(true);
+    try {
+      const { messages: olderMessages, hasMore } = await fetchMessagePage(selectedRoomId, oldestCreatedAt);
+      setMessages((prev) => [...olderMessages, ...prev]);
+      setHasOlderMessages(hasMore);
+    } catch (error) {
+      console.error("Failed to load older messages:", error);
+    } finally {
+      setIsLoadingOlderMessages(false);
+    }
+  }, [fetchMessagePage, hasOlderMessages, isLoadingOlderMessages, selectedRoomId]);
+
   useEffect(() => {
     const timer = window.setTimeout(() => {
       void refreshRooms();
@@ -434,6 +530,7 @@ export function ChatSystem({
     } else {
       const timer = window.setTimeout(() => {
         setMessages([]);
+        setHasOlderMessages(false);
       }, 0);
 
       return () => window.clearTimeout(timer);
@@ -457,24 +554,35 @@ export function ChatSystem({
             : typeof payload.old === "object" && payload.old && "room_id" in payload.old
               ? String(payload.old.room_id || "")
               : "";
+        const isKnownRoom = payloadRoomId ? roomsRef.current.some((room) => room.id === payloadRoomId) : false;
 
-        scheduleRoomsRefresh();
+        if (!isKnownRoom) {
+          return;
+        }
+
         if (payloadRoomId && payloadRoomId === selectedRoomIdRef.current) {
           if (payload.eventType === "INSERT" && payload.new) {
             const nextMessage = toMessageView(payload.new as ChatMessageRow);
             const wasNearBottom = isNearBottom();
 
+            setRooms((prev) => {
+              const roomIndex = prev.findIndex((room) => room.id === payloadRoomId);
+              if (roomIndex === -1) {
+                return prev;
+              }
+
+              const targetRoom = prev[roomIndex];
+              const updatedRoom = {
+                ...targetRoom,
+                lastMessage: nextMessage.content || targetRoom.lastMessage,
+                lastTime: formatRelativeTime(nextMessage.created_at),
+                unreadCount: nextMessage.isMine ? targetRoom.unreadCount : 0,
+              };
+
+              return [updatedRoom, ...prev.slice(0, roomIndex), ...prev.slice(roomIndex + 1)];
+            });
+
             if (!nextMessage.isMine) {
-              setRooms((prev) =>
-                prev.map((room) =>
-                  room.id === payloadRoomId
-                    ? {
-                        ...room,
-                        unreadCount: room.id === selectedRoomIdRef.current ? 0 : room.unreadCount + 1,
-                      }
-                    : room
-                )
-              );
               void markRoomMessagesRead(payloadRoomId);
             }
 
@@ -497,14 +605,48 @@ export function ChatSystem({
           }
 
           scheduleMessagesRefresh(payloadRoomId);
+          return;
         }
-      })
-      .on("postgres_changes", { event: "*", schema: "public", table: "chat_rooms" }, () => {
+
+        if (payload.eventType === "INSERT" && payload.new) {
+          const nextMessage = toMessageView(payload.new as ChatMessageRow);
+
+          setRooms((prev) => {
+            const roomIndex = prev.findIndex((room) => room.id === payloadRoomId);
+            if (roomIndex === -1) {
+              return prev;
+            }
+
+            const targetRoom = prev[roomIndex];
+            const updatedRoom = {
+              ...targetRoom,
+              lastMessage: nextMessage.content || targetRoom.lastMessage,
+              lastTime: formatRelativeTime(nextMessage.created_at),
+              unreadCount: nextMessage.isMine ? targetRoom.unreadCount : targetRoom.unreadCount + 1,
+            };
+
+            return [updatedRoom, ...prev.slice(0, roomIndex), ...prev.slice(roomIndex + 1)];
+          });
+          return;
+        }
+
         scheduleRoomsRefresh();
       })
-      .on("postgres_changes", { event: "*", schema: "public", table: "profiles" }, () => {
-        scheduleRoomsRefresh(300);
-      })
+      .on(
+        "postgres_changes",
+        {
+          event: "*",
+          schema: "public",
+          table: "chat_rooms",
+          filter:
+            viewMode === "manufacturer" && manufacturerId
+              ? `manufacturer_id=eq.${manufacturerId}`
+              : `client_id=eq.${userId}`,
+        },
+        () => {
+          scheduleRoomsRefresh();
+        }
+      )
       .subscribe();
  
     window.addEventListener("focus", handleFocus);
@@ -518,7 +660,7 @@ export function ChatSystem({
       window.removeEventListener("focus", handleFocus);
       void supabase.removeChannel(channel);
     };
-  }, [isNearBottom, markRoomMessagesRead, removeMessage, replaceMessage, scheduleMessagesRefresh, scheduleRoomsRefresh, toMessageView, userId, viewMode]);
+  }, [isNearBottom, manufacturerId, markRoomMessagesRead, removeMessage, replaceMessage, scheduleMessagesRefresh, scheduleRoomsRefresh, toMessageView, userId, viewMode]);
 
   const sendMessage = async (payload: SendMessagePayload & { file?: File | null }) => {
     if (!selectedRoomId) return;
@@ -528,6 +670,7 @@ export function ChatSystem({
 
     setIsSending(true);
     shouldScrollToBottomRef.current = true;
+    void touchPresence();
 
     const formData = new FormData();
     formData.append("roomId", selectedRoomId);
@@ -594,6 +737,8 @@ export function ChatSystem({
       <ChatMessagePanel
         selectedRoom={selectedRoom}
         messages={messages}
+        hasOlderMessages={hasOlderMessages}
+        isLoadingOlderMessages={isLoadingOlderMessages}
         messageInput={messageInput}
         isSending={isSending}
         isUploading={isUploading}
@@ -602,6 +747,7 @@ export function ChatSystem({
         onInputChange={setMessageInput}
         onSend={() => void sendMessage({ content: messageInput })}
         onFileClick={() => fileInputRef.current?.click()}
+        onLoadOlderMessages={() => void loadOlderMessages()}
       />
     </div>
   );

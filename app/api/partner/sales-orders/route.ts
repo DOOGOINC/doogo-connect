@@ -1,6 +1,10 @@
 import { getDisplayOrderNumber } from "@/lib/rfq";
 import { mapRouteError, ok } from "@/lib/server/http";
-import { getPartnerCompensationAccessByUserId, isTimestampWithinPartnerCompensationPeriods } from "@/lib/server/partners";
+import {
+  getPartnerCompensationAccessByUserId,
+  getPartnerCommissionRateForTimestamp,
+  isTimestampWithinPartnerCompensationPeriods,
+} from "@/lib/server/partners";
 import { createServiceRoleClient, requirePartnerUser } from "@/lib/server/supabase";
 
 type ProfileRow = {
@@ -29,6 +33,25 @@ type SalesOrderRow = {
   selection_snapshot?: {
     pricing?: SnapshotPricing | null;
   } | null;
+};
+
+type SalesOrderResponseItem = {
+  id: string;
+  orderNumber: string;
+  createdAt: string | null;
+  customerName: string;
+  manufacturerName: string;
+  productName: string;
+  quantity: number;
+  currencyCode: string;
+  costAmount: number;
+  capsuleSalePrice: number;
+  boxPrice: number;
+  baseAmount: number;
+  partnerProfit: number;
+  commissionRate: number;
+  paymentMethod: string;
+  statusLabel: "완료" | "거래중";
 };
 
 type ProductCostRow = {
@@ -184,7 +207,12 @@ export async function GET(request: Request) {
       (acc, order) => {
         const currencyCode = trimValue(order.currency_code, "KRW").toUpperCase();
         const baseAmount = getBaseAmount(order);
-        const commissionAmount = Number((baseAmount * (commissionRate / 100)).toFixed(2));
+        const appliedCommissionRate = getPartnerCommissionRateForTimestamp(
+          getCompensationRecordedAt(order),
+          partnerAccess.periods,
+          commissionRate
+        );
+        const commissionAmount = Number((baseAmount * (appliedCommissionRate / 100)).toFixed(2));
 
         if (currencyCode === "NZD") {
           acc.totalBaseNzd += baseAmount;
@@ -207,13 +235,18 @@ export async function GET(request: Request) {
     const currencyFilteredOrders =
       selectedCurrency === "ALL" ? dateFilteredOrders : dateFilteredOrders.filter((order) => trimValue(order.currency_code, "KRW").toUpperCase() === selectedCurrency);
 
-    const rows = currencyFilteredOrders.map((order) => {
+    const rows: SalesOrderResponseItem[] = currencyFilteredOrders.map((order) => {
       const currencyCode = trimValue(order.currency_code, "KRW").toUpperCase();
       const productAmount = getProductAmount(order);
       const containerAmount = getContainerAmount(order);
       const costAmount = toMoney(productCostMap.get(trimValue(order.product_id))) * Number(order.quantity || 0);
       const baseAmount = productAmount + containerAmount;
-      const partnerProfit = Number((baseAmount * (commissionRate / 100)).toFixed(2));
+      const appliedCommissionRate = getPartnerCommissionRateForTimestamp(
+        getCompensationRecordedAt(order),
+        partnerAccess.periods,
+        commissionRate
+      );
+      const partnerProfit = Number((baseAmount * (appliedCommissionRate / 100)).toFixed(2));
 
       return {
         id: order.id,
@@ -232,6 +265,7 @@ export async function GET(request: Request) {
         boxPrice: containerAmount,
         baseAmount,
         partnerProfit,
+        commissionRate: appliedCommissionRate,
         paymentMethod: getPaymentMethod(currencyCode),
         statusLabel: isCompletedStatus(trimValue(order.status)) ? "완료" : "거래중",
       };

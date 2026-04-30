@@ -191,22 +191,33 @@ export function MasterProductionManagement({ refreshKey = 0 }: { refreshKey?: nu
     const fetchData = async () => {
       setLoading(true);
 
-      const [requestResult, profileResult, productResult] = await Promise.all([
-        supabase
-          .from("rfq_requests")
-          .select(
-            "id, request_number, client_id, manufacturer_name, product_id, product_name, quantity, unit_price, total_price, commission_rate_percent, commission_amount, settlement_amount, commission_locked_at, currency_code, status, created_at"
-          )
-          .order("created_at", { ascending: false }),
-        supabase.from("profiles").select("id, full_name, email"),
-        supabase.from("manufacturer_products").select("id, cost_price"),
-      ]);
+      const requestResult = await supabase
+        .from("rfq_requests")
+        .select(
+          "id, request_number, client_id, manufacturer_name, product_id, product_name, quantity, unit_price, total_price, commission_rate_percent, commission_amount, settlement_amount, commission_locked_at, currency_code, status, created_at"
+        )
+        .order("created_at", { ascending: false });
 
       if (requestResult.error) {
         console.error("Failed to fetch production requests:", requestResult.error.message);
-      } else {
-        setRequests((requestResult.data as ProductionRequest[] | null) || []);
+        setLoading(false);
+        return;
       }
+
+      const nextRequests = (requestResult.data as ProductionRequest[] | null) || [];
+      setRequests(nextRequests);
+
+      const clientIds = Array.from(new Set(nextRequests.map((request) => request.client_id).filter(Boolean)));
+      const productIds = Array.from(new Set(nextRequests.map((request) => request.product_id).filter(Boolean)));
+
+      const [profileResult, productResult] = await Promise.all([
+        clientIds.length
+          ? supabase.from("profiles").select("id, full_name, email").in("id", clientIds)
+          : Promise.resolve({ data: [], error: null }),
+        productIds.length
+          ? supabase.from("manufacturer_products").select("id, cost_price").in("id", productIds)
+          : Promise.resolve({ data: [], error: null }),
+      ]);
 
       if (profileResult.error) {
         console.error("Failed to fetch profiles:", profileResult.error.message);

@@ -42,6 +42,7 @@ export function SummaryAside({
               src={displayImage}
               alt="Preview"
               fill
+              sizes="(max-width: 1024px) 100vw, 320px"
               className="animate-in object-cover duration-500 fade-in zoom-in-95"
             />
           ) : (
