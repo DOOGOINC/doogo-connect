@@ -12,6 +12,8 @@ import { TEXT } from "./AccountSettings/constants";
 import { ReferralSection } from "./AccountSettings/ReferralSection";
 import type { Profile } from "./AccountSettings/types";
 
+let syncedProfileUserId: string | null = null;
+
 function isKakaoUser(user: User | null | undefined) {
   if (!user) return false;
 
@@ -61,15 +63,18 @@ export function AccountSettings() {
 
       setIsSocialAccount(isKakaoUser(session.user));
 
-      await authFetch("/api/profile/sync", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({
-          email: session.user.email || null,
-        }),
-      });
+      if (syncedProfileUserId !== session.user.id) {
+        await authFetch("/api/profile/sync", {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({
+            email: session.user.email || null,
+          }),
+        });
+        syncedProfileUserId = session.user.id;
+      }
 
       const { data, error } = await supabase
         .from("profiles")

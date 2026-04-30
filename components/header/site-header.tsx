@@ -78,6 +78,11 @@ export function SiteHeader() {
     return typeof email === "string" && email.includes("@") ? email.split("@")[0] : email;
   }, []);
 
+  const getMetadataRole = useCallback((currentSession: Session | null) => {
+    const metadataRole = currentSession?.user?.user_metadata?.role;
+    return typeof metadataRole === "string" && metadataRole.trim() ? metadataRole : "";
+  }, []);
+
   const fetchPoints = useCallback(async () => {
     try {
       const res = await authFetch("/api/points/summary");
@@ -110,9 +115,8 @@ export function SiteHeader() {
       setDisplayName((prev) => prev || fallbackName);
     }
 
-    const metadataRole = nextSession.user?.user_metadata?.role;
-    setUserRole((prev) => (typeof metadataRole === "string" && metadataRole.trim() ? metadataRole : prev));
-  }, [getDisplayName]);
+    setUserRole((prev) => getMetadataRole(nextSession) || prev);
+  }, [getDisplayName, getMetadataRole]);
 
   const syncProfile = useCallback(async (userId: string) => {
     const { data, error } = await supabase.from("profiles").select("full_name, role").eq("id", userId).maybeSingle();
@@ -128,6 +132,8 @@ export function SiteHeader() {
 
     setUserRole(typeof data?.role === "string" ? data.role : "");
   }, []);
+
+  const shouldSyncProfile = useCallback((currentSession: Session | null) => Boolean(currentSession?.user?.id) && !getMetadataRole(currentSession), [getMetadataRole]);
 
   useEffect(() => {
     const timeoutId = window.setTimeout(() => {
@@ -215,7 +221,7 @@ export function SiteHeader() {
     supabase.auth.getSession().then(({ data: { session: nextSession } }) => {
       if (!mounted) return;
       applySessionState(nextSession);
-      if (nextSession?.user?.id) {
+      if (shouldSyncProfile(nextSession) && nextSession?.user?.id) {
         void syncProfile(nextSession.user.id);
       }
     });
@@ -224,7 +230,7 @@ export function SiteHeader() {
       data: { subscription },
     } = supabase.auth.onAuthStateChange((_event, nextSession) => {
       applySessionState(nextSession);
-      if (nextSession?.user?.id) {
+      if (shouldSyncProfile(nextSession) && nextSession?.user?.id) {
         void syncProfile(nextSession.user.id);
       }
     });
@@ -242,7 +248,7 @@ export function SiteHeader() {
       mounted = false;
       subscription.unsubscribe();
     };
-  }, [applySessionState, syncProfile]);
+  }, [applySessionState, shouldSyncProfile, syncProfile]);
 
   const handleLogout = async () => {
     await supabase.auth.signOut();
@@ -276,7 +282,7 @@ export function SiteHeader() {
 
     if (liveSession !== session) {
       applySessionState(liveSession);
-      if (liveSession?.user?.id) {
+      if (shouldSyncProfile(liveSession) && liveSession?.user?.id) {
         void syncProfile(liveSession.user.id);
       }
     }

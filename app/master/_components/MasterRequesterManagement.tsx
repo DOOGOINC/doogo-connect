@@ -13,7 +13,6 @@ type ProfileRow = {
   full_name: string | null;
   email: string | null;
   created_at: string;
-  role: string | null;
   ban_type: "none" | "temporary" | "permanent" | null;
   ban_expires_at: string | null;
   ban_updated_at: string | null;
@@ -27,8 +26,6 @@ type WalletRow = {
 
 type RequestRow = {
   client_id: string;
-  status: string;
-  created_at: string;
 };
 
 type RequesterFilter = "all" | "active";
@@ -136,7 +133,7 @@ export function MasterRequesterManagement({ refreshKey = 0 }: { refreshKey?: num
 
       const profileResult = await supabase
         .from("profiles")
-        .select("id, full_name, email, created_at, role, ban_type, ban_expires_at, ban_updated_at, ban_reason")
+        .select("id, full_name, email, created_at, ban_type, ban_expires_at, ban_updated_at, ban_reason")
         .eq("role", "member")
         .order("created_at", { ascending: false });
 
@@ -144,7 +141,7 @@ export function MasterRequesterManagement({ refreshKey = 0 }: { refreshKey?: num
         if (profileResult.error.message.includes("ban_reason")) {
           const fallbackProfileResult = await supabase
             .from("profiles")
-            .select("id, full_name, email, created_at, role, ban_type, ban_expires_at, ban_updated_at")
+            .select("id, full_name, email, created_at, ban_type, ban_expires_at, ban_updated_at")
             .eq("role", "member")
             .order("created_at", { ascending: false });
 
@@ -173,7 +170,7 @@ export function MasterRequesterManagement({ refreshKey = 0 }: { refreshKey?: num
           ? supabase.from("user_point_wallets").select("user_id, balance").in("user_id", memberIds)
           : Promise.resolve({ data: [], error: null }),
         memberIds.length
-          ? supabase.from("rfq_requests").select("client_id, status, created_at").in("client_id", memberIds).eq("status", "fulfilled")
+          ? supabase.from("rfq_requests").select("client_id").in("client_id", memberIds).eq("status", "fulfilled")
           : Promise.resolve({ data: [], error: null }),
       ]);
 
@@ -200,7 +197,6 @@ export function MasterRequesterManagement({ refreshKey = 0 }: { refreshKey?: num
   const completedCountMap = useMemo(() => {
     const map = new Map<string, number>();
     requests.forEach((request) => {
-      if (request.status !== "fulfilled") return;
       map.set(request.client_id, (map.get(request.client_id) || 0) + 1);
     });
     return map;

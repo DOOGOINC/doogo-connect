@@ -27,7 +27,7 @@ Thumbs.db
 desktop.ini
 sql.txt
 /성능리뷰
-
+Performance Advisor.json
 # debug
 npm-debug.log*
 yarn-debug.log*

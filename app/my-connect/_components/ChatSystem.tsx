@@ -27,6 +27,10 @@ type SendMessagePayload = {
 const MESSAGE_PAGE_SIZE = 10;
 const PRESENCE_UPDATE_INTERVAL_MS = 5 * 60 * 1000;
 
+function createUnreadCountMap(rooms: ChatRoomView[]) {
+  return new Map(rooms.map((room) => [room.id, room.unreadCount]));
+}
+
 export function ChatSystem({
   userId,
   viewMode,
@@ -335,21 +339,31 @@ export function ChatSystem({
     const ownerIds = manufacturerRows.map((manufacturer) => manufacturer.owner_id).filter((id): id is string => Boolean(id));
     const profileIds = Array.from(new Set([...clientIds, ...ownerIds]));
 
+    const existingUnreadMap = createUnreadCountMap(roomsRef.current);
+    const roomIds = roomsData.map((room) => room.id);
+    const missingUnreadRoomIds = roomIds.filter((roomId) => !existingUnreadMap.has(roomId));
+
     const [{ data: profiles }, { data: unreadMessages }] = await Promise.all([
       profileIds.length
         ? supabase.from("profiles").select("id, full_name, email, last_seen_at").in("id", profileIds)
         : Promise.resolve({ data: [] }),
-      supabase
-        .from("chat_messages")
-        .select("room_id, sender_id, is_read")
-        .in("room_id", roomsData.map((room) => room.id))
-        .neq("sender_id", userId)
-        .eq("is_read", false),
+      missingUnreadRoomIds.length
+        ? supabase
+            .from("chat_messages")
+            .select("room_id")
+            .in("room_id", missingUnreadRoomIds)
+            .neq("sender_id", userId)
+            .eq("is_read", false)
+        : Promise.resolve({ data: [] }),
     ]);
     const presenceMap = await loadPresenceMap(profileIds);
 
     const profileMap = new Map((((profiles as ProfileRow[] | null) || []) as ProfileRow[]).map((profile) => [profile.id, profile]));
     const unreadMap = new Map<string, number>();
+
+    roomsData.forEach((room) => {
+      unreadMap.set(room.id, existingUnreadMap.get(room.id) || 0);
+    });
 
     ((unreadMessages as Array<{ room_id: string }> | null) || []).forEach((message) => {
       unreadMap.set(message.room_id, (unreadMap.get(message.room_id) || 0) + 1);
@@ -445,7 +459,7 @@ export function ChatSystem({
         const hasUnread = nextMessages.some((message) => !message.isMine && !message.is_read);
         if (hasUnread) {
           await markRoomMessagesRead(roomId);
-          void refreshRooms();
+          setRooms((prev) => prev.map((room) => (room.id === roomId ? { ...room, unreadCount: 0 } : room)));
         }
       } finally {
         messagesRefreshInFlightRef.current[roomId] = false;
@@ -456,7 +470,7 @@ export function ChatSystem({
         }
       }
     },
-    [fetchMessagePage, isNearBottom, markRoomMessagesRead, refreshRooms, userId]
+    [fetchMessagePage, isNearBottom, markRoomMessagesRead, userId]
   );
 
   const scheduleRoomsRefresh = useCallback(

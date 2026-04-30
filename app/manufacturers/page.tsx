@@ -24,7 +24,10 @@ export default function ManufacturersPage() {
 
   useEffect(() => {
     const fetchManufacturers = async () => {
-      const { data, error } = await supabase.from("manufacturers").select("*").order("id", { ascending: true });
+      const { data, error } = await supabase
+        .from("manufacturers")
+        .select("id, name, location, rating, description, tags, products, image, logo")
+        .order("id", { ascending: true });
 
       if (!error && data && data.length > 0) {
         setManufacturers(data as Manufacturer[]);

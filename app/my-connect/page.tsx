@@ -108,6 +108,24 @@ const RFQ_REQUEST_LIST_SELECT = [
 ].join(", ");
 
 const RFQ_REQUEST_PAGE_SIZE = 100;
+const PROFILE_LOOKUP_TIMEOUT_MS = 1200;
+
+function resolveSessionDisplayName(session: Awaited<ReturnType<typeof supabase.auth.getSession>>["data"]["session"]) {
+  return (
+    session?.user.user_metadata?.full_name ||
+    session?.user.user_metadata?.name ||
+    session?.user.identities?.[0]?.identity_data?.full_name ||
+    session?.user.identities?.[0]?.identity_data?.name ||
+    "고객"
+  );
+}
+
+function resolveSessionRole(session: Awaited<ReturnType<typeof supabase.auth.getSession>>["data"]["session"]) {
+  const metadataRole = session?.user.user_metadata?.role;
+  return metadataRole === "master" || metadataRole === "manufacturer" || metadataRole === "member" || metadataRole === "partner"
+    ? metadataRole
+    : null;
+}
 
 function resolveClientTab(requestedTab: string | null) {
   if (requestedTab && requestedTab in CLIENT_TAB_LABELS) {
@@ -127,6 +145,25 @@ function resolveManufacturerTab(requestedTab: string | null) {
   }
 
   return "dashboard";
+}
+
+function tabNeedsRfqRequests(viewMode: ConnectViewMode, tab: string) {
+  if (viewMode === "manufacturer") {
+    return [
+      "dashboard",
+      "rfq-inbox",
+      "orders",
+      "manufacturing-requests-new",
+      "manufacturing-requests-history",
+      "production",
+      "transactions",
+      "settlement-history",
+      "fee-settlement",
+      "trade-support",
+    ].includes(tab);
+  }
+
+  return ["dashboard", "project", "delivery", "payment", "refund-disputes"].includes(tab);
 }
 
 export default function MyConnectPage() {
@@ -159,21 +196,40 @@ export default function MyConnectPage() {
       }
 
       setUserId(session.user.id);
+      setDisplayName(resolveSessionDisplayName(session));
 
-      const [{ data: profile, error: profileError }, { data: manufacturer, error: manufacturerError }] = await Promise.all([
-        supabase.from("profiles").select("role, full_name").eq("id", session.user.id).maybeSingle(),
-        supabase.from("manufacturers").select("id, name").eq("owner_id", session.user.id).maybeSingle(),
+      const fallbackRole = resolveSessionRole(session) || "member";
+      setUserRole(fallbackRole);
+
+      const profileLookup = Promise.race([
+        supabase
+          .from("profiles")
+          .select("role, full_name")
+          .eq("id", session.user.id)
+          .maybeSingle()
+          .then(({ data, error }) => {
+            if (error) {
+              console.warn("Profile role lookup skipped:", error.message);
+              return null;
+            }
+
+            return data;
+          }),
+        new Promise<null>((resolve) => {
+          window.setTimeout(() => resolve(null), PROFILE_LOOKUP_TIMEOUT_MS);
+        }),
       ]);
 
-      if (profileError) {
-        console.warn("Profile role lookup skipped:", profileError.message);
-      }
+      const [profile, { data: manufacturer, error: manufacturerError }] = await Promise.all([
+        profileLookup,
+        supabase.from("manufacturers").select("id, name").eq("owner_id", session.user.id).maybeSingle(),
+      ]);
       if (manufacturerError) {
         console.warn("Manufacturer lookup failed:", manufacturerError.message);
       }
 
       const hasLinkedManufacturer = Boolean(manufacturer?.id);
-      const profileRole = (profile?.role as AppRole | undefined) || "member";
+      const profileRole = (profile?.role as AppRole | undefined) || fallbackRole;
       const resolvedDisplayName =
         profile?.full_name?.trim() ||
         session.user.user_metadata?.full_name ||
@@ -266,12 +322,16 @@ export default function MyConnectPage() {
   }, [manufacturerId, userId, viewMode]);
 
   useEffect(() => {
+    if (isLoading || !tabNeedsRfqRequests(viewMode, activeTab)) {
+      return;
+    }
+
     const timeoutId = window.setTimeout(() => {
       void fetchRfqRequests();
     }, 0);
 
     return () => window.clearTimeout(timeoutId);
-  }, [fetchRfqRequests]);
+  }, [activeTab, fetchRfqRequests, isLoading, viewMode]);
 
   useEffect(() => {
     if (isLoading) {

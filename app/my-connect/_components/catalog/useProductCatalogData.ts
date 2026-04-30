@@ -14,6 +14,35 @@ import {
 import type { ExtraRow, PackageRow, ServiceRow } from "./productCatalogManager.types";
 import type { NewContainerForm } from "./product-catalog/ProductCatalogLinkedOptions";
 
+const PRODUCT_SELECT =
+  "id, category, name, description, is_active, payment_currency, base_price, cost_price, discount_config, image, key_features, ingredients, directions, cautions, container_ids, design_service_ids, design_package_ids, design_extra_ids";
+
+function fetchCatalogData(manufacturerId: number) {
+  return Promise.all([
+    supabase.from("manufacturer_products").select(PRODUCT_SELECT).eq("manufacturer_id", manufacturerId).order("updated_at", { ascending: false }),
+    supabase
+      .from("manufacturer_container_options")
+      .select("id, name, description, add_price, image, sort_order, payment_currency")
+      .eq("manufacturer_id", manufacturerId)
+      .order("sort_order", { ascending: true }),
+    supabase
+      .from("manufacturer_design_services")
+      .select("id, name, description, price, sort_order, payment_currency")
+      .eq("manufacturer_id", manufacturerId)
+      .order("sort_order", { ascending: true }),
+    supabase
+      .from("manufacturer_design_packages")
+      .select("id, name, badge, description, price, included, sort_order, payment_currency")
+      .eq("manufacturer_id", manufacturerId)
+      .order("sort_order", { ascending: true }),
+    supabase
+      .from("manufacturer_design_extras")
+      .select("id, name, description, price, sort_order, payment_currency")
+      .eq("manufacturer_id", manufacturerId)
+      .order("sort_order", { ascending: true }),
+  ]);
+}
+
 export function useProductCatalogData({
   manufacturerId,
   currencyCode,
@@ -37,29 +66,7 @@ export function useProductCatalogData({
 
   const loadItems = async () => {
     setLoading(true);
-    const [productsResult, containersResult, servicesResult, packagesResult, extrasResult] = await Promise.all([
-      supabase.from("manufacturer_products").select("*").eq("manufacturer_id", manufacturerId).order("updated_at", { ascending: false }),
-      supabase
-        .from("manufacturer_container_options")
-        .select("id, name, description, add_price, image, sort_order, payment_currency")
-        .eq("manufacturer_id", manufacturerId)
-        .order("sort_order", { ascending: true }),
-      supabase
-        .from("manufacturer_design_services")
-        .select("id, name, description, price, sort_order, payment_currency")
-        .eq("manufacturer_id", manufacturerId)
-        .order("sort_order", { ascending: true }),
-      supabase
-        .from("manufacturer_design_packages")
-        .select("id, name, badge, description, price, included, sort_order, payment_currency")
-        .eq("manufacturer_id", manufacturerId)
-        .order("sort_order", { ascending: true }),
-      supabase
-        .from("manufacturer_design_extras")
-        .select("id, name, description, price, sort_order, payment_currency")
-        .eq("manufacturer_id", manufacturerId)
-        .order("sort_order", { ascending: true }),
-    ]);
+    const [productsResult, containersResult, servicesResult, packagesResult, extrasResult] = await fetchCatalogData(manufacturerId);
 
     setItems((productsResult.data || []) as ProductRow[]);
     setContainers((containersResult.data || []) as ContainerRow[]);
@@ -74,29 +81,7 @@ export function useProductCatalogData({
 
     const initialize = async () => {
       setLoading(true);
-      const [productsResult, containersResult, servicesResult, packagesResult, extrasResult] = await Promise.all([
-        supabase.from("manufacturer_products").select("*").eq("manufacturer_id", manufacturerId).order("updated_at", { ascending: false }),
-        supabase
-          .from("manufacturer_container_options")
-          .select("id, name, description, add_price, image, sort_order, payment_currency")
-          .eq("manufacturer_id", manufacturerId)
-          .order("sort_order", { ascending: true }),
-        supabase
-          .from("manufacturer_design_services")
-          .select("id, name, description, price, sort_order, payment_currency")
-          .eq("manufacturer_id", manufacturerId)
-          .order("sort_order", { ascending: true }),
-        supabase
-          .from("manufacturer_design_packages")
-          .select("id, name, badge, description, price, included, sort_order, payment_currency")
-          .eq("manufacturer_id", manufacturerId)
-          .order("sort_order", { ascending: true }),
-        supabase
-          .from("manufacturer_design_extras")
-          .select("id, name, description, price, sort_order, payment_currency")
-          .eq("manufacturer_id", manufacturerId)
-          .order("sort_order", { ascending: true }),
-      ]);
+      const [productsResult, containersResult, servicesResult, packagesResult, extrasResult] = await fetchCatalogData(manufacturerId);
 
       if (ignore) return;
 

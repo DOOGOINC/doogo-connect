@@ -108,24 +108,29 @@ export function MasterManufacturingRequests({ refreshKey = 0 }: { refreshKey?: n
     const fetchData = async () => {
       setLoading(true);
 
-      const [requestResult, profileResult] = await Promise.all([
-        supabase
-          .from("rfq_requests")
-          .select("id, request_number, client_id, manufacturer_name, product_name, quantity, status, created_at")
-          .order("created_at", { ascending: false }),
-        supabase.from("profiles").select("id, full_name"),
-      ]);
+      const requestResult = await supabase
+        .from("rfq_requests")
+        .select("id, request_number, client_id, manufacturer_name, product_name, quantity, status, created_at")
+        .order("created_at", { ascending: false });
 
       if (requestResult.error) {
         console.error("Failed to fetch manufacturing requests:", requestResult.error.message);
       } else {
-        setRequests((requestResult.data as ManufacturingRequest[] | null) || []);
-      }
+        const nextRequests = (requestResult.data as ManufacturingRequest[] | null) || [];
+        setRequests(nextRequests);
 
-      if (profileResult.error) {
-        console.error("Failed to fetch profiles:", profileResult.error.message);
-      } else {
-        setProfiles((profileResult.data as ProfileRow[] | null) || []);
+        const clientIds = Array.from(new Set(nextRequests.map((request) => request.client_id).filter(Boolean)));
+        if (!clientIds.length) {
+          setProfiles([]);
+        } else {
+          const profileResult = await supabase.from("profiles").select("id, full_name").in("id", clientIds);
+
+          if (profileResult.error) {
+            console.error("Failed to fetch profiles:", profileResult.error.message);
+          } else {
+            setProfiles((profileResult.data as ProfileRow[] | null) || []);
+          }
+        }
       }
 
       setLoading(false);

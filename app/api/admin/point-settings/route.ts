@@ -41,7 +41,6 @@ export async function GET(request: Request) {
       { count: referralCount, error: referralCountError },
       { data: wallets, error: walletError },
       { data: ledgerRows, error: ledgerError },
-      { data: profiles, error: profileError },
       { count: monthlyPurchaseCount, error: monthlyPurchaseCountError },
       { data: commissionHistory, error: commissionHistoryError },
     ] = await Promise.all([
@@ -52,7 +51,6 @@ export async function GET(request: Request) {
         .select("id, user_id, amount, balance_after, reason, category, created_at")
         .order("created_at", { ascending: false })
         .limit(200),
-      admin.from("profiles").select("id, full_name, email, role").eq("role", "member").order("created_at", { ascending: false }),
       admin
         .from("point_purchases")
         .select("id", { count: "exact", head: true })
@@ -74,14 +72,20 @@ export async function GET(request: Request) {
     if (ledgerError) {
       throw new Error(ledgerError.message);
     }
-    if (profileError) {
-      throw new Error(profileError.message);
-    }
     if (monthlyPurchaseCountError) {
       throw new Error(monthlyPurchaseCountError.message);
     }
     if (commissionHistoryError && commissionHistoryError.code !== "42P01") {
       throw new Error(commissionHistoryError.message);
+    }
+
+    const transactionUserIds = Array.from(new Set((ledgerRows || []).map((row) => row.user_id).filter((userId): userId is string => Boolean(userId))));
+    const { data: profiles, error: profileError } = transactionUserIds.length
+      ? await admin.from("profiles").select("id, full_name, email").in("id", transactionUserIds)
+      : { data: [], error: null };
+
+    if (profileError) {
+      throw new Error(profileError.message);
     }
 
     const totalBalance = (wallets || []).reduce((sum, row) => sum + Number(row.balance || 0), 0);

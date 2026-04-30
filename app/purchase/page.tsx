@@ -21,6 +21,15 @@ const DEFAULT_POINT_PACKAGES: PointPackage[] = [
   { id: "premium", label: "프리미엄 패키지", points: 50000, bonusPoints: 7000, amountKrw: 50000 },
 ];
 
+const PROFILE_LOOKUP_TIMEOUT_MS = 1200;
+
+function resolveSessionRole(session: Awaited<ReturnType<typeof supabase.auth.getSession>>["data"]["session"]) {
+  const metadataRole = session?.user.user_metadata?.role;
+  return metadataRole === "master" || metadataRole === "manufacturer" || metadataRole === "member" || metadataRole === "partner"
+    ? metadataRole
+    : null;
+}
+
 function formatPoints(value: number) {
   return `${Number(value || 0).toLocaleString()}P`;
 }
@@ -52,12 +61,27 @@ function PurchasePageContent() {
         return;
       }
 
-      const { data: profile, error } = await supabase.from("profiles").select("role").eq("id", session.user.id).maybeSingle();
-      if (error) {
-        console.warn("Profile role lookup skipped:", error.message);
-      }
+      const fallbackRole = resolveSessionRole(session) || "member";
+      const profile = await Promise.race([
+        supabase
+          .from("profiles")
+          .select("role")
+          .eq("id", session.user.id)
+          .maybeSingle()
+          .then(({ data, error }) => {
+            if (error) {
+              console.warn("Profile role lookup skipped:", error.message);
+              return null;
+            }
 
-      const role = ((profile?.role as AppRole | null) || "member") as AppRole;
+            return data;
+          }),
+        new Promise<null>((resolve) => {
+          window.setTimeout(() => resolve(null), PROFILE_LOOKUP_TIMEOUT_MS);
+        }),
+      ]);
+
+      const role = ((profile?.role as AppRole | null) || fallbackRole) as AppRole;
       if (role !== "member") {
         router.replace(getPortalHomeByRole(role));
         return;

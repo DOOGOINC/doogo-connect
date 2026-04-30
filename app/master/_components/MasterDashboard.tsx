@@ -299,17 +299,18 @@ export function MasterDashboard({ refreshKey = 0, onOpenDisputeCenter }: MasterD
 
       const requestRows = (requestResult.data as DashboardRequest[] | null) || [];
       const recentClientIds = Array.from(new Set(requestRows.slice(0, 5).map((request) => request.client_id).filter(Boolean)));
+      const salesRecordedRequestIds = requestRows.filter((request) => isSalesRecordedRequest(request)).map((request) => request.id);
 
       const [profileResult, auditResult] = await Promise.all([
         recentClientIds.length
           ? supabase.from("profiles").select("id, full_name").in("id", recentClientIds)
           : Promise.resolve({ data: [], error: null }),
-        requestRows.length
+        salesRecordedRequestIds.length
           ? supabase
               .from("rfq_audit_logs")
               .select("rfq_request_id, next_status, created_at")
               .in("next_status", Array.from(SALES_RECORDED_STATUSES))
-              .in("rfq_request_id", requestRows.map((request) => request.id))
+              .in("rfq_request_id", salesRecordedRequestIds)
               .order("created_at", { ascending: true })
           : Promise.resolve({ data: [], error: null }),
       ]);
