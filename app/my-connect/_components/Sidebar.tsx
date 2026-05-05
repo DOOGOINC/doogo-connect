@@ -44,7 +44,7 @@ const EmojiMoney = () => <span>💰</span>;
 const EmojiCoin = () => <span>⚡</span>;
 const EmojiGear = () => <span>⚙️</span>;
 const EmojiBox = () => <span>📦</span>;
-const EmojiRequest = () => <span>📨</span>;
+const EmojiRequest = () => <span>📋</span>;
 
 const CLIENT_GROUPS: SidebarGroup[] = [
   {

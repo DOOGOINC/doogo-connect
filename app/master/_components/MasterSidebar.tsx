@@ -111,7 +111,7 @@ export function MasterSidebar({ activeTab, onTabChange }: MasterSidebarProps) {
       <div className="flex-shrink-0 border-b border-blue-100 bg-gradient-to-r from-blue-50 to-indigo-50 p-4">
         <div className="flex items-center gap-3">
           <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-full bg-gradient-to-br from-[#155dfc] to-[#1652b2] text-white shadow-sm">
-            <span className="text-lg font-black">A</span>
+            <span className="text-lg font-black">D</span>
           </div>
 
           <div className="min-w-0">

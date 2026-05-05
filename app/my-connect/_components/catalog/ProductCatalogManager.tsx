@@ -1,7 +1,8 @@
 "use client";
 
-import { useRef, useState } from "react";
-import { Loader2, Plus } from "lucide-react";
+import { useMemo, useRef, useState } from "react";
+import { Loader2, Plus, Search } from "lucide-react";
+import { MasterTablePagination } from "@/app/master/_components/MasterTablePagination";
 import { CURRENCY_OPTIONS, type CurrencyCode } from "@/lib/currency";
 import { CatalogToast } from "./CatalogToast";
 import { ProductCatalogList } from "./ProductCatalogList";
@@ -24,6 +25,8 @@ type ProductCatalogManagerProps = {
   onSectionChange: (section: ProductManagementSection) => void;
 };
 
+const ITEMS_PER_PAGE = 5;
+
 export function ProductCatalogManager({
   manufacturerId,
   currencyCode,
@@ -36,6 +39,8 @@ export function ProductCatalogManager({
   const [newServices, setNewServices] = useState<NewOptionForm[]>([createNewOptionForm()]);
   const [newPackages, setNewPackages] = useState<NewPackageForm[]>([createNewPackageForm()]);
   const [newExtras, setNewExtras] = useState<NewOptionForm[]>([createNewOptionForm()]);
+  const [searchQuery, setSearchQuery] = useState("");
+  const [page, setPage] = useState(1);
   const [open, setOpen] = useState(activeSection === "product-create");
   const [editingId, setEditingId] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
@@ -53,6 +58,26 @@ export function ProductCatalogManager({
     form,
     newContainers,
   });
+
+  const searchedProducts = useMemo(() => {
+    const normalizedQuery = searchQuery.trim().toLowerCase();
+
+    if (!normalizedQuery) {
+      return data.filteredProducts;
+    }
+
+    return data.filteredProducts.filter((item) =>
+      [item.name, item.category, item.id].some((value) => value?.toLowerCase().includes(normalizedQuery))
+    );
+  }, [data.filteredProducts, searchQuery]);
+
+  const totalPages = Math.max(1, Math.ceil(searchedProducts.length / ITEMS_PER_PAGE));
+  const currentPage = Math.min(page, totalPages);
+
+  const paginatedProducts = useMemo(() => {
+    const startIndex = (currentPage - 1) * ITEMS_PER_PAGE;
+    return searchedProducts.slice(startIndex, startIndex + ITEMS_PER_PAGE);
+  }, [currentPage, searchedProducts]);
 
   const actions = useProductCatalogActions({
     manufacturerId,
@@ -97,7 +122,7 @@ export function ProductCatalogManager({
         <div>
           <div className="flex items-center gap-3">
             <h2 className="text-[24px] font-bold text-[#191F28]">{activeSection === "product-create" ? "OEM 상품 등록" : "OEM 상품 리스트"}</h2>
-            <span className="rounded-full  px-3 py-1 text-[13px] font-bold text-[#3182F6]">총 {data.filteredProducts.length}개</span>
+            <span className="rounded-full px-3 py-1 text-[13px] font-bold text-[#3182F6]">총 {searchedProducts.length}개</span>
           </div>
         </div>
 
@@ -121,9 +146,13 @@ export function ProductCatalogManager({
               <button
                 key={option}
                 type="button"
-                onClick={() => setActiveCurrency(option)}
-                className={`rounded-full px-4 py-2 text-[14px] font-bold transition ${isActive ? "bg-[#3182F6] text-white" : "bg-[#F2F4F6] text-[#6B7684] hover:bg-[#E9EEF5]"
-                  }`}
+                onClick={() => {
+                  setActiveCurrency(option);
+                  setPage(1);
+                }}
+                className={`rounded-full px-4 py-2 text-[14px] font-bold transition ${
+                  isActive ? "bg-[#3182F6] text-white" : "bg-[#F2F4F6] text-[#6B7684] hover:bg-[#E9EEF5]"
+                }`}
               >
                 {option}
               </button>
@@ -181,26 +210,53 @@ export function ProductCatalogManager({
               <p className="mt-4 text-[15px] font-medium text-[#8B95A1]">상품 정보를 불러오는 중입니다...</p>
             </div>
           ) : activeSection === "product-list" ? (
-            <ProductCatalogList
-              items={data.filteredProducts}
-              currencyCode={activeCurrency}
-              containerNames={data.containerNames}
-              serviceNames={data.serviceNames}
-              packageNames={data.packageNames}
-              extraNames={data.extraNames}
-              onDelete={actions.handleDelete}
-              onToggleActive={actions.handleToggleActive}
-              onEdit={(nextForm) => {
-                actions.resetEditorState();
-                setActiveCurrency(nextForm.paymentCurrency);
-                setForm(nextForm);
-                setEditingId(nextForm.id);
-                setOpen(true);
-                onSectionChange("product-create");
-              }}
-              mapItemToForm={data.mapItemToForm}
-              resolveImageUrl={data.resolveImageUrl}
-            />
+            <div className="space-y-5">
+              <label className="relative block w-full sm:max-w-[360px]">
+                <Search className="pointer-events-none absolute left-4 top-1/2 h-4 w-4 -translate-y-1/2 text-[#9AA4B2]" />
+                <input
+                  type="search"
+                  value={searchQuery}
+                  onChange={(event) => {
+                    setSearchQuery(event.target.value);
+                    setPage(1);
+                  }}
+                  placeholder="상품명, 카테고리, 상품번호 검색"
+                  className="h-11 w-full rounded-[12px] border border-[#E5E8EB] bg-white pl-11 pr-4 text-[14px] text-[#191F28] outline-none transition placeholder:text-[#9AA4B2] focus:border-[#3182F6]"
+                />
+              </label>
+
+              <ProductCatalogList
+                items={paginatedProducts}
+                currencyCode={activeCurrency}
+                containerNames={data.containerNames}
+                serviceNames={data.serviceNames}
+                packageNames={data.packageNames}
+                extraNames={data.extraNames}
+                onDelete={actions.handleDelete}
+                onToggleActive={actions.handleToggleActive}
+                onEdit={(nextForm) => {
+                  actions.resetEditorState();
+                  setActiveCurrency(nextForm.paymentCurrency);
+                  setForm(nextForm);
+                  setEditingId(nextForm.id);
+                  setOpen(true);
+                  setPage(1);
+                  onSectionChange("product-create");
+                }}
+                mapItemToForm={data.mapItemToForm}
+                resolveImageUrl={data.resolveImageUrl}
+                emptyLabel={searchQuery.trim() ? "검색 조건에 맞는 상품이 없습니다." : undefined}
+              />
+
+              {searchedProducts.length > ITEMS_PER_PAGE ? (
+                <MasterTablePagination
+                  totalItems={searchedProducts.length}
+                  currentPage={currentPage}
+                  totalPages={totalPages}
+                  onPageChange={setPage}
+                />
+              ) : null}
+            </div>
           ) : null}
         </div>
       </div>

@@ -1,7 +1,9 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useSearchParams } from "next/navigation";
 import { PortalPageHeader } from "@/components/header/PortalPageHeader";
+import { fetchCatalogSignedUrls, resolveCatalogImageUrl } from "@/lib/catalogImageUrls";
 import { getPortalHomeByRole, type AppRole } from "@/lib/auth/roles";
 import { authFetch } from "@/lib/client/auth-fetch";
 import type { RfqRequestRow, RfqRequestStatus } from "@/lib/rfq";
@@ -32,6 +34,7 @@ import { ManufacturerTradeSupport } from "./_components/ManufacturerTradeSupport
 
 type ConnectViewMode = "client" | "manufacturer";
 type ProjectView = "new" | "rejected" | "expired";
+type DeliveryTab = "request-history" | "approved" | "manufacturing" | "rejected-projects" | "completed-projects";
 
 const CLIENT_TAB_LABELS: Record<string, string> = {
   dashboard: "대시보드",
@@ -147,6 +150,20 @@ function resolveManufacturerTab(requestedTab: string | null) {
   return "dashboard";
 }
 
+function resolveDeliveryTab(requestedTab: string | null) {
+  if (
+    requestedTab === "request-history" ||
+    requestedTab === "approved" ||
+    requestedTab === "manufacturing" ||
+    requestedTab === "rejected-projects" ||
+    requestedTab === "completed-projects"
+  ) {
+    return requestedTab;
+  }
+
+  return "request-history";
+}
+
 function tabNeedsRfqRequests(viewMode: ConnectViewMode, tab: string) {
   if (viewMode === "manufacturer") {
     return [
@@ -167,6 +184,7 @@ function tabNeedsRfqRequests(viewMode: ConnectViewMode, tab: string) {
 }
 
 export default function MyConnectPage() {
+  const searchParams = useSearchParams();
   const [userId, setUserId] = useState<string>("");
   const [displayName, setDisplayName] = useState("고객");
   const [userRole, setUserRole] = useState<AppRole>("member");
@@ -175,6 +193,7 @@ export default function MyConnectPage() {
   const [viewMode, setViewMode] = useState<ConnectViewMode>("client");
   const [isLoading, setIsLoading] = useState(true);
   const [activeTab, setActiveTab] = useState("dashboard");
+  const [deliveryTab, setDeliveryTab] = useState<DeliveryTab>("request-history");
   const [manufacturerInboxView, setManufacturerInboxView] = useState<"new" | "rejected" | "expired">("new");
   const [clientProjectView, setClientProjectView] = useState<ProjectView>("new");
   const [rfqRequests, setRfqRequests] = useState<RfqRequestRow[]>([]);
@@ -186,6 +205,8 @@ export default function MyConnectPage() {
     const initializePage = async () => {
       const params = new URLSearchParams(window.location.search);
       const requestedTab = params.get("tab");
+      const requestedRoomId = params.get("roomId")?.trim() || "";
+      const requestedDeliveryTab = resolveDeliveryTab(params.get("deliveryTab"));
       const {
         data: { session },
       } = await supabase.auth.getSession();
@@ -256,12 +277,15 @@ export default function MyConnectPage() {
       if (nextRole === "manufacturer" && hasLinkedManufacturer) {
         setViewMode("manufacturer");
         setActiveTab(resolveManufacturerTab(requestedTab));
+        setChatInitialRoomId(requestedRoomId);
 
         setManufacturerId(manufacturer?.id ?? null);
         setManufacturerName(manufacturer?.name || "");
       } else {
         setViewMode("client");
         setActiveTab(resolveClientTab(requestedTab));
+        setChatInitialRoomId(requestedRoomId);
+        setDeliveryTab(requestedDeliveryTab);
         setManufacturerId(null);
         setManufacturerName("");
       }
@@ -271,6 +295,24 @@ export default function MyConnectPage() {
 
     void initializePage();
   }, []);
+
+  useEffect(() => {
+    if (isLoading) {
+      return;
+    }
+
+    const requestedTab = searchParams.get("tab");
+    const requestedRoomId = searchParams.get("roomId")?.trim() || "";
+    const requestedDeliveryTab = resolveDeliveryTab(searchParams.get("deliveryTab"));
+    const nextTab = viewMode === "manufacturer" ? resolveManufacturerTab(requestedTab) : resolveClientTab(requestedTab);
+    const syncTimer = window.setTimeout(() => {
+      setActiveTab((prev) => (prev === nextTab ? prev : nextTab));
+      setChatInitialRoomId((prev) => (prev === requestedRoomId ? prev : requestedRoomId));
+      setDeliveryTab((prev) => (prev === requestedDeliveryTab ? prev : requestedDeliveryTab));
+    }, 0);
+
+    return () => window.clearTimeout(syncTimer);
+  }, [isLoading, searchParams, viewMode]);
 
   const fetchRfqRequests = useCallback(async () => {
     if (!userId) return;
@@ -319,6 +361,42 @@ export default function MyConnectPage() {
         await new Promise((resolve) => window.setTimeout(resolve, 0));
       }
     }
+
+    const productIds = Array.from(new Set(allRequests.map((request) => request.product_id).filter(Boolean)));
+    const productImageMap = new Map<string, string | null>();
+
+    if (productIds.length > 0) {
+      const { data: products, error: productsError } = await supabase.from("manufacturer_products").select("id, image").in("id", productIds);
+
+      if (productsError) {
+        console.error("Failed to fetch product images:", productsError.message);
+      } else {
+        const imagePaths = (products || []).map((product) => product.image).filter((path): path is string => Boolean(path));
+        let signedUrls: Record<string, string> = {};
+
+        try {
+          signedUrls = await fetchCatalogSignedUrls(imagePaths);
+        } catch (error) {
+          console.error("[rfq product image urls]", error);
+        }
+
+        for (const product of products || []) {
+          productImageMap.set(product.id, resolveCatalogImageUrl(product.image, signedUrls) || null);
+        }
+      }
+    }
+
+    if (rfqRequestFetchIdRef.current !== fetchId) {
+      return;
+    }
+
+    const enrichedRequests = allRequests.map((request) => ({
+      ...request,
+      product_image: productImageMap.get(request.product_id) || null,
+    }));
+
+    setRfqRequests(enrichedRequests);
+    setSelectedRfqId((prev) => (enrichedRequests.some((request) => request.id === prev) ? prev : enrichedRequests[0]?.id ?? null));
   }, [manufacturerId, userId, viewMode]);
 
   useEffect(() => {
@@ -347,8 +425,20 @@ export default function MyConnectPage() {
       url.searchParams.set("tab", activeTab);
     }
 
+    if (activeTab === "chat" && chatInitialRoomId) {
+      url.searchParams.set("roomId", chatInitialRoomId);
+    } else {
+      url.searchParams.delete("roomId");
+    }
+
+    if (activeTab === "delivery") {
+      url.searchParams.set("deliveryTab", deliveryTab);
+    } else {
+      url.searchParams.delete("deliveryTab");
+    }
+
     window.history.replaceState({}, "", `${url.pathname}${url.search}${url.hash}`);
-  }, [activeTab, isLoading, viewMode]);
+  }, [activeTab, chatInitialRoomId, deliveryTab, isLoading, viewMode]);
 
   const handleRequestPatch = async (requestId: string, patch: Partial<Pick<RfqRequestRow, "status" | "admin_memo" | "updated_at">>) => {
     const currentRequest = rfqRequests.find((r) => r.id === requestId);
@@ -658,7 +748,7 @@ export default function MyConnectPage() {
             />
           );
         case "chat":
-          return <ChatSystem userId={userId} viewMode={viewMode} />;
+          return <ChatSystem userId={userId} viewMode={viewMode} initialRoomId={chatInitialRoomId} />;
         case "support":
           return <SupportChatSystem userId={userId} />;
         case "manufacturing-requests-new":
@@ -740,6 +830,8 @@ export default function MyConnectPage() {
             requests={rfqRequests}
             onRequestSelect={setSelectedRfqId}
             onTabChange={setActiveTab}
+            initialTab={deliveryTab}
+            onDeliveryTabChange={setDeliveryTab}
             onPaymentStatusChange={handlePaymentStatusChange}
             onRequestCancel={(requestId) => handleRequestStatusChange(requestId, "request_cancelled")}
           />

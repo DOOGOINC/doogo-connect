@@ -33,7 +33,7 @@ export const SUCCESS_STORIES: SuccessStory[] = [
     brandName: "K-Pure",
     launchDate: "2025.09 론칭",
     productName: "콜라겐 젤리 스틱",
-    manufacturer: "한미양행",
+    manufacturer: "(주) 한미양행",
     description: "실시간 견적 시스템이 정말 편리했습니다. 가격 협상부터 디자인 컨펌까지 한 플랫폼에서 해결했어요.",
     tags: ["콜라겐 젤리 스틱"],
     countryCode: "JP",

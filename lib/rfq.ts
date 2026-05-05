@@ -35,6 +35,7 @@ export type RfqRequestRow = {
   file_link: string | null;
   product_id: string;
   product_name: string;
+  product_image?: string | null;
   container_id: string | null;
   container_name: string | null;
   design_option_id: string | null;

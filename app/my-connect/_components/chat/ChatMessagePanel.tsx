@@ -44,6 +44,28 @@ function formatSharedFileDate(value: string) {
   }).format(date);
 }
 
+function formatMessageDateLabel(value: string) {
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return "";
+
+  return new Intl.DateTimeFormat("ko-KR", {
+    year: "numeric",
+    month: "long",
+    day: "numeric",
+    weekday: "short",
+  }).format(date);
+}
+
+function getMessageDateKey(value: string) {
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return "";
+
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, "0");
+  const day = String(date.getDate()).padStart(2, "0");
+  return `${year}-${month}-${day}`;
+}
+
 function getRemainingDaysLabel(createdAt: string) {
   const created = new Date(createdAt).getTime();
   if (Number.isNaN(created)) return "";
@@ -75,6 +97,11 @@ function buildDownloadUrl(fileUrl: string | null | undefined) {
   }
 }
 
+function isImageFile(fileName: string | null | undefined, fileUrl: string | null | undefined) {
+  const target = `${fileName || ""} ${fileUrl || ""}`.toLowerCase();
+  return [".png", ".jpg", ".jpeg", ".gif", ".webp", ".bmp", ".svg"].some((extension) => target.includes(extension));
+}
+
 export function ChatMessagePanel({
   selectedRoom,
   messages,
@@ -98,6 +125,7 @@ export function ChatMessagePanel({
   onLoadOlderMessages,
 }: ChatMessagePanelProps) {
   const [isFileModalOpen, setIsFileModalOpen] = useState(false);
+  const [previewImage, setPreviewImage] = useState<{ src: string; name: string } | null>(null);
 
   useEffect(() => {
     const timer = window.setTimeout(() => {
@@ -117,6 +145,8 @@ export function ChatMessagePanel({
         .reverse(),
     [messages]
   );
+
+  const messageDateOffsetClass = hasOlderMessages ? "top-[54px]" : "top-0";
 
   const renderAvatar = (avatar: string, name: string, compact = false) => {
     if (avatar.startsWith("initial:")) {
@@ -192,53 +222,97 @@ export function ChatMessagePanel({
                 </button>
               </div>
             ) : null}
+
             {messages.map((msg, idx) => {
               const prev = messages[idx - 1];
+              const currentDateKey = getMessageDateKey(msg.created_at);
+              const prevDateKey = prev ? getMessageDateKey(prev.created_at) : "";
+              const showDateHeader = currentDateKey !== prevDateKey;
               const showAvatar = !msg.isMine && (!prev || prev.sender_id !== msg.sender_id);
 
               return (
-                <div key={msg.id} className={`flex gap-3 ${msg.isMine ? "justify-end" : "justify-start"}`}>
-                  {!msg.isMine ? (
-                    <div className="w-9 shrink-0">
-                      {showAvatar ? (
-                        <div className="relative mt-0.5 h-9 w-9 overflow-hidden rounded-full border border-gray-100 bg-white shadow-sm">
-                          {renderAvatar(selectedRoom.avatar, selectedRoom.counterpartName, true)}
-                        </div>
-                      ) : null}
+                <div key={msg.id}>
+                  {showDateHeader ? (
+                    <div className={`sticky z-[9] flex justify-center pb-3 pt-1 ${messageDateOffsetClass}`}>
+                      <div className="rounded-full border border-[#D6E4FF] bg-white/95 px-3 py-1 text-[11px] font-bold text-[#4B5563] shadow-sm backdrop-blur">
+                        {formatMessageDateLabel(msg.created_at)}
+                      </div>
                     </div>
                   ) : null}
 
-                  <div className={`flex max-w-[75%] flex-col ${msg.isMine ? "items-end" : "items-start"}`}>
-                    {!msg.isMine && showAvatar ? (
-                      <span className="mb-1 ml-1 text-[11px] font-bold text-gray-500">{selectedRoom.counterpartName}</span>
+                  <div className={`flex gap-3 ${msg.isMine ? "justify-end" : "justify-start"}`}>
+                    {!msg.isMine ? (
+                      <div className="w-9 shrink-0">
+                        {showAvatar ? (
+                          <div className="relative mt-0.5 h-9 w-9 overflow-hidden rounded-full border border-gray-100 bg-white shadow-sm">
+                            {renderAvatar(selectedRoom.avatar, selectedRoom.counterpartName, true)}
+                          </div>
+                        ) : null}
+                      </div>
                     ) : null}
-                    <div className={`flex items-end gap-2 ${msg.isMine ? "flex-row-reverse" : "flex-row"}`}>
-                    <div
-                      className={`relative rounded-2xl px-4 py-2.5 text-[14px] leading-relaxed shadow-sm ${
-                        msg.isMine
-                          ? "rounded-tr-sm bg-[#3182f6] font-medium text-white"
-                          : "rounded-tl-sm border border-gray-100 bg-white text-gray-800"
-                        }`}
-                      >
-                      {msg.message_type === "file" && msg.file_url ? (
-                        <a
-                          href={buildDownloadUrl(msg.file_url)}
-                          download={msg.file_name || true}
-                          className="flex items-center gap-2 font-bold underline-offset-4 hover:underline"
+
+                    <div className={`flex max-w-[75%] flex-col ${msg.isMine ? "items-end" : "items-start"}`}>
+                      {!msg.isMine && showAvatar ? (
+                        <span className="mb-1 ml-1 text-[11px] font-bold text-gray-500">{selectedRoom.counterpartName}</span>
+                      ) : null}
+                      <div className={`flex items-end gap-2 ${msg.isMine ? "flex-row-reverse" : "flex-row"}`}>
+                        <div
+                          className={`relative rounded-2xl px-4 py-2.5 text-[14px] leading-relaxed shadow-sm ${
+                            msg.isMine
+                              ? "rounded-tr-sm bg-[#3182f6] font-medium text-white"
+                              : "rounded-tl-sm border border-gray-100 bg-white text-gray-800"
+                          }`}
                         >
-                          <FileText className="h-4 w-4 shrink-0 opacity-70" />
-                            <span className="max-w-[200px] truncate">{msg.file_name || "첨부 파일"}</span>
-                          </a>
-                      ) : (
-                        <span className="whitespace-pre-wrap break-words">{msg.content}</span>
-                      )}
+                          {msg.message_type === "file" && msg.file_url ? (
+                            isImageFile(msg.file_name, msg.file_url) ? (
+                              <button
+                                type="button"
+                                onClick={() =>
+                                  setPreviewImage({
+                                    src: msg.file_url || "",
+                                    name: msg.file_name || "첨부 이미지",
+                                  })
+                                }
+                                className="block text-left"
+                              >
+                                <div className="overflow-hidden rounded-[16px] border border-white/20 bg-black/5">
+                                  <div className="relative h-[180px] w-[180px] max-w-full bg-[#eef2f6]">
+                                    <Image
+                                      src={msg.file_url}
+                                      alt={msg.file_name || "첨부 이미지"}
+                                      fill
+                                      className="object-cover"
+                                      sizes="180px"
+                                      unoptimized
+                                    />
+                                  </div>
+                                </div>
+                                <div className={`mt-2 flex items-center gap-2 text-[12px] font-bold ${msg.isMine ? "text-white/90" : "text-[#4b5563]"}`}>
+                                  <FileText className="h-3.5 w-3.5 shrink-0 opacity-80" />
+                                  <span className="max-w-[200px] truncate">{msg.file_name || "첨부 이미지"}</span>
+                                </div>
+                              </button>
+                            ) : (
+                              <a
+                                href={buildDownloadUrl(msg.file_url)}
+                                download={msg.file_name || true}
+                                className="flex items-center gap-2 font-bold underline-offset-4 hover:underline"
+                              >
+                                <FileText className="h-4 w-4 shrink-0 opacity-70" />
+                                <span className="max-w-[200px] truncate">{msg.file_name || "첨부 파일"}</span>
+                              </a>
+                            )
+                          ) : (
+                            <span className="whitespace-pre-wrap break-words">{msg.content}</span>
+                          )}
+                        </div>
+                        {msg.isMine && !msg.is_read ? (
+                          <span className="mb-0.5 shrink-0 text-[11px] font-bold text-[#2563EB]">1</span>
+                        ) : null}
+                        <span className="mb-0.5 shrink-0 text-[10px] font-medium text-gray-400">{msg.timeLabel}</span>
+                      </div>
                     </div>
-                    {msg.isMine && !msg.is_read ? (
-                      <span className="mb-0.5 shrink-0 text-[11px] font-bold text-[#2563EB]">1</span>
-                    ) : null}
-                    <span className="mb-0.5 shrink-0 text-[10px] font-medium text-gray-400">{msg.timeLabel}</span>
                   </div>
-                </div>
                 </div>
               );
             })}
@@ -289,7 +363,7 @@ export function ChatMessagePanel({
             </div>
             <div className="mt-2 flex justify-between px-1">
               <p className="text-[11px] text-gray-400">{composerHint}</p>
-              {isUploading ? <p className="animate-pulse text-[11px] font-bold text-[#3182f6]">파일 업로드 중..</p> : null}
+              {isUploading ? <p className="animate-pulse text-[11px] font-bold text-[#3182f6]">파일 업로드 중...</p> : null}
             </div>
           </div>
         </div>
@@ -341,6 +415,50 @@ export function ChatMessagePanel({
                   <p className="text-[14px] font-semibold text-[#4B5563]">공유된 파일이 없습니다.</p>
                 </div>
               )}
+            </div>
+          </div>
+        </div>
+      ) : null}
+
+      {previewImage ? (
+        <div
+          className="absolute inset-0 z-40 flex items-center justify-center bg-black/70 p-4"
+          onClick={() => setPreviewImage(null)}
+        >
+          <div
+            className="relative w-full max-w-[920px] rounded-[24px] bg-white p-4 shadow-2xl"
+            onClick={(event) => event.stopPropagation()}
+          >
+            <button
+              type="button"
+              onClick={() => setPreviewImage(null)}
+              className="absolute right-4 top-4 flex h-10 w-10 items-center justify-center rounded-full border border-[#E5E7EB] bg-white text-[#6B7280] transition hover:bg-[#F9FAFB]"
+              aria-label="이미지 미리보기 닫기"
+            >
+              <X className="h-4 w-4" />
+            </button>
+            <div className="relative overflow-hidden rounded-[18px] bg-[#f4f6fb]">
+              <div className="relative h-[70vh] min-h-[320px] w-full">
+                <Image
+                  src={previewImage.src}
+                  alt={previewImage.name}
+                  fill
+                  className="object-contain"
+                  sizes="90vw"
+                  unoptimized
+                />
+              </div>
+            </div>
+            <div className="mt-3 flex items-center justify-between gap-3 px-1">
+              <p className="truncate text-[14px] font-semibold text-[#111827]">{previewImage.name}</p>
+              <a
+                href={buildDownloadUrl(previewImage.src)}
+                download={previewImage.name || true}
+                className="inline-flex h-10 shrink-0 items-center gap-1.5 rounded-[12px] border border-[#D6E4FF] bg-white px-4 text-[12px] font-bold text-[#2563EB] transition hover:bg-[#F8FBFF]"
+              >
+                <Download className="h-4 w-4" />
+                다운로드
+              </a>
             </div>
           </div>
         </div>

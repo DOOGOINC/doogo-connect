@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { useSearchParams } from "next/navigation";
 import { PortalPageHeader } from "@/components/header/PortalPageHeader";
 import { supabase } from "@/lib/supabase";
 import { PartnerDashboardPanel } from "./_components/PartnerDashboardPanel";
@@ -25,17 +26,11 @@ function getDisplayName(value: string | null | undefined) {
   return trimmed || "파트너";
 }
 
-function getInitialActiveTab() {
-  if (typeof window === "undefined") {
-    return "dashboard";
-  }
-
-  const requestedTab = new URLSearchParams(window.location.search).get("tab");
-  return requestedTab && requestedTab in TAB_LABELS ? requestedTab : "dashboard";
-}
-
 export default function PartnerDashboardPage() {
-  const [activeTab, setActiveTab] = useState(getInitialActiveTab);
+  const searchParams = useSearchParams();
+  const requestedTab = searchParams.get("tab");
+  const initialTab = requestedTab && requestedTab in TAB_LABELS ? requestedTab : "dashboard";
+  const [activeTab, setActiveTab] = useState(initialTab);
   const [displayName, setDisplayName] = useState("파트너");
 
   useEffect(() => {
@@ -84,6 +79,16 @@ export default function PartnerDashboardPage() {
 
     window.history.replaceState({}, "", `${url.pathname}${url.search}${url.hash}`);
   }, [activeTab]);
+
+  useEffect(() => {
+    const requestedTab = searchParams.get("tab");
+    const nextTab = requestedTab && requestedTab in TAB_LABELS ? requestedTab : "dashboard";
+    const syncTimer = window.setTimeout(() => {
+      setActiveTab((prev) => (prev === nextTab ? prev : nextTab));
+    }, 0);
+
+    return () => window.clearTimeout(syncTimer);
+  }, [searchParams]);
 
   const renderContent = () => {
     if (activeTab === "dashboard") {

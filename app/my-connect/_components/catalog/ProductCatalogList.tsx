@@ -15,22 +15,23 @@ type ProductCatalogListProps = {
   onToggleActive: (item: ProductRow) => void;
   mapItemToForm: (item: ProductRow) => ProductForm;
   resolveImageUrl: (pathOrUrl: string | null | undefined) => string;
+  emptyLabel?: string;
 };
 
-function OptionSummary({ 
-  icon: Icon, 
-  label, 
-  ids, 
-  names 
-}: { 
-  icon: LucideIcon,
-  label: string, 
-  ids: string[] | null | undefined, 
-  names: Record<string, string> 
+function OptionSummary({
+  icon: Icon,
+  label,
+  ids,
+  names,
+}: {
+  icon: LucideIcon;
+  label: string;
+  ids: string[] | null | undefined;
+  names: Record<string, string>;
 }) {
   const count = ids?.length || 0;
-  const activeNames = ids?.map(id => names[id]).filter(Boolean) || [];
-  
+  const activeNames = ids?.map((id) => names[id]).filter(Boolean) || [];
+
   if (count === 0) return null;
 
   return (
@@ -56,6 +57,7 @@ export function ProductCatalogList({
   onToggleActive,
   mapItemToForm,
   resolveImageUrl,
+  emptyLabel,
 }: ProductCatalogListProps) {
   if (items.length === 0) {
     return (
@@ -64,7 +66,7 @@ export function ProductCatalogList({
           <Box className="h-8 w-8 text-[#ADB5BD]" />
         </div>
         <p className="mt-4 text-[15px] font-medium text-[#8B95A1]">
-          {currencyCode} 통화로 등록된 상품이 없습니다.
+          {emptyLabel ?? `${currencyCode} 통화로 등록된 상품이 없습니다.`}
         </p>
       </div>
     );
@@ -74,12 +76,11 @@ export function ProductCatalogList({
     <div className="grid gap-4">
       {items.map((item) => (
         <div
-          key={item.id} 
+          key={item.id}
           className={`group relative flex flex-col gap-6 rounded-[16px] border border-[#E5E8EB] bg-white p-5 transition-all hover:border-[#3182F6] hover:shadow-[0_8px_24px_rgba(49,130,246,0.08)] sm:flex-row ${
             item.is_active === false ? "opacity-75" : ""
           }`}
         >
-          {/* Image Section */}
           <div className="relative h-40 w-full shrink-0 overflow-hidden rounded-[12px] border border-[#F2F4F6] bg-[#F9FAFB] sm:h-32 sm:w-32">
             {resolveImageUrl(item.image) ? (
               <img src={resolveImageUrl(item.image)} className="h-full w-full object-cover transition-transform group-hover:scale-105" alt="" />
@@ -99,7 +100,6 @@ export function ProductCatalogList({
             </div>
           </div>
 
-          {/* Info Section */}
           <div className="flex flex-1 flex-col justify-between">
             <div className="min-w-0">
               <div className="flex items-start justify-between gap-4">
@@ -123,34 +123,35 @@ export function ProductCatalogList({
                 </div>
               </div>
 
-              {/* Linked Options Summary */}
               <div className="mt-4 flex flex-wrap gap-2">
                 <OptionSummary icon={Box} label="용기" ids={item.container_ids} names={containerNames} />
                 <OptionSummary icon={PenTool} label="서비스" ids={item.design_service_ids} names={serviceNames} />
                 <OptionSummary icon={Layout} label="패키지" ids={item.design_package_ids} names={packageNames} />
                 <OptionSummary icon={PlusCircle} label="추가" ids={item.design_extra_ids} names={extraNames} />
-                
-                {(!item.container_ids?.length && !item.design_service_ids?.length && !item.design_package_ids?.length && !item.design_extra_ids?.length) && (
+
+                {!item.container_ids?.length &&
+                !item.design_service_ids?.length &&
+                !item.design_package_ids?.length &&
+                !item.design_extra_ids?.length ? (
                   <span className="text-[12px] text-[#98A2B3]">연결된 옵션이 없습니다.</span>
-                )}
+                ) : null}
               </div>
             </div>
 
-            {/* Action Buttons */}
             <div className="mt-6 flex items-center justify-between border-t border-[#F2F4F6] pt-4">
               <div className="flex items-center gap-4 text-[12px] text-[#8B95A1]">
                 <span className="flex items-center gap-1">
                   결제통화: <strong className="text-[#4E5968]">{normalizeCurrencyCode(item.payment_currency)}</strong>
                 </span>
               </div>
-              
+
               <div className="flex items-center gap-2">
                 <button
                   type="button"
                   onClick={() => onToggleActive(item)}
                   className={`flex h-9 items-center justify-center gap-1.5 rounded-[8px] px-3 text-[13px] font-semibold transition ${
-                    item.is_active === false 
-                      ? "bg-[#F2F8FF] text-[#3182F6] hover:bg-[#E1EFFF]" 
+                    item.is_active === false
+                      ? "bg-[#F2F8FF] text-[#3182F6] hover:bg-[#E1EFFF]"
                       : "bg-[#FFF0F0] text-[#F04452] hover:bg-[#FFE5E5]"
                   }`}
                 >

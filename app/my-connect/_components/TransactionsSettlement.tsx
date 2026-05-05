@@ -3,8 +3,11 @@
 import { useEffect, useMemo, useState } from "react";
 import { Calendar, CheckCircle2, Download, FileText, Info, Search } from "lucide-react";
 import { MasterTablePagination } from "@/app/master/_components/MasterTablePagination";
+import { getPricingBySelection, type ContainerOption, type Product } from "@/app/estimate/_data/catalog";
 import { authFetch } from "@/lib/client/auth-fetch";
+import { type CurrencyCode } from "@/lib/currency";
 import { getDisplayOrderNumber, type RfqRequestRow } from "@/lib/rfq";
+import { supabase } from "@/lib/supabase";
 import { ClientQuotePreviewModal } from "./ClientQuotePreviewModal";
 
 interface TransactionsSettlementProps {
@@ -20,6 +23,10 @@ type InvoiceRecord = {
   completedAt: string;
   settledAt: string | null;
   requestedAt: string | null;
+  capsuleCost: number;
+  capsuleSalePrice: number;
+  boxPrice: number;
+  designPrice: number;
   gross: number;
   commissionRatePercent: number;
   fee: number;
@@ -44,6 +51,46 @@ type SummaryMetricCard = {
 type FeeMetaPayload = {
   rows?: Array<{ rfq_request_id: string; requested_at: string }>;
   closures?: Array<{ settlement_year: number; settlement_month: number; closed_at: string }>;
+};
+
+type SnapshotPricing = {
+  product_unit_price?: number;
+  product_amount?: number;
+  container_unit_price?: number;
+  container_amount?: number;
+  package_price?: number;
+  services?: Array<{ id?: string; price?: number }>;
+  extras?: Array<{ id?: string; price?: number }>;
+};
+
+type ProductPricingRow = {
+  id: string;
+  manufacturer_id: number;
+  base_price: number | null;
+  cost_price: number | null;
+  discount_config: Record<string, number> | null;
+};
+
+type ContainerPricingRow = {
+  id: string;
+  manufacturer_id: number;
+  name: string;
+  add_price: number | null;
+};
+
+type PackagePricingRow = {
+  id: string;
+  price: number | null;
+};
+
+type ServicePricingRow = {
+  id: string;
+  price: number | null;
+};
+
+type ExtraPricingRow = {
+  id: string;
+  price: number | null;
 };
 
 const PAGE_SIZE = 10;
@@ -135,6 +182,11 @@ function getEffectiveFeeMonthKeyFromMap(completedAt: string, closedMonthMap: Rec
   return new Date(completedAt).getTime() > new Date(closedAt).getTime() ? addOneMonthKey(baseMonthKey) : baseMonthKey;
 }
 
+function getSnapshotPricing(request: RfqRequestRow) {
+  const snapshot = (request.selection_snapshot || {}) as { pricing?: SnapshotPricing };
+  return snapshot.pricing || {};
+}
+
 export function TransactionsSettlement({ requests, view, onRequestsRefresh }: TransactionsSettlementProps) {
   const today = useMemo(() => new Date(), []);
   const currentYear = today.getFullYear();
@@ -150,6 +202,11 @@ export function TransactionsSettlement({ requests, view, onRequestsRefresh }: Tr
   const [requestSubmitting, setRequestSubmitting] = useState(false);
   const [requestedAtMap, setRequestedAtMap] = useState<Record<string, string>>({});
   const [closedMonthMap, setClosedMonthMap] = useState<Record<string, string>>({});
+  const [productMap, setProductMap] = useState<Record<string, ProductPricingRow>>({});
+  const [containerMap, setContainerMap] = useState<Record<string, ContainerPricingRow>>({});
+  const [packagePriceMap, setPackagePriceMap] = useState<Record<string, number>>({});
+  const [servicePriceMap, setServicePriceMap] = useState<Record<string, number>>({});
+  const [extraPriceMap, setExtraPriceMap] = useState<Record<string, number>>({});
 
   useEffect(() => {
     const fetchSettings = async () => {
@@ -192,6 +249,92 @@ export function TransactionsSettlement({ requests, view, onRequestsRefresh }: Tr
     void fetchFeeMeta();
   }, [view]);
 
+  useEffect(() => {
+    const productIds = Array.from(new Set(requests.map((request) => request.product_id).filter(Boolean)));
+    const containerIds = Array.from(new Set(requests.map((request) => request.container_id).filter(Boolean)));
+    const packageIds = Array.from(new Set(requests.map((request) => request.design_package_id).filter(Boolean)));
+    const serviceIds = Array.from(
+      new Set(
+        requests.flatMap((request) => request.design_service_ids || []).filter(Boolean)
+      )
+    );
+    const extraIds = Array.from(
+      new Set(
+        requests.flatMap((request) => request.design_extra_ids || []).filter(Boolean)
+      )
+    );
+
+    if (productIds.length === 0) {
+      setProductMap({});
+      setContainerMap({});
+      setPackagePriceMap({});
+      setServicePriceMap({});
+      setExtraPriceMap({});
+      return;
+    }
+
+    let ignore = false;
+
+    const loadPricingResources = async () => {
+      const [productsResult, containersResult, packagesResult, servicesResult, extrasResult] = await Promise.all([
+        supabase.from("manufacturer_products").select("id, manufacturer_id, base_price, cost_price, discount_config").in("id", productIds),
+        containerIds.length
+          ? supabase.from("manufacturer_container_options").select("id, manufacturer_id, name, add_price").in("id", containerIds)
+          : Promise.resolve({ data: [], error: null }),
+        packageIds.length
+          ? supabase.from("manufacturer_design_packages").select("id, price").in("id", packageIds)
+          : Promise.resolve({ data: [], error: null }),
+        serviceIds.length
+          ? supabase.from("manufacturer_design_services").select("id, price").in("id", serviceIds)
+          : Promise.resolve({ data: [], error: null }),
+        extraIds.length
+          ? supabase.from("manufacturer_design_extras").select("id, price").in("id", extraIds)
+          : Promise.resolve({ data: [], error: null }),
+      ]);
+
+      if (productsResult.error) {
+        console.error("Failed to load transaction products:", productsResult.error.message);
+        return;
+      }
+      if (containersResult.error) {
+        console.error("Failed to load transaction containers:", containersResult.error.message);
+        return;
+      }
+      if (packagesResult.error) {
+        console.error("Failed to load transaction packages:", packagesResult.error.message);
+        return;
+      }
+      if (servicesResult.error) {
+        console.error("Failed to load transaction services:", servicesResult.error.message);
+        return;
+      }
+      if (extrasResult.error) {
+        console.error("Failed to load transaction extras:", extrasResult.error.message);
+        return;
+      }
+
+      if (!ignore) {
+        setProductMap(Object.fromEntries(((productsResult.data as ProductPricingRow[] | null) || []).map((item) => [item.id, item])));
+        setContainerMap(Object.fromEntries(((containersResult.data as ContainerPricingRow[] | null) || []).map((item) => [item.id, item])));
+        setPackagePriceMap(
+          Object.fromEntries(((packagesResult.data as PackagePricingRow[] | null) || []).map((item) => [item.id, Number(item.price || 0)]))
+        );
+        setServicePriceMap(
+          Object.fromEntries(((servicesResult.data as ServicePricingRow[] | null) || []).map((item) => [item.id, Number(item.price || 0)]))
+        );
+        setExtraPriceMap(
+          Object.fromEntries(((extrasResult.data as ExtraPricingRow[] | null) || []).map((item) => [item.id, Number(item.price || 0)]))
+        );
+      }
+    };
+
+    void loadPricingResources();
+
+    return () => {
+      ignore = true;
+    };
+  }, [requests]);
+
   const invoiceRecords = useMemo<InvoiceRecord[]>(
     () =>
       requests
@@ -202,6 +345,70 @@ export function TransactionsSettlement({ requests, view, onRequestsRefresh }: Tr
           return request.status === "fulfilled";
         })
         .map((request) => {
+          const snapshotPricing = getSnapshotPricing(request);
+          const productRow = productMap[request.product_id];
+          const containerRow = request.container_id ? containerMap[request.container_id] : undefined;
+          const product: Product | null = productRow
+            ? {
+                id: productRow.id,
+                manufacturerId: productRow.manufacturer_id,
+                category: "",
+                name: request.product_name,
+                description: "",
+                paymentCurrency: (request.currency_code || "USD") as CurrencyCode,
+                basePrice: Number(productRow.base_price || 0),
+                discountConfig: Object.fromEntries(
+                  Object.entries(productRow.discount_config || {}).map(([qty, discount]) => [Number(qty), Number(discount)])
+                ),
+                image: "",
+                keyFeatures: [],
+                ingredients: [],
+                directions: [],
+                cautions: [],
+                containerIds: request.container_id ? [request.container_id] : [],
+              }
+            : null;
+          const container: ContainerOption | null = containerRow
+            ? {
+                id: containerRow.id,
+                manufacturerId: containerRow.manufacturer_id,
+                name: containerRow.name,
+                description: "",
+                addPrice: Number(containerRow.add_price || 0),
+                image: "",
+              }
+            : null;
+          const pricing = getPricingBySelection({
+            product,
+            container,
+            quantity: request.quantity,
+            designPrice: 0,
+          });
+          const capsuleCost = Number(productRow?.cost_price || 0) * Number(request.quantity || 0);
+          const capsuleSalePrice = Number(snapshotPricing.product_amount ?? pricing.discountedProductUnitPrice * request.quantity);
+          const boxPrice = Number(snapshotPricing.container_amount ?? pricing.containerUnitPrice * request.quantity);
+          const designPrice =
+            Number(snapshotPricing.package_price ?? (request.design_package_id ? packagePriceMap[request.design_package_id] || 0 : 0)) +
+            (request.design_service_ids || []).reduce(
+              (sum, serviceId) =>
+                sum +
+                Number(
+                  snapshotPricing.services?.find((service) => service.id === serviceId)?.price ??
+                    servicePriceMap[serviceId] ??
+                    0
+                ),
+              0
+            ) +
+            (request.design_extra_ids || []).reduce(
+              (sum, extraId) =>
+                sum +
+                Number(
+                  snapshotPricing.extras?.find((extra) => extra.id === extraId)?.price ??
+                    extraPriceMap[extraId] ??
+                    0
+                ),
+              0
+            );
           const gross = Number(request.total_price || 0);
           const storedFee = Number(request.commission_amount);
           const storedNet = Number(request.settlement_amount);
@@ -216,6 +423,10 @@ export function TransactionsSettlement({ requests, view, onRequestsRefresh }: Tr
             completedAt: request.commission_locked_at?.trim() || request.updated_at || request.created_at,
             settledAt: request.is_settled ? request.settled_at?.trim() || request.commission_locked_at?.trim() || request.updated_at || request.created_at : null,
             requestedAt: requestedAtMap[request.id] || request.manufacturer_settlement_requested_at?.trim() || null,
+            capsuleCost,
+            capsuleSalePrice,
+            boxPrice,
+            designPrice,
             gross,
             commissionRatePercent: rate,
             fee,
@@ -223,7 +434,7 @@ export function TransactionsSettlement({ requests, view, onRequestsRefresh }: Tr
           };
         })
         .sort((a, b) => new Date((b.settledAt || b.completedAt) ?? b.completedAt).getTime() - new Date((a.settledAt || a.completedAt) ?? a.completedAt).getTime()),
-    [commissionRatePercent, requests, requestedAtMap, view]
+    [commissionRatePercent, containerMap, extraPriceMap, packagePriceMap, productMap, requests, requestedAtMap, servicePriceMap, view]
   );
 
   const settlementHistoryRecords = useMemo(() => invoiceRecords.filter((record) => record.request.is_settled), [invoiceRecords]);
@@ -371,7 +582,7 @@ export function TransactionsSettlement({ requests, view, onRequestsRefresh }: Tr
     const headers =
       view === "settlements"
         ? ["정산일", "의뢰자", "상품", "총 매출", "수수료", "정산 금액", "통화", "인보이스"]
-        : ["거래일", "의뢰자", "상품", "수량", "금액", "수수료", "정산", "통화", "인보이스"];
+        : ["거래일", "의뢰자", "상품", "수량", "캡슐 원가", "캡슐 판매가", "박스비", "디자인비", "금액", "수수료", "정산", "통화", "인보이스"];
 
     const rows = filteredRecords.map((record) =>
       (
@@ -391,6 +602,10 @@ export function TransactionsSettlement({ requests, view, onRequestsRefresh }: Tr
             record.request.contact_name,
             record.request.product_name,
             `${record.request.quantity.toLocaleString()}개`,
+            formatCurrencyDisplay(record.capsuleCost, record.request.currency_code),
+            formatCurrencyDisplay(record.capsuleSalePrice, record.request.currency_code),
+            formatCurrencyDisplay(record.boxPrice, record.request.currency_code),
+            formatCurrencyDisplay(record.designPrice, record.request.currency_code),
             formatCurrencyDisplay(record.gross, record.request.currency_code),
             formatCurrencyDisplay(record.fee, record.request.currency_code),
             formatCurrencyDisplay(record.net, record.request.currency_code),
@@ -500,10 +715,10 @@ export function TransactionsSettlement({ requests, view, onRequestsRefresh }: Tr
                       type="button"
                       onClick={() => setSelectedFeeMonth(month)}
                       className={`relative rounded-[16px] border px-4 py-3 text-center text-[15px] font-bold transition ${isSelected
-                          ? "border-[#2563eb] bg-[#2563eb] text-white shadow-[0_8px_20px_rgba(37,99,235,0.22)]"
-                          : isClosed
-                            ? "border-[#b7f0ca] bg-[#effaf4] text-[#16a34a]"
-                            : "border-[#f1f5f9] bg-[#f8fafc] text-[#98a2b3]"
+                        ? "border-[#2563eb] bg-[#2563eb] text-white shadow-[0_8px_20px_rgba(37,99,235,0.22)]"
+                        : isClosed
+                          ? "border-[#b7f0ca] bg-[#effaf4] text-[#16a34a]"
+                          : "border-[#f1f5f9] bg-[#f8fafc] text-[#98a2b3]"
                         }`}
                     >
                       {isClosed ? (
@@ -545,10 +760,10 @@ export function TransactionsSettlement({ requests, view, onRequestsRefresh }: Tr
                     }}
                     disabled={!feeMonthRequestable || requestSubmitting}
                     className={`inline-flex rounded-full px-6 py-2.5 text-[13px] font-bold transition ${feeMonthClosed
-                        ? "bg-[#03c75a] text-white"
-                        : feeMonthRequestable
-                          ? "bg-[#2563eb] text-white hover:bg-[#1d4ed8]"
-                          : "bg-[#e5e7eb] text-[#98a2b3]"
+                      ? "bg-[#03c75a] text-white"
+                      : feeMonthRequestable
+                        ? "bg-[#2563eb] text-white hover:bg-[#1d4ed8]"
+                        : "bg-[#e5e7eb] text-[#98a2b3]"
                       } disabled:cursor-not-allowed disabled:opacity-80`}
                   >
                     {feeMonthClosed ? "정산완료" : "이번달 정산완료"}
@@ -588,10 +803,10 @@ export function TransactionsSettlement({ requests, view, onRequestsRefresh }: Tr
                           <td className="px-5 py-3.5 text-center">
                             <span
                               className={`inline-flex rounded-full px-3 py-1 text-[11px] font-bold ${record.request.is_settled
-                                  ? "bg-[#dcfce7] text-[#16a34a]"
-                                  : record.requestedAt
-                                    ? "bg-[#ecfdf3] text-[#027a48]"
-                                    : "bg-[#f3f4f6] text-[#6b7280]"
+                                ? "bg-[#dcfce7] text-[#16a34a]"
+                                : record.requestedAt
+                                  ? "bg-[#ecfdf3] text-[#027a48]"
+                                  : "bg-[#f3f4f6] text-[#6b7280]"
                                 }`}
                             >
                               {record.request.is_settled ? "최종정산완료" : record.requestedAt ? "정산요청완료" : "정산대기"}
@@ -858,14 +1073,18 @@ export function TransactionsSettlement({ requests, view, onRequestsRefresh }: Tr
 
           <div className="overflow-hidden rounded-[14px] border border-[#e5e7eb] bg-white shadow-sm">
             <div className="overflow-x-auto">
-              <table className="w-full min-w-[1100px] table-fixed border-collapse text-left">
+              <table className="w-full min-w-[1600px] table-fixed border-collapse text-left">
                 <thead className="bg-[#fbfcfd] text-[11px] font-semibold text-[#667085]">
                   <tr>
                     <th className="w-[110px] px-4 py-2.5 text-left">날짜</th>
                     <th className="w-[120px] px-4 py-2.5 text-left">의뢰자</th>
                     <th className="w-[230px] px-4 py-2.5 text-left">상품</th>
                     <th className="w-[80px] px-4 py-2.5 text-center">수량</th>
-                    <th className="w-[145px] px-4 py-2.5 text-right">금액</th>
+                    <th className="w-[140px] px-4 py-2.5 text-right">캡슐 원가</th>
+                    <th className="w-[140px] px-4 py-2.5 text-right">캡슐 판매가</th>
+                    <th className="w-[130px] px-4 py-2.5 text-right">박스비</th>
+                    <th className="w-[140px] px-4 py-2.5 text-right">디자인비</th>
+                    <th className="w-[145px] px-4 py-2.5 text-right">총판매금액</th>
                     <th className="w-[150px] px-4 py-2.5 text-right">수수료</th>
                     <th className="w-[150px] px-4 py-2.5 text-right">정산</th>
                     <th className="w-[100px] px-4 py-2.5 text-center">상태</th>
@@ -884,6 +1103,10 @@ export function TransactionsSettlement({ requests, view, onRequestsRefresh }: Tr
                           </span>
                         </td>
                         <td className="px-4 py-3 text-center font-medium text-[#4b5563]">{record.request.quantity.toLocaleString()}개</td>
+                        <td className="px-4 py-3 text-right font-medium text-[#4b5563]">{formatCurrencyDisplay(record.capsuleCost, record.request.currency_code)}</td>
+                        <td className="px-4 py-3 text-right font-medium text-[#4b5563]">{formatCurrencyDisplay(record.capsuleSalePrice, record.request.currency_code)}</td>
+                        <td className="px-4 py-3 text-right font-medium text-[#4b5563]">{formatCurrencyDisplay(record.boxPrice, record.request.currency_code)}</td>
+                        <td className="px-4 py-3 text-right font-medium text-[#4b5563]">{formatCurrencyDisplay(record.designPrice, record.request.currency_code)}</td>
                         <td className="px-4 py-3 text-right font-bold text-[#111827]">{formatCurrencyDisplay(record.gross, record.request.currency_code)}</td>
                         <td className="px-4 py-3 text-right font-semibold text-[#ff4d4f]">
                           <div className="flex flex-col items-end gap-0">
@@ -911,7 +1134,7 @@ export function TransactionsSettlement({ requests, view, onRequestsRefresh }: Tr
                     ))
                   ) : (
                     <tr>
-                      <td colSpan={9} className="px-4 py-16 text-center text-[13px] font-medium text-[#98a2b3]">
+                      <td colSpan={13} className="px-4 py-16 text-center text-[13px] font-medium text-[#98a2b3]">
                         표시할 거래 내역이 없습니다.
                       </td>
                     </tr>

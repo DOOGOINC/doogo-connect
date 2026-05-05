@@ -1,6 +1,5 @@
 "use client";
 
-import Image from "next/image";
 import { Star, ChevronRight } from "lucide-react";
 import Link from "next/link";
 import { SUCCESS_STORIES } from "./section09.data";
@@ -52,15 +51,15 @@ export function Section09() {
               >
                 {/* 상단: 아바타 및 브랜드 정보 */}
                 <div className="flex items-center gap-4">
-                  <div className={`flex h-12 w-12 shrink-0 items-center justify-center rounded-full text-[18px] font-bold text-white ${avatarColor}`}>
-                    {manufacturerClean.charAt(0)}
+                  <div className={`flex h-12 w-12 shrink-0 items-center justify-center rounded-[20px] text-[18px] font-bold text-white ${avatarColor}`}>
+                    {manufacturerClean.replace(/^\(주\)\s*/, "").charAt(0)}
                   </div>
                   <div>
                     <div className="text-[12px] font-medium text-slate-400">
                       {manufacturerClean}
                     </div>
                     <div className="text-[16px] font-bold text-[#191f28]">
-                      {story.brandName.split(' ')[0]}
+                      {story.brandName}
                     </div>
                   </div>
                 </div>
@@ -87,7 +86,7 @@ export function Section09() {
 
                 {/* 하단: 인용구 설명 */}
                 <p className="mt-6 text-[14px] font-medium leading-[1.6] text-slate-600 break-keep">
-                  "{story.description}"
+                  &quot;{story.description}&quot;
                 </p>
               </article>
             );

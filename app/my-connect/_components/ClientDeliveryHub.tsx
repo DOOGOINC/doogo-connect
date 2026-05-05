@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { Eye, FileText, Package, ShoppingBag, Truck, X } from "lucide-react";
 import { ClientQuotePreviewModal } from "./ClientQuotePreviewModal";
 import { formatRfqCurrency, formatRfqDate, getDisplayOrderNumber, type RfqRequestRow, type RfqRequestStatus } from "@/lib/rfq";
@@ -11,6 +11,8 @@ interface ClientDeliveryHubProps {
   onTabChange: (tabId: string) => void;
   onPaymentStatusChange: (requestId: string, status: RfqRequestStatus) => Promise<void>;
   onRequestCancel: (requestId: string) => Promise<void>;
+  initialTab?: ClientProgressTab;
+  onDeliveryTabChange?: (tabId: ClientProgressTab) => void;
 }
 
 type ClientProgressTab = "request-history" | "approved" | "manufacturing" | "rejected-projects" | "completed-projects";
@@ -177,11 +179,28 @@ function getProgress(status: RfqRequestRow["status"]) {
   }
 }
 
-export function ClientDeliveryHub({ requests, onRequestSelect, onTabChange, onPaymentStatusChange, onRequestCancel }: ClientDeliveryHubProps) {
-  const [activeTab, setActiveTab] = useState<ClientProgressTab>("request-history");
+export function ClientDeliveryHub({
+  requests,
+  onRequestSelect,
+  onTabChange,
+  onPaymentStatusChange,
+  onRequestCancel,
+  initialTab = "request-history",
+  onDeliveryTabChange,
+}: ClientDeliveryHubProps) {
+  const [activeTab, setActiveTab] = useState<ClientProgressTab>(initialTab);
   const [selectedRequest, setSelectedRequest] = useState<RfqRequestRow | null>(null);
   const [quotePreviewRequest, setQuotePreviewRequest] = useState<RfqRequestRow | null>(null);
+  const [paymentConfirmRequest, setPaymentConfirmRequest] = useState<RfqRequestRow | null>(null);
   const [paymentUpdatingId, setPaymentUpdatingId] = useState<string | null>(null);
+
+  useEffect(() => {
+    setActiveTab(initialTab);
+  }, [initialTab]);
+
+  useEffect(() => {
+    onDeliveryTabChange?.(activeTab);
+  }, [activeTab, onDeliveryTabChange]);
 
   const groupedRequests = useMemo(
     () =>
@@ -222,6 +241,21 @@ export function ClientDeliveryHub({ requests, onRequestSelect, onTabChange, onPa
     } finally {
       setPaymentUpdatingId(null);
     }
+  };
+
+  const handlePaymentConfirmOpen = (request: RfqRequestRow) => {
+    setPaymentConfirmRequest(request);
+  };
+
+  const handlePaymentConfirmClose = () => {
+    if (paymentUpdatingId) return;
+    setPaymentConfirmRequest(null);
+  };
+
+  const handlePaymentConfirmSubmit = async () => {
+    if (!paymentConfirmRequest) return;
+    await handlePaymentStatusChange(paymentConfirmRequest.id, "payment_completed");
+    setPaymentConfirmRequest(null);
   };
 
   const handleRequestCancel = async (request: RfqRequestRow) => {
@@ -348,10 +382,10 @@ export function ClientDeliveryHub({ requests, onRequestSelect, onTabChange, onPa
                           <button
                             type="button"
                             disabled={paymentUpdatingId === request.id}
-                            onClick={() => void handlePaymentStatusChange(request.id, "payment_completed")}
+                            onClick={() => handlePaymentConfirmOpen(request)}
                             className="inline-flex h-11 items-center justify-center rounded-[14px] bg-[#0f766e] px-4 text-[14px] font-semibold text-white shadow-sm transition hover:bg-[#115e59] disabled:cursor-not-allowed disabled:bg-[#99f6e4]"
                           >
-                            {paymentUpdatingId === request.id ? "처리 중..." : "결제 진행하기"}
+                            {paymentUpdatingId === request.id ? "처리 중..." : "결제 완료하기"}
                           </button>
                         ) : null}
                         {activeTab === "approved" && request.status === "payment_completed" ? (
@@ -466,6 +500,103 @@ export function ClientDeliveryHub({ requests, onRequestSelect, onTabChange, onPa
                     ))}
                   </tbody>
                 </table>
+              </div>
+            </div>
+          </div>
+        </div>
+      ) : null}
+
+      {paymentConfirmRequest ? (
+        <div className="fixed inset-0 z-[90] flex items-center justify-center bg-[#0f172a]/55 px-4 py-8">
+          <div className="w-full max-w-[560px] overflow-hidden rounded-[24px] bg-white shadow-[0_28px_80px_rgba(15,23,42,0.28)]">
+            <div className="border-b border-[#eaecf0] bg-[#f8fafc] px-6 py-5">
+              <div className="flex items-start justify-between gap-4">
+                <div>
+                  <p className="text-[12px] font-semibold uppercase tracking-[0.12em] text-[#2453d8]">결제 가이드</p>
+                  <h3 className="mt-2 text-[22px] font-bold text-[#111827]">단계별로 진행해주세요</h3>
+                  <p className="mt-2 text-[14px] leading-relaxed text-[#667085]">
+                    유트랜스퍼로 이동하셔서 결제 후 결제 완료하기 버튼을 눌러주세요.
+                  </p>
+                </div>
+                <button
+                  type="button"
+                  onClick={handlePaymentConfirmClose}
+                  className="rounded-full p-2 text-[#667085] transition hover:bg-white"
+                  aria-label="결제 안내 팝업 닫기"
+                >
+                  <X className="h-5 w-5" />
+                </button>
+              </div>
+            </div>
+
+            <div className="px-6 py-6">
+              <div className="rounded-[20px] border border-[#e5e7eb] bg-white p-5">
+                <div className="flex items-start gap-4">
+                  <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-[#e8efff] text-[15px] font-bold text-[#2453d8]">
+                    1
+                  </div>
+                  <div className="min-w-0 flex-1">
+                    <p className="text-[16px] font-bold text-[#111827]">유트랜스퍼 결제 진행</p>
+                    <p className="mt-1.5 text-[14px] leading-relaxed text-[#667085]">
+                      유트랜스퍼 로그인 후 안내된 결제를 먼저 진행해 주세요.
+                    </p>
+                    <a
+                      href="https://biz.utransfer.com/login"
+                      target="_blank"
+                      rel="noreferrer"
+                      className="mt-4 inline-flex h-11 items-center justify-center rounded-[14px] bg-[#2453d8] px-4 text-[14px] font-semibold text-white transition hover:bg-[#1d44b2]"
+                    >
+                      유트랜스퍼로 이동하기
+                    </a>
+                  </div>
+                </div>
+              </div>
+
+              <div className="mt-4 rounded-[20px] border border-[#e5e7eb] bg-[#fcfcfd] p-5">
+                <div className="flex items-start gap-4">
+                  <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-[#e8efff] text-[15px] font-bold text-[#2453d8]">
+                    2
+                  </div>
+                  <div className="min-w-0 flex-1">
+                    <p className="text-[16px] font-bold text-[#111827]">계정이 없다면 먼저 가입</p>
+                    <p className="mt-1.5 text-[14px] leading-relaxed text-[#667085]">
+                      유트랜스퍼 계정이 없으신가요? 아래 버튼에서 바로 가입하실 수 있습니다.
+                    </p>
+                    <a
+                      href="https://biz.utransfer.com/signup?code=doogo"
+                      target="_blank"
+                      rel="noreferrer"
+                      className="mt-4 inline-flex h-11 items-center justify-center rounded-[14px] border border-[#cfd9ff] bg-white px-4 text-[14px] font-semibold text-[#2453d8] transition hover:bg-[#f5f8ff]"
+                    >
+                      유트랜스퍼 가입하기
+                    </a>
+                  </div>
+                </div>
+              </div>
+
+              <div className="mt-6 rounded-[20px] border border-[#cfd9ff] bg-[#f5f8ff] p-5">
+                <p className="text-[14px] font-semibold text-[#2453d8]">
+                  결제를 마치셨다면 아래 버튼을 눌러 현재 주문을 결제 완료 상태로 변경해 주세요.
+                </p>
+              </div>
+
+              <div className="mt-6 flex flex-col-reverse gap-3 sm:flex-row sm:justify-end">
+                <button
+                  type="button"
+                  onClick={handlePaymentConfirmClose}
+                  disabled={paymentUpdatingId === paymentConfirmRequest.id}
+                  className="inline-flex h-12 items-center justify-center rounded-[14px] border border-[#d0d5dd] bg-white px-5 text-[14px] font-semibold text-[#344054] transition hover:bg-[#f8fafc] disabled:cursor-not-allowed disabled:opacity-60"
+                >
+                  취소
+                </button>
+                <button
+                  type="button"
+                  onClick={() => void handlePaymentConfirmSubmit()}
+                  disabled={paymentUpdatingId === paymentConfirmRequest.id}
+                  className="inline-flex h-12 items-center justify-center rounded-[14px] bg-[#2453d8] px-5 text-[14px] font-semibold text-white shadow-sm transition hover:bg-[#1d44b2] disabled:cursor-not-allowed disabled:bg-[#9bb2f3]"
+                >
+                  {paymentUpdatingId === paymentConfirmRequest.id ? "처리 중..." : "결제 완료"}
+                </button>
               </div>
             </div>
           </div>

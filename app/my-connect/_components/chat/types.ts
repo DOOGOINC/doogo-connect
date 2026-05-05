@@ -59,6 +59,11 @@ export type ChatRoomView = {
   requestMessage?: string;
 };
 
+export type ChatRoomMemoValue = {
+  memo: string;
+  color: string;
+};
+
 export type ChatMessageView = ChatMessageRow & {
   isMine: boolean;
   timeLabel: string;

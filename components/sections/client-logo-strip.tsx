@@ -1,27 +1,24 @@
 import React from "react";
 
 const partners = [
-  { id: 1, src: "https://framerusercontent.com/images/eziJbtVdIE4oo9IJIKWO4QuTa8.png", alt: "Partner 1" },
-  { id: 2, src: "https://framerusercontent.com/images/vLH1BeYFnn9sXQl0IKTfquKlc.png", alt: "Partner 2" },
-  { id: 3, src: "https://framerusercontent.com/images/CJaOlKvBR5lrk6UCEyrIFOIw.png", alt: "Partner 3" },
-  { id: 4, src: "https://framerusercontent.com/images/0LYiLdcYTrGs6HOrgB2R2sQBf4.png", alt: "Partner 4" },
-  { id: 5, src: "https://framerusercontent.com/images/Ajf96McCiznkPIHwXOebfWHwQZ0.png", alt: "Partner 5" },
-  { id: 6, src: "https://framerusercontent.com/images/2swzBXgfilSs0WY4E0dotSueUco.png", alt: "Partner 6" },
+  { id: 1, src: "/image/client-logo-strip/img_2.png", alt: "Partner 1" },
+  { id: 2, src: "/image/client-logo-strip/img_3.jfif", alt: "Partner 2" },
+  { id: 3, src: "/image/client-logo-strip/img_4.jfif", alt: "Partner 3" },
+  { id: 4, src: "/image/client-logo-strip/img_6.png", alt: "Partner 4" },
+  { id: 5, src: "/image/client-logo-strip/img_7.jfif", alt: "Partner 5" },
 ];
 
 export function ClientLogoStrip() {
-  // 무한 루프 효과를 위해 배열을 두 번 반복합니다.
   const doublePartners = [...partners, ...partners];
 
   return (
-    <section className="py-12 bg-[#f9fafb] overflow-hidden">
+    <section className="py-6 bg-[#ffffff] overflow-hidden">
       {/* SPONSORED BY */}
       <div className="max-w-[1200px] mx-auto px-6 mb-8 text-center">
         <div className="flex items-center justify-center gap-4">
-          <div className="h-[1px] w-12 bg-gray-200"></div>
-          <p className="text-sm font-bold text-gray-400 uppercase tracking-widest">SPONSORED BY
+          <p className="text-[11px] font-bold text-gray-400 uppercase tracking-widest">
+            SPONSORED BY
           </p>
-          <div className="h-[1px] w-12 bg-gray-200"></div>
         </div>
       </div>
 

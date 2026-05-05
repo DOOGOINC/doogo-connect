@@ -38,7 +38,6 @@ const ORDER_STATUSES = [
   "manufacturing_completed",
   "completed",
   "delivery_completed",
-  "fulfilled",
 ] as const;
 const INQUIRY_STATUSES = ["pending", "reviewing", "payment_in_progress"] as const;
 

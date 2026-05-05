@@ -100,13 +100,13 @@ export function SiteFooter() {
               <div className="flex flex-wrap items-center gap-x-3 gap-y-2 text-[13px]">
                 <span className="font-bold text-white">(주) 두고홀딩스</span>
                 <span className="text-[#2f3338]">|</span>
-                <span>대표이사 문원오</span>
+                <span>대표 : 문원오</span>
                 <span className="hidden sm:inline text-[#2f3338]">|</span>
                 <span>사업자등록번호: 726-87-03167</span>
                 <span className="hidden md:inline text-[#2f3338]">|</span>
-                <span>통신판매업신고: 제 2026-서울강남-XXXX 호</span>
+                <span>통신판매업신고: 제 2024-세종아름-0878 호</span>
               </div>
-              <p className="text-[13px]">주소: 서울특별시 강남구 테헤란로</p>
+              <p className="text-[13px]">주소: 세종특별자치시 갈매로 353 에비뉴힐 5층 5023호<span className="ml-5">우편번호: 30121</span> </p>
 
               <div className="mt-8 space-y-2 text-[12px] leading-relaxed text-[#4e5968]">
                 <p>

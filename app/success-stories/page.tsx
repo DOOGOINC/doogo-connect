@@ -1,6 +1,6 @@
 "use client";
 
-import { TrendingUp, Globe, Award, Star, ArrowRight, ChevronRight } from "lucide-react";
+import { TrendingUp, Globe, Award, Star, ArrowRight } from "lucide-react";
 import Link from "next/link";
 import { useEffect } from "react";
 import { motion, useMotionValue, useTransform, animate } from "framer-motion";
@@ -39,94 +39,94 @@ const stats = [
 
 const stories: Story[] = [
   {
-    image: "https://images.unsplash.com/photo-1550575118-42d740df9404?auto=format&fit=crop&q=80&w=400",
-    tags: ["캡슐", "눈건강", "뉴질랜드 GMP"],
+    image: "../image/success-stories/밀크씨슬.jpeg",
+    tags: ["밀크씨슬", "뉴질랜드 GMP", "소량생산"],
     region: "NZ",
-    date: "2025.08 런칭",
-    brandName: "Green Vita NZ",
+    date: "2026.01.15 런칭",
+    brandName: "밀크씨슬슬",
     title: "빌베리 60,000mg 60캡슐",
     company: "DOOGOBIO NZ",
     location: "뉴질랜드",
-    exportTo: "일본 수출",
-    description: "안경사 출신 창업자가 건강 기능식품 브랜드를 런칭. DOOGOBIO NZ와 협력해 8주 만에 첫 제품을 출시. 현지 약국 체인 30개 입점 달성.",
+    exportTo: "해외 직구",
+    description: "부업의정석을 통해 시작된 브랜드로 초기 소량 테스트 후 빠르게 확장된 실제 사례입니다. 뉴질랜드 현지 생산 기반으로 안정적인 브랜드 운영 중입니다.",
     revenue: "NZD 45,000/월",
     initialOrder: "200",
     currentOrder: "1,000개/월"
   },
   {
-    image: "https://images.unsplash.com/photo-1584017911766-d451b3d0e843?auto=format&fit=crop&q=80&w=400",
-    tags: ["젤리스틱", "콜라겐", "KFDA"],
-    region: "JP",
-    date: "2025.09 런칭",
-    brandName: "K-Pure Beauty",
-    title: "콜라겐 젤리 스틱",
-    company: "(주) 산의생명",
-    location: "한국",
-    exportTo: "일본 수출",
-    description: "뷰티 인플루언서가 직접 기획한 콜라겐 젤리스틱. 산의생명의 KFDA 인증 시설에서 제조. 인스타그램 런칭 2주 만에 완판.",
-    revenue: "₩ 4,000,000/월",
-    initialOrder: "50",
-    currentOrder: "500개/월"
+    "image": "../image/success-stories/초록홍합.jpeg",
+    "tags": ["초록홍합", "뉴질랜드", "GMP"],
+    "region": "NZ",
+    "date": "2026.01.15 런칭",
+    "brandName": "초록홍합",
+    "title": "초록홍합",
+    "company": "DOOGOBIO",
+    "location": "NZ 뉴질랜드",
+    "exportTo": "해외 직구",
+    "description": "뉴질랜드 초록홍합으로 시작한 프리미엄 건강 브랜드\n\n청정 뉴질랜드 바다에서 자란 초록홍합을 기반으로 부업의정석 창업자가 직접 소싱하여 시작한 브랜드입니다. 처음은 단 하나의 원료에서 출발했지만, “진짜 좋은 원료는 팔린다”는 확신으로 빠르게 제품화까지 이어진 케이스입니다.",
+    "revenue": "₩ 4,000,000/월",
+    "initialOrder": "50",
+    "currentOrder": "500개/월"
   },
   {
-    image: "https://images.unsplash.com/photo-1626202346584-c77aa94969bb?auto=format&fit=crop&q=80&w=400",
-    tags: ["유기농", "터메릭", "EU Organic"],
-    region: "DE",
-    date: "2025.11 런칭",
-    brandName: "BioVital DE",
-    title: "오가닉 터메릭 캡슐",
-    company: "BioVital Manufacturing",
-    location: "독일",
-    exportTo: "EU 판매",
-    description: "독일 의사 출신 창업자가 설립한 프리미엄 유기농 건강식품 브랜드. BioVital EU Organic 인증 라인에서 제조. 독일 아마존 카테고리 1위.",
-    revenue: "USD 28,000/월",
-    initialOrder: "100",
-    currentOrder: "800개/월"
+    "image": "../image/success-stories/유산균.png",
+    "tags": ["유산균", "뉴질랜드 GMP", "소량생산"],
+    "region": "NZ",
+    "date": "2026.02.15 런칭",
+    "brandName": "유산균",
+    "title": "유산균",
+    "company": "DOOGOBIO",
+    "location": "NZ 뉴질랜드",
+    "exportTo": "해외 직구",
+    "description": "수많은 유산균 제품 속에서 “진짜 좋은 것만 고르겠다”는 기준으로 시작된 브랜드입니다.\n\n 부업의정석 창업자가 직접 원료와 배합을 검증하며 단순 판매가 아닌 ‘선택’의 기준을 만들었습니다.",
+    "revenue": "USD 28,000/월",
+    "initialOrder": "100",
+    "currentOrder": "800개/월"
   },
   {
-    image: "https://images.unsplash.com/photo-1556229167-7313a2fa969c?auto=format&fit=crop&q=80&w=400",
-    tags: ["마누카꿀", "소프트젤", "NSF"],
-    region: "US",
-    date: "2026.01 런칭",
-    brandName: "Manuka Gold",
-    title: "마누카꿀 MGO 550+ 소프트젤",
-    company: "DOOGOBIO NZ",
-    location: "뉴질랜드",
-    exportTo: "미국 수출",
-    description: "마누카꿀 농장주가 기획한 프리미엄 소프트젤 제품. 두고커넥트를 통해 DOOGOBIO NZ와 매칭. 미국 Whole Foods 마켓 계약 체결.",
-    revenue: "USD 21,000/월",
-    initialOrder: "50",
-    currentOrder: "600개/월"
+    "image": "../image/success-stories/로얄제리.jpg",
+    "tags": ["로얄젤리", "뉴질랜드 GMP", "소량생산"],
+    "region": "NZ",
+    "date": "2026.02.15 런칭",
+    "brandName": "로얄젤리",
+    "title": "로얄젤리",
+    "company": "DOOGOBIO NZ",
+    "location": "뉴질랜드",
+    "exportTo": "직구 및 수입판매",
+    "description": "여왕의 원료, 브랜드가 되다\n\n벌집 속 극소량만 생산되는 로얄제리를 기반으로 부업의정석 창업자가 기획한 프리미엄 브랜드입니다. 쉽게 접근할 수 없는 원료이지만, 소량 테스트를 통해 시장 반응을 검증하고 브랜드로 확장된 실제 사례입니다.",
+    "revenue": "USD 21,000/월",
+    "initialOrder": "50",
+    "currentOrder": "600개/월"
   },
   {
-    image: "https://images.unsplash.com/photo-1559113513-d5e09c78b9dd?auto=format&fit=crop&q=80&w=400",
-    tags: ["유산균", "분말스틱", "HACCP"],
-    region: "JP",
-    date: "2025.12 런칭",
-    brandName: "Health Start",
-    title: "프로바이오틱스 분말 스틱",
-    company: "(주) 산의생명",
-    location: "한국",
-    exportTo: "국내 판매",
-    description: "헬스케어 스타트업이 직접 기획한 장건강 솔루션. 산의생명 분말 스틱 라인 활용. 네이버 스마트스토어 리뷰 4.9점 유지.",
-    revenue: "₩ 3,200,000/월",
-    initialOrder: "100",
-    currentOrder: "400개/월"
+    "image": "../image/success-stories/마누카꿀.webp",
+    "tags": ["마누카 꿀", "뉴질랜드 GMP", "소량생산"],
+    "region": "NZ",
+    "date": "2026.02.15 런칭",
+    "brandName": "마누카꿀",
+    "title": "마누카꿀",
+    "company": "DOOGOBIO NZ",
+    "location": "뉴질랜드",
+    "exportTo": "직구 및 수입판매",
+    "description": "뉴질랜드 마누카꿀로 시작된 글로벌 건강 브랜드\n\n뉴질랜드 청정 자연에서만 생산되는 마누카꿀을 기반으로 부업의정석 창업자가 직접 기획한 프리미엄 브랜드입니다. 초기 소량 테스트로 시작했지만 ‘원료의 힘’ 하나로 빠르게 시장 반응을 만들고 수입 까지 확장된 실제 사례입니다.",
+    "revenue": "₩ 3,200,000/월",
+    "initialOrder": "100",
+    "currentOrder": "400개/월"
   },
   {
-    image: "https://images.unsplash.com/photo-1512069772995-ec65ed45afd6?auto=format&fit=crop&q=80&w=400",
-    tags: ["루테인", "캡슐", "ISO 9001"],
-    region: "SG",
-    date: "2026.02 런칭",
-    brandName: "EyeCare Pro",
-    title: "루테인 & 제아잔틴 60캡슐",
-    company: "DOOGOBIO NZ",
-    location: "뉴질랜드",
-    exportTo: "싱가포르 수출",
-    description: "IT 직장인을 타겟으로 한 눈건강 브랜드. 싱가포르 Lazada 입점 후 3개월 만에 카테고리 Top 10 진입.",
-    revenue: "NZD 12,000/월",
-    initialOrder: "50",
-    currentOrder: "300개/월"
+    "image": "../image/success-stories/알티지오메가3.jpg",
+    "tags": ["알티지오메가3", "뉴질랜드 GMP", "소량생산"],
+    "region": "NZ",
+    "date": "2026.02.15 런칭",
+    "brandName": "알티지오메가3",
+    "title": "알티지오메가3",
+    "company": "DOOGOBIO NZ",
+    "location": "뉴질랜드",
+    "exportTo": "직구 및 수입판매",
+    "description": "같은 오메가3, 흡수율이 다르다\n\n일반 오메가3가 아닌 흡수율이 높은 rTG 형태를 기반으로 부업의정석 창업자가 기획한 프리미엄 제품입니다. 단순한 가격 경쟁이 아닌, ‘차이를 아는 고객’을 타겟으로 시작된 브랜드입니다.",
+    "revenue": "NZD 12,000/월",
+    "initialOrder": "50",
+    "currentOrder": "300개/월"
   }
 ];
 
@@ -184,7 +184,7 @@ const CountUp = ({ to, decimals = 0 }: { to: number; decimals?: number }) => {
 
 const StoryCard = ({ story }: { story: Story }) => (
   <div className="group overflow-hidden rounded-[14px] border border-gray-200 bg-white  transition-all hover:shadow-sm text-left">
-    <div className="relative h-[210px] w-full overflow-hidden">
+    <div className="relative h-[220px] w-full overflow-hidden">
       <img
         src={story.image}
         alt={story.title}
@@ -200,7 +200,7 @@ const StoryCard = ({ story }: { story: Story }) => (
         ))}
       </div>
 
-      <div className="absolute top-4 right-4 flex h-8 w-11 items-center justify-center rounded-full bg-white/95 text-[10px] font-bold text-slate-900 shadow-sm backdrop-blur-sm">
+      <div className="absolute top-4 right-4 flex h-8 w-11 items-center justify-center rounded-full bg-white/95 text-[12px] font-bold text-slate-900 shadow-sm backdrop-blur-sm">
         {story.region}
       </div>
 
@@ -210,9 +210,9 @@ const StoryCard = ({ story }: { story: Story }) => (
       </div>
     </div>
 
-    <div className="p-4">
+    <div className="min-h-[128px] p-4">
       <div className="flex items-start justify-between gap-2">
-        <h3 className="text-[14px] font-bold leading-tight text-slate-900 tracking-tight">
+        <h3 className="text-[16px] font-bold leading-tight text-slate-900 tracking-tight">
           {story.title}
         </h3>
         <div className="flex text-[#FFB800] mt-1 shrink-0">
@@ -222,15 +222,38 @@ const StoryCard = ({ story }: { story: Story }) => (
         </div>
       </div>
 
-      <p className="mt-2.5 text-[12px] text-slate-400">
-        {story.company} · {story.location} <span className="mx-1 text-slate-300 font-bold">›</span> {story.exportTo}
+      <p className="mt-2.5 text-[12px] text-[#165cf9] flex items-center gap-1">
+        <svg
+          xmlns="http://www.w3.org/2000/svg"
+          width="24"
+          height="24"
+          viewBox="0 0 24 24"
+          fill="none"
+          stroke="currentColor"
+          strokeWidth="2"
+          strokeLinecap="round"
+          strokeLinejoin="round"
+          className="w-3 h-3"
+        >
+          <circle cx="12" cy="12" r="10"></circle>
+          <path d="M12 2a14.5 14.5 0 0 0 0 20 14.5 14.5 0 0 0 0-20"></path>
+          <path d="M2 12h20"></path>
+        </svg>
+        <span>
+          {story.company} · {story.location}
+          <span className="mx-1 text-[#165cf9] font-bold">›</span>
+          {story.exportTo}
+        </span>
       </p>
 
-      <p className="mt-2.5 line-clamp-3 text-[14px] font-medium leading-relaxed text-slate-500">
+      <p
+        className="mt-2.5 line-clamp-5 whitespace-pre-line text-[12px] font-medium leading-[1.45] text-slate-500"
+        title={story.description} // 마우스를 올리면 전체 텍스트가 팝업으로 뜹니다.
+      >
         {story.description}
       </p>
 
-      <div className="mt-2.5 space-y-3.5 border-t border-gray-50 pt-6">
+      {/* <div className="mt-2.5 space-y-3.5 border-t border-gray-50 pt-6">
         <div className="flex items-center justify-between">
           <span className="text-[12px] font-bold text-slate-400">월 수익</span>
           <span className="text-[14px] font-bold text-blue-600 tracking-tight">
@@ -245,7 +268,7 @@ const StoryCard = ({ story }: { story: Story }) => (
             현재 <span className="text-slate-500 font-bold">{story.currentOrder}</span>
           </div>
         </div>
-      </div>
+      </div> */}
     </div>
   </div>
 );
@@ -362,7 +385,7 @@ export default function SuccessStoriesPage() {
                 </div>
 
                 <p className="text-sm text-gray-700 leading-relaxed mb-4">
-                  "{review.content}"
+                  &quot;{review.content}&quot;
                 </p>
 
                 <div className="flex items-center gap-3 pt-3 border-t border-gray-100">

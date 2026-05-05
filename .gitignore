@@ -27,6 +27,7 @@ Thumbs.db
 desktop.ini
 sql.txt
 /성능리뷰
+AGENTS.md
 Performance Advisor.json
 # debug
 npm-debug.log*

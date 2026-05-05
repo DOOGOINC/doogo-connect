@@ -9,9 +9,10 @@ import { SupportHeaderActions } from "./support/SupportHeaderActions";
 import { SupportRequestComposer } from "./support/SupportRequestComposer";
 import { SupportStatusNotice } from "./support/SupportStatusNotice";
 import { ChatMessagePanel } from "./chat/ChatMessagePanel";
+import { ChatRoomMemoPanel } from "./chat/ChatRoomMemoPanel";
 import { CHAT_FILE_ACCEPT, getChatFileValidationMessage, isAllowedChatFile } from "./chat/fileConstraints";
 import { ChatRoomSidebar } from "./chat/ChatRoomSidebar";
-import type { ChatMessageRow, ChatMessageView, ChatRoomRow, ChatRoomView, ProfileRow } from "./chat/types";
+import type { ChatMessageRow, ChatMessageView, ChatRoomMemoValue, ChatRoomRow, ChatRoomView, ProfileRow } from "./chat/types";
 import { formatMessageTime, formatRelativeTime, getAvatarInitial, getPresenceLabel, getProfileDisplayName, isRecentlyOnline } from "./chat/utils";
 
 type SupportChatSystemProps = {
@@ -36,6 +37,7 @@ export function SupportChatSystem({ userId, isMaster = false, initialRoomId = ""
   const [isCreatingNewRequest, setIsCreatingNewRequest] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
   const [roomFilter, setRoomFilter] = useState<"all" | "unread" | "active">("all");
+  const [memoMap, setMemoMap] = useState<Record<string, ChatRoomMemoValue>>({});
   const [isSending, setIsSending] = useState(false);
   const [isUploading, setIsUploading] = useState(false);
   const [isCreatingRoom, setIsCreatingRoom] = useState(false);
@@ -207,6 +209,66 @@ export function SupportChatSystem({ userId, isMaster = false, initialRoomId = ""
     }
   }, []);
 
+  const loadRoomMemoMap = useCallback(
+    async (roomIds: string[]) => {
+      if (!roomIds.length) {
+        return {};
+      }
+
+      const { data, error } = await supabase.from("chat_room_memos").select("room_id, memo, color").in("room_id", roomIds).eq("user_id", userId);
+      if (error) {
+        console.error("Failed to load support room memos:", error.message);
+        return {};
+      }
+
+      return Object.fromEntries(
+        (((data as Array<{ room_id: string; memo: string | null; color: string | null }> | null) || [])
+          .filter((item) => item.room_id && item.memo)
+          .map((item) => [item.room_id, { memo: item.memo as string, color: item.color || "#4f8df6" }]))
+      );
+    },
+    [userId]
+  );
+
+  const saveRoomMemo = useCallback(
+    async (roomId: string, memo: string, color: string) => {
+      const normalizedMemo = memo.trim().slice(0, 50);
+      if (!normalizedMemo) {
+        return;
+      }
+
+      const { error } = await supabase.from("chat_room_memos").upsert(
+        {
+          user_id: userId,
+          room_id: roomId,
+          memo: normalizedMemo,
+          color,
+          updated_at: new Date().toISOString(),
+        },
+        { onConflict: "user_id,room_id" }
+      );
+      if (error) {
+        throw new Error(error.message);
+      }
+
+      setMemoMap((prev) => ({ ...prev, [roomId]: { memo: normalizedMemo, color } }));
+    },
+    [userId]
+  );
+
+  const deleteRoomMemo = useCallback(async (roomId: string) => {
+    const { error } = await supabase.from("chat_room_memos").delete().eq("user_id", userId).eq("room_id", roomId);
+    if (error) {
+      throw new Error(error.message);
+    }
+
+    setMemoMap((prev) => {
+      const next = { ...prev };
+      delete next[roomId];
+      return next;
+    });
+  }, [userId]);
+
   useEffect(() => {
     const roomChanged = prevRoomIdRef.current !== selectedRoomId;
     if (!roomChanged) return;
@@ -303,7 +365,7 @@ export function SupportChatSystem({ userId, isMaster = false, initialRoomId = ""
     const roomIds = roomsData.map((room) => room.id);
     const missingUnreadRoomIds = roomIds.filter((roomId) => !existingUnreadMap.has(roomId));
 
-    const [{ data: profiles }, { data: unreadMessages }] = await Promise.all([
+    const [{ data: profiles }, { data: unreadMessages }, nextMemoMap] = await Promise.all([
       profileIds.length
         ? supabase.from("profiles").select("id, full_name, email, last_seen_at, role").in("id", profileIds)
         : Promise.resolve({ data: [] }),
@@ -315,8 +377,10 @@ export function SupportChatSystem({ userId, isMaster = false, initialRoomId = ""
             .neq("sender_id", userId)
             .eq("is_read", false)
         : Promise.resolve({ data: [] }),
+      loadRoomMemoMap(roomIds),
     ]);
     const presenceMap = await loadPresenceMap(profileIds);
+    setMemoMap(nextMemoMap);
 
     const profileMap = new Map((((profiles as ProfileRow[] | null) || []) as ProfileRow[]).map((profile) => [profile.id, profile]));
     const unreadMap = new Map<string, number>();
@@ -398,7 +462,7 @@ export function SupportChatSystem({ userId, isMaster = false, initialRoomId = ""
         void refreshRooms();
       }
     }
-  }, [initialRoomId, isMaster, loadPresenceMap, userId]);
+  }, [initialRoomId, isMaster, loadPresenceMap, loadRoomMemoMap, userId]);
 
   const refreshMessages = useCallback(
     async (roomId: string) => {
@@ -814,6 +878,8 @@ export function SupportChatSystem({ userId, isMaster = false, initialRoomId = ""
         roomFilter={roomFilter}
         searchQuery={searchQuery}
         selectedRoomId={selectedRoomId}
+        memoMap={memoMap}
+        onMemoOpen={setSelectedRoomId}
         onFilterChange={setRoomFilter}
         onSearchChange={setSearchQuery}
         onRoomSelect={setSelectedRoomId}
@@ -866,6 +932,13 @@ export function SupportChatSystem({ userId, isMaster = false, initialRoomId = ""
             onCreateNewRequest={openNewRequestForm}
           />
         }
+      />
+
+      <ChatRoomMemoPanel
+        room={selectedRoom}
+        memoItem={selectedRoom ? memoMap[selectedRoom.id] || null : null}
+        onSave={saveRoomMemo}
+        onDelete={deleteRoomMemo}
       />
     </div>
   );

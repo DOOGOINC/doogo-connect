@@ -1,6 +1,7 @@
 "use client";
 
 import { use, useEffect, useState } from "react";
+import { useSearchParams } from "next/navigation";
 import { PortalPageHeader } from "@/components/header/PortalPageHeader";
 import { ManufacturerAdmin } from "./_components/ManufacturerAdmin";
 import { MasterBlockedMembers } from "./_components/MasterBlockedMembers";
@@ -41,6 +42,7 @@ const TAB_LABELS: Record<string, string> = {
   "transaction-management": "거래 관리",
   "partner-management": "파트너 관리",
   "partner-settlement": "파트너 정산 관리",
+  statistics: "통계",
   settings: "설정",
   support: "고객센터",
 };
@@ -48,6 +50,7 @@ const TAB_LABELS: Record<string, string> = {
 type MasterPageSearchParams = Promise<Record<string, string | string[] | undefined>>;
 
 export default function MasterDashboardPage({ searchParams }: { searchParams: MasterPageSearchParams }) {
+  const clientSearchParams = useSearchParams();
   const resolvedSearchParams = use(searchParams);
   const requestedTab = resolvedSearchParams?.tab;
   const initialTab =
@@ -71,6 +74,16 @@ export default function MasterDashboardPage({ searchParams }: { searchParams: Ma
 
     window.history.replaceState({}, "", `${url.pathname}${url.search}${url.hash}`);
   }, [activeTab]);
+
+  useEffect(() => {
+    const requestedTab = clientSearchParams.get("tab");
+    const nextTab = requestedTab && requestedTab in TAB_LABELS ? requestedTab : "dashboard";
+    const syncTimer = window.setTimeout(() => {
+      setActiveTab((prev) => (prev === nextTab ? prev : nextTab));
+    }, 0);
+
+    return () => window.clearTimeout(syncTimer);
+  }, [clientSearchParams]);
 
   const openSupportRoom = (roomId: string) => {
     setSupportInitialRoomId(roomId);
@@ -136,5 +149,3 @@ export default function MasterDashboardPage({ searchParams }: { searchParams: Ma
     </div>
   );
 }
-
-
