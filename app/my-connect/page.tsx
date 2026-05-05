@@ -2,7 +2,7 @@
 
 export const dynamic = "force-dynamic";
 
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { Suspense, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useSearchParams } from "next/navigation";
 import { PortalPageHeader } from "@/components/header/PortalPageHeader";
 import { fetchCatalogSignedUrls, resolveCatalogImageUrl } from "@/lib/catalogImageUrls";
@@ -185,7 +185,7 @@ function tabNeedsRfqRequests(viewMode: ConnectViewMode, tab: string) {
   return ["dashboard", "project", "delivery", "payment", "refund-disputes"].includes(tab);
 }
 
-export default function MyConnectPage() {
+function MyConnectPageContent() {
   const searchParams = useSearchParams();
   const [userId, setUserId] = useState<string>("");
   const [displayName, setDisplayName] = useState("고객");
@@ -882,5 +882,19 @@ export default function MyConnectPage() {
       </main>
       {viewMode === "client" && userRole === "member" ? <ClientDailyPopup /> : null}
     </div>
+  );
+}
+
+export default function MyConnectPage() {
+  return (
+    <Suspense
+      fallback={
+        <div className="fixed inset-0 z-[70] flex items-center justify-center bg-white">
+          <div className="h-8 w-8 animate-spin rounded-full border-4 border-[#0064FF] border-t-transparent"></div>
+        </div>
+      }
+    >
+      <MyConnectPageContent />
+    </Suspense>
   );
 }
