@@ -6,11 +6,8 @@ import {
   Bell,
   CheckCircle2,
   Clock3,
-  Megaphone,
   MessageCircleMore,
   Plus,
-  Search,
-  Store,
   Building2,
   MessageCircle,
   X
@@ -169,20 +166,17 @@ export function ClientDashboard({ displayName, refreshKey = 0, requests, onReque
   const [notices, setNotices] = useState<NoticeItem[]>([]);
   const [selectedNotice, setSelectedNotice] = useState<NoticeItem | null>(null);
   const [manufacturerLogos, setManufacturerLogos] = useState<Record<number, string>>({});
+  const [unreadMessagesCount, setUnreadMessagesCount] = useState(0);
+  const [unreadNotificationsCount, setUnreadNotificationsCount] = useState(0);
   const activeOrders = requests.filter((request) => (ORDER_STATUSES as readonly string[]).includes(request.status));
   const totalOrders = requests.length;
   const pendingInquiries = requests.filter((request) => (INQUIRY_STATUSES as readonly string[]).includes(request.status));
-  const alertsCount = Math.min(2, Math.max(0, requests.length));
   const visibleOrders = [...activeOrders, ...pendingInquiries.filter((request) => !activeOrders.some((item) => item.id === request.id))]
     .filter((request) => request.status !== "rejected" && request.status !== "request_cancelled")
     .sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime())
     .slice(0, 3);
   const visibleManufacturerIds = Array.from(new Set(visibleOrders.map((request) => request.manufacturer_id).filter(Boolean)));
   const visibleManufacturerKey = visibleManufacturerIds.join(",");
-  const handleLogout = async () => {
-    await supabase.auth.signOut();
-    window.location.href = "/";
-  };
 
   const fetchNotices = useCallback(async () => {
     try {
@@ -203,6 +197,73 @@ export function ClientDashboard({ displayName, refreshKey = 0, requests, onReque
   useEffect(() => {
     void fetchNotices();
   }, [fetchNotices, refreshKey]);
+
+  useEffect(() => {
+    let active = true;
+
+    const fetchUnreadCounts = async () => {
+      try {
+        const [{ data: userData }, notificationResponse] = await Promise.all([
+          supabase.auth.getUser(),
+          authFetch("/api/notifications?mode=summary"),
+        ]);
+
+        const userId = userData.user?.id;
+        if (!userId) {
+          if (active) {
+            setUnreadMessagesCount(0);
+            setUnreadNotificationsCount(0);
+          }
+          return;
+        }
+
+        const notificationPayload = (await notificationResponse.json()) as { error?: string; unreadCount?: number };
+        if (!notificationResponse.ok) {
+          throw new Error(notificationPayload.error || "failed_to_load_notification_summary");
+        }
+
+        const { data: roomRows, error: roomError } = await supabase.from("chat_rooms").select("id").eq("client_id", userId);
+        if (roomError) {
+          throw roomError;
+        }
+
+        const roomIds = ((roomRows as Array<{ id: string }> | null) || []).map((room) => room.id).filter(Boolean);
+        let nextUnreadMessagesCount = 0;
+
+        if (roomIds.length > 0) {
+          const { count, error: unreadMessagesError } = await supabase
+            .from("chat_messages")
+            .select("id", { count: "exact", head: true })
+            .in("room_id", roomIds)
+            .neq("sender_id", userId)
+            .eq("is_read", false);
+
+          if (unreadMessagesError) {
+            throw unreadMessagesError;
+          }
+
+          nextUnreadMessagesCount = Number(count || 0);
+        }
+
+        if (!active) return;
+
+        setUnreadMessagesCount(nextUnreadMessagesCount);
+        setUnreadNotificationsCount(Number(notificationPayload.unreadCount || 0));
+      } catch (error) {
+        console.error("Failed to fetch client dashboard unread counts:", error);
+        if (active) {
+          setUnreadMessagesCount(0);
+          setUnreadNotificationsCount(0);
+        }
+      }
+    };
+
+    void fetchUnreadCounts();
+
+    return () => {
+      active = false;
+    };
+  }, [refreshKey]);
 
   useEffect(() => {
     const fetchManufacturerLogos = async () => {
@@ -254,8 +315,8 @@ export function ClientDashboard({ displayName, refreshKey = 0, requests, onReque
             {[
               { label: "진행중 주문", value: activeOrders.length, icon: Clock3, iconWrap: "bg-[#eef4ff]", iconColor: "text-[#2f6bff]" },
               { label: "총 주문 횟수", value: totalOrders, icon: CheckCircle2, iconWrap: "bg-[#e9fbef]", iconColor: "text-[#22c55e]" },
-              { label: "미답변 문의", value: pendingInquiries.length, icon: MessageCircleMore, iconWrap: "bg-[#f4e8ff]", iconColor: "text-[#c084fc]" },
-              { label: "알림", value: alertsCount, icon: Bell, iconWrap: "bg-[#fff4df]", iconColor: "text-[#f59e0b]" },
+              { label: "미확인 메세지", value: unreadMessagesCount, icon: MessageCircleMore, iconWrap: "bg-[#f4e8ff]", iconColor: "text-[#c084fc]" },
+              { label: "알림", value: unreadNotificationsCount, icon: Bell, iconWrap: "bg-[#fff4df]", iconColor: "text-[#f59e0b]" },
             ].map((card) => (
               <article key={card.label} className="rounded-[14px] border border-[#edf1f6] bg-white p-3.5 shadow-sm">
                 <div className={`flex h-10 w-10 items-center justify-center rounded-2xl ${card.iconWrap}`}>
