@@ -96,6 +96,12 @@ export async function POST(request: Request) {
     return ok({ success: true, completed: true });
   } catch (error) {
     if (error instanceof WebhookVerificationError) {
+      console.error("PortOne webhook verification failed:", {
+        reason: error.reason,
+        hasWebhookId: Boolean(request.headers.get("webhook-id")),
+        hasWebhookSignature: Boolean(request.headers.get("webhook-signature")),
+        hasWebhookTimestamp: Boolean(request.headers.get("webhook-timestamp")),
+      });
       return new Response("Invalid webhook signature.", { status: 400 });
     }
     return mapRouteError(error);
