@@ -65,7 +65,7 @@ export function Section04() {
 
               <div className="mt-8">
                 <Link
-                  href="https://utransfer.com"
+                  href="https://biz.utransfer.com/signup?code=doogo"
                   target="_blank"
                   className="inline-flex h-[50px] w-full min-w-[220px] items-center justify-center gap-2 rounded-xl bg-[#0064FF] text-[15px] font-bold text-white transition-all hover:bg-[#0052cc] active:scale-[0.98] shadow-sm"
                 >

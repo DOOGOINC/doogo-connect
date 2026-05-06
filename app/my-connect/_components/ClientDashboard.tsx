@@ -407,7 +407,6 @@ export function ClientDashboard({ displayName, refreshKey = 0, requests, onReque
               <button
                 type="button"
                 onClick={() => {
-                  onTabChange("project");
                   router.push("/estimate");
                 }}
                 className="inline-flex items-center rounded-[10px] bg-[#2f6bff] px-4 py-2 text-[14px] font-bold text-white transition hover:bg-[#1f5af0]"
@@ -498,8 +497,11 @@ export function ClientDashboard({ displayName, refreshKey = 0, requests, onReque
                 key={shortcut.id}
                 type="button"
                 onClick={() => {
+                  if (shortcut.path) {
+                    router.push(shortcut.path);
+                    return;
+                  }
                   if (onTabChange) onTabChange(shortcut.id);
-                  if (shortcut.path) router.push(shortcut.path);
                 }}
                 className="flex min-h-[110px] flex-col items-center justify-center rounded-[14px] border border-[#edf1f6] bg-white text-center shadow-sm transition hover:-translate-y-0.5 hover:bg-[#fbfdff]"
               >

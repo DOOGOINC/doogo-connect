@@ -100,23 +100,24 @@ export default function SupportPage() {
           </p>
 
           <div className="mt-10 grid grid-cols-1 gap-4 sm:grid-cols-2 md:grid-cols-3">
-            <div className="flex flex-col items-center rounded-2xl border border-white/5 bg-white/10 p-6 backdrop-blur-md transition-transform hover:scale-[1.02]">
-              <Phone className="h-6 w-6 text-yellow-400" />
-              <span className="mt-3 text-sm font-medium text-white/70">전화 문의</span>
-              <span className="mt-1 text-lg font-bold text-white">+1 (800) DUGO-OEM</span>
-              <span className="mt-1 text-xs text-white/50">평일 09:00~18:00</span>
-            </div>
+
             <div className="flex flex-col items-center rounded-2xl border border-white/20 bg-white/10 p-6 backdrop-blur-md transition-transform hover:scale-[1.02]">
               <Mail className="h-6 w-6 text-blue-300" />
               <span className="mt-3 text-sm font-medium text-white/70">이메일 문의</span>
-              <span className="mt-1 break-all text-lg font-bold text-white">hello@dugo-connect.com</span>
+              <span className="mt-1 break-all text-lg font-bold text-white">doogobiz@gmail.com</span>
               <span className="mt-1 text-xs text-white/50">24시간 접수 가능</span>
             </div>
             <div className="flex flex-col items-center rounded-2xl border border-white/5 bg-white/10 p-6 backdrop-blur-md transition-transform hover:scale-[1.02] sm:col-span-2 md:col-span-1">
               <MessageCircle className="h-6 w-6 text-green-400" />
-              <span className="mt-3 text-sm font-medium text-white/70">채팅 상담</span>
-              <span className="mt-1 text-lg font-bold text-white">마이 커넥트 고객센터</span>
-              <span className="mt-1 text-xs text-white/50">승인 후 1:1 상담 진행</span>
+              <span className="mt-3 text-sm font-medium text-white/70">1:1 대화</span>
+              <span className="mt-1 text-lg font-bold text-white">의뢰자 ↔ 제조사</span>
+              <span className="mt-1 text-xs text-white/50">마이커넥트에서 바로 연결</span>
+            </div>
+            <div className="flex flex-col items-center rounded-2xl border border-white/5 bg-white/10 p-6 backdrop-blur-md transition-transform hover:scale-[1.02]">
+              <span className="text-[24px]">🌏</span>
+              <span className="mt-3 text-sm font-medium text-white/70">글로벌 확장 중</span>
+              <span className="mt-1 text-lg font-bold text-white">오세아니아 → 전 세계</span>
+              <span className="mt-1 text-xs text-white/50">점점 넓어지는 제조 네트워크</span>
             </div>
           </div>
         </div>
@@ -127,8 +128,7 @@ export default function SupportPage() {
           <div className="flex flex-col gap-4 md:w-1/3">
             {[
               { icon: MessageCircle, color: "text-blue-500", bg: "bg-blue-50", title: "채팅 상담", text1: "평일 09:00 - 18:00", text2: "빠른 답변 보장", link: "채팅 시작하기" },
-              { icon: Mail, color: "text-green-500", bg: "bg-green-50", title: "이메일 문의", text1: "hello@dugo-connect.com", text2: "일반 문의 접수 가능" },
-              { icon: Phone, color: "text-purple-500", bg: "bg-purple-50", title: "전화 상담", text1: "02-1234-5878", text2: "평일 09:00 - 18:00" },
+              { icon: Mail, color: "text-green-500", bg: "bg-green-50", title: "이메일 문의", text1: "doogobiz@gmail.com", text2: "일반 문의 접수 가능" },
               { icon: Clock, color: "text-orange-500", bg: "bg-orange-50", title: "운영 시간", text1: "평일 09:00 - 18:00", text2: "주말, 공휴일 제외" },
             ].map((item) => (
               <div key={item.title} className="flex items-center gap-4 rounded-3xl border border-slate-100 bg-white p-5 shadow-sm transition-all hover:shadow-md">
