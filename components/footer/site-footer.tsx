@@ -5,7 +5,7 @@ import Image from "next/image";
 import { usePathname } from "next/navigation";
 
 const companyLinks = [
-  { label: "회사소개", href: "/about" },
+  { label: "회사소개", href: "/" },
   { label: "개인정보처리방침", href: "/policy/privacy" },
   { label: "이용약관", href: "/policy/terms" },
 ];
