@@ -8,14 +8,15 @@ import { SessionTimeout } from "@/components/SessionTimeout";
 import "./globals.css";
 
 export const metadata: Metadata = {
-  metadataBase: new URL("https://doogoconnect.com"),
+  metadataBase: new URL("https://www.doogoconnect.com"),
 
   title: {
     default: "두고커넥트 | 건강식품 OEM 실시간 견적 조회",
     template: "%s | DOOGO CONNECT",
   },
 
-  description: "국내 및 해외 제조사 견적 실시간 비교 소량 생산부터 대량 OEM까지 간편하게 연결",
+  description:
+    "국내 및 해외 제조사 견적 실시간 비교 소량 생산부터 대량 OEM까지 간편하게 연결",
 
   keywords: [
     "제조 플랫폼",
@@ -28,13 +29,17 @@ export const metadata: Metadata = {
     "DOGO CONNECT",
   ],
 
+  alternates: {
+    canonical: "https://www.doogoconnect.com",
+  },
+
   openGraph: {
     title: "두고커넥트 | 건강식품 OEM 실시간 견적 조회",
 
     description:
       "국내 및 해외 제조사 견적 실시간 비교 소량 생산부터 대량 OEM까지 간편하게 연결",
 
-    url: "https://doogoconnect.com",
+    url: "https://www.doogoconnect.com",
 
     siteName: "DOOGO CONNECT",
 
