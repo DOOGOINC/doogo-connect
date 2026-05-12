@@ -154,6 +154,8 @@ export function FloatingAiChatbot() {
   const [isSending, setIsSending] = useState(false);
   const [usageWarning, setUsageWarning] = useState("");
   const [loading, setLoading] = useState(true);
+  const [mobileViewportHeight, setMobileViewportHeight] = useState<number | null>(null);
+  const [isMobileViewport, setIsMobileViewport] = useState(false);
   const [, setRelativeTimeTick] = useState(0);
   const endRef = useRef<HTMLDivElement>(null);
   const effectiveMaxContextMessages = Math.min(
@@ -219,6 +221,28 @@ export function FloatingAiChatbot() {
 
     return () => {
       window.clearInterval(intervalId);
+    };
+  }, []);
+
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+
+    const syncViewportHeight = () => {
+      const nextHeight = window.visualViewport?.height || window.innerHeight;
+      const nextWidth = window.visualViewport?.width || window.innerWidth;
+      setMobileViewportHeight(nextHeight);
+      setIsMobileViewport(nextWidth < 768);
+    };
+
+    syncViewportHeight();
+    window.visualViewport?.addEventListener("resize", syncViewportHeight);
+    window.visualViewport?.addEventListener("scroll", syncViewportHeight);
+    window.addEventListener("resize", syncViewportHeight);
+
+    return () => {
+      window.visualViewport?.removeEventListener("resize", syncViewportHeight);
+      window.visualViewport?.removeEventListener("scroll", syncViewportHeight);
+      window.removeEventListener("resize", syncViewportHeight);
     };
   }, []);
 
@@ -341,7 +365,10 @@ export function FloatingAiChatbot() {
       {isOpen ? (
         <div
           className="pointer-events-auto fixed inset-0 w-screen origin-bottom-right overflow-hidden bg-white md:static md:mb-4 md:w-[min(420px,calc(100vw-1.5rem))] md:rounded-[28px] md:border md:border-[#e7eaf0] md:bg-white md:shadow-[0_12px_40px_rgba(15,23,42,0.08)]"
-          style={{ animation: "chatbot-expand 240ms cubic-bezier(0.22, 1, 0.36, 1) both" }}
+          style={{
+            animation: "chatbot-expand 240ms cubic-bezier(0.22, 1, 0.36, 1) both",
+            height: isMobileViewport && mobileViewportHeight ? `${mobileViewportHeight}px` : undefined,
+          }}
         >
           <div className="border-b border-[#eef1f5] bg-white px-5 py-4">
             <div className="flex items-start justify-between gap-3">
@@ -367,8 +394,8 @@ export function FloatingAiChatbot() {
             </div>
           </div>
 
-          <div className="flex h-[100dvh] flex-col bg-[#ffffff] md:h-[600px]">
-            <div className="flex-1 overflow-y-auto px-5 py-6">
+          <div className="flex h-full min-h-0 flex-col bg-[#ffffff] md:h-[600px]">
+            <div className="min-h-0 flex-1 overflow-y-auto px-5 py-6">
               {!messages.length ? (
                 <div className="max-w-[88%] whitespace-pre-wrap break-words rounded-[24px] rounded-tl-[10px] bg-[#f5f5f5] px-5 py-4 text-[14px] leading-7 text-[#1f2937] ">
                   {settings.welcomeMessage}
@@ -410,7 +437,7 @@ export function FloatingAiChatbot() {
               </div>
             </div>
 
-            <div className="border-t border-[#eef1f5] bg-white px-4 py-4">
+            <div className="shrink-0 border-t border-[#eef1f5] bg-white px-4 pt-4 pb-[max(env(safe-area-inset-bottom),100px)] md:py-4">
               {usageWarning ? <p className="mb-3 px-2 text-[12px] leading-5 text-[#b45309]">{usageWarning}</p> : null}
               <div className="relative rounded-[14px] border border-[#e5e7eb] bg-white px-4 pb-3 pt-3  transition focus-within:border-black focus-within:ring-1 focus-within:ring-black">
                 <textarea
