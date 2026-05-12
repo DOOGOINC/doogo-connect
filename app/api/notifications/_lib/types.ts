@@ -57,6 +57,8 @@ export type ProfileRow = {
   id: string;
   full_name: string | null;
   email: string | null;
+  business_company_name?: string | null;
+  business_owner_name?: string | null;
 };
 
 export type ReferralMemberRow = {

@@ -317,7 +317,19 @@ export function OrdersManagement({ requests, onStatusChange, onAdminMemoChange }
             { label: "환불", count: requests.filter((i) => i.status === "refunded").length, color: "text-[#e11d48]" },
           ].map((stat, idx) => (
             <div key={idx} className="rounded-[10px] border border-[#f2f4f6] bg-white px-6 py-4 shadow-sm">
-              <p className="text-[12px] font-bold text-[#8b95a1]">{stat.label}</p>
+              <div className="flex items-center gap-2">
+                <p className="text-[12px] font-bold text-[#8b95a1]">{stat.label}</p>
+                {idx === 2 || idx === 3 ? (
+                  <div className="group relative">
+                    <span className="flex h-4 w-4 items-center justify-center rounded-full border border-[#d1d6db] text-[10px] font-bold text-[#8b95a1]">
+                      ?
+                    </span>
+                    <div className="pointer-events-none absolute left-1/2 top-full z-10 mt-2 -translate-x-1/2 whitespace-nowrap rounded-[8px] bg-[#191f28] px-2.5 py-1.5 text-[11px] font-medium text-white opacity-0 shadow-lg transition-opacity group-hover:opacity-100">
+                      {idx === 2 ? "디자인 작업중" : "디자인 작업 완료"}
+                    </div>
+                  </div>
+                ) : null}
+              </div>
               <p className={`mt-2 text-[26px] font-bold ${stat.color}`}>{stat.count.toLocaleString()}</p>
             </div>
           ))}

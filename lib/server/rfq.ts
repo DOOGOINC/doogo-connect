@@ -14,6 +14,7 @@ import { createServiceRoleClient, getProfileRole, requireServerUser, userOwnsMan
 type SubmitRfqInput = {
   manufacturerId: number;
   productId: string;
+  secretToken?: string | null;
   containerId?: string | null;
   designOptionId?: string | null;
   designPackageId?: string | null;
@@ -142,7 +143,7 @@ export async function createRfqRequest(input: SubmitRfqInput, request?: Request)
     supabase.from("manufacturers").select("id, name, catalog_currency").eq("id", manufacturerId).maybeSingle(),
     supabase
       .from("manufacturer_products")
-      .select("id, name, base_price, payment_currency, container_ids, design_service_ids, design_package_ids, design_extra_ids, manufacturer_id, discount_config, is_active")
+      .select("id, name, base_price, payment_currency, container_ids, design_service_ids, design_package_ids, design_extra_ids, manufacturer_id, discount_config, is_active, is_secret, secret_access_token")
       .eq("id", input.productId)
       .eq("manufacturer_id", manufacturerId)
       .eq("is_active", true)
@@ -200,6 +201,10 @@ export async function createRfqRequest(input: SubmitRfqInput, request?: Request)
   }
 
   const product = productResult.data;
+  const secretToken = input.secretToken?.trim() || "";
+  if ((product as { is_secret?: boolean | null }).is_secret && secretToken !== ((product as { secret_access_token?: string | null }).secret_access_token || "")) {
+    throw new Error("비밀상품 접근 링크가 유효하지 않습니다.");
+  }
   const container = containerResult.data;
   const pointReason = `${manufacturerResult.data.name}:${product.name}`;
   const pointClient = createServiceRoleClient();

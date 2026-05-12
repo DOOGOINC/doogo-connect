@@ -137,13 +137,15 @@ export default function MasterDashboardPage({ searchParams }: { searchParams: Ma
     }
   };
 
+  const isFixedHeightTab = activeTab === "support";
+
   return (
-    <div className="flex min-h-screen flex-col bg-white">
-      <main className="flex min-h-screen flex-1 overflow-hidden">
+    <div className={`flex flex-col bg-white ${isFixedHeightTab ? "h-[100dvh] overflow-hidden" : "min-h-screen"}`}>
+      <main className={`flex flex-1 ${isFixedHeightTab ? "min-h-0 overflow-hidden" : "min-h-screen overflow-hidden"}`}>
         <MasterSidebar activeTab={activeTab} onTabChange={setActiveTab} />
-        <div className="flex min-w-0 flex-1 flex-col overflow-hidden bg-white">
+        <div className={`flex min-w-0 flex-1 flex-col bg-white ${isFixedHeightTab ? "overflow-hidden" : ""}`}>
           <PortalPageHeader portalLabel="마스터 대시보드" sectionLabel={TAB_LABELS[activeTab] || "대시보드"} displayName="DOGO CONNECT" />
-          <div className="min-h-0 flex-1 overflow-hidden bg-[#F8F9FA]">{renderContent()}</div>
+          <div className={`flex-1 bg-[#F8F9FA]${isFixedHeightTab ? " min-h-0 overflow-hidden" : ""}`}>{renderContent()}</div>
         </div>
       </main>
     </div>

@@ -1,3 +1,4 @@
+import { useEffect, useState } from "react";
 import { Check, RotateCcw, CheckCircle2 } from "lucide-react";
 import { formatCurrency, type CurrencyCode } from "@/lib/currency";
 import {
@@ -29,6 +30,7 @@ export function Step4Design({
   onReset: () => void;
   selectedProduct: Product | null;
 }) {
+  const [designRequirement, setDesignRequirement] = useState<"has-design" | "needs-design" | null>(null);
   const currencyCode: CurrencyCode = selectedProduct?.paymentCurrency || "USD";
   const selectedOption =
     designOptions.find((option) => option.id === selection.design) || getDefaultDesignOption(designOptions);
@@ -68,6 +70,37 @@ export function Step4Design({
   const optionTotal =
     !selectedServiceItems.length && !selectedPackageItem && !selectedExtraItems.length ? selectedOption?.price || 0 : 0;
   const designTotal = optionTotal + servicesTotal + packageTotal + extrasTotal;
+  const hasAnyDesignSelection =
+    selectedServiceItems.length > 0 || selectedPackageItem !== null || selectedExtraItems.length > 0;
+
+  useEffect(() => {
+    const handleNextButtonClick = (event: MouseEvent) => {
+      const target = event.target;
+      if (!(target instanceof Element)) return;
+
+      const button = target.closest("button");
+      if (!(button instanceof HTMLButtonElement)) return;
+      if (!button.textContent?.includes("다음 단계")) return;
+
+      if (designRequirement === "has-design") return;
+      if (designRequirement === "needs-design" && hasAnyDesignSelection) return;
+
+      event.preventDefault();
+      event.stopPropagation();
+
+      if (designRequirement === "needs-design") {
+        window.alert("디자인이 없는 경우 디자인 서비스를 선택하셔야 합니다.");
+        return;
+      }
+
+      window.alert("디자인 유무를 먼저 선택해 주세요.");
+    };
+
+    document.addEventListener("click", handleNextButtonClick, true);
+    return () => {
+      document.removeEventListener("click", handleNextButtonClick, true);
+    };
+  }, [designRequirement, hasAnyDesignSelection]);
 
   const receiptItems = [
     ...(!selectedServiceItems.length && !selectedPackageItem && !selectedExtraItems.length && selectedOption
@@ -124,6 +157,32 @@ export function Step4Design({
       </div>
 
       <div className="space-y-8">
+        <section className="space-y-3">
+          <div className="flex flex-wrap gap-3">
+            <button
+              type="button"
+              onClick={() => setDesignRequirement("has-design")}
+              className={`rounded-[10px] border px-4 py-3 text-[14px] font-bold transition-all ${
+                designRequirement === "has-design"
+                  ? "border-[#3182f6] bg-[#f2f8ff] text-[#1b64da]"
+                  : "border-[#e5e8eb] bg-white text-[#4e5968] hover:border-[#3182f6]"
+              }`}
+            >
+              디자인 있음
+            </button>
+            <button
+              type="button"
+              onClick={() => setDesignRequirement("needs-design")}
+              className={`rounded-[10px] border px-4 py-3 text-[14px] font-bold transition-all ${
+                designRequirement === "needs-design"
+                  ? "border-[#3182f6] bg-[#f2f8ff] text-[#1b64da]"
+                  : "border-[#e5e8eb] bg-white text-[#4e5968] hover:border-[#3182f6]"
+              }`}
+            >
+              디자인 없음
+            </button>
+          </div>
+        </section>
         {/* 디자인 서비스 & 패키지 */}
         <section className="space-y-4">
           <div className="flex items-center justify-between">

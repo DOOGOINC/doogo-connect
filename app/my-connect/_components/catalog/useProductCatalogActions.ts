@@ -387,6 +387,34 @@ export function useProductCatalogActions({
     setToastMessage(nextActive ? "상품이 활성화되었습니다." : "상품이 비활성화되었습니다.");
   };
 
+  const handleToggleSecret = async (item: ProductRow) => {
+    const nextSecret = !item.is_secret;
+    const nextToken = nextSecret ? item.secret_access_token || crypto.randomUUID().replace(/-/g, "") : null;
+    const { error } = await supabase
+      .from("manufacturer_products")
+      .update({ is_secret: nextSecret, secret_access_token: nextToken })
+      .eq("id", item.id);
+    if (error) {
+      alert(`비밀상품 설정 실패: ${error.message}`);
+      return;
+    }
+    await loadItems();
+    setToastMessage(nextSecret ? "비밀상품으로 전환되었습니다." : "비밀상품이 해제되었습니다.");
+  };
+
+  const handleCopySecretLink = async (item: ProductRow) => {
+    if (!item.secret_access_token) {
+      alert("비밀상품 링크가 아직 생성되지 않았습니다.");
+      return;
+    }
+    try {
+      await navigator.clipboard.writeText(`${window.location.origin}/estimate?secret=${encodeURIComponent(item.secret_access_token)}`);
+      setToastMessage("비밀상품 링크를 복사했습니다.");
+    } catch {
+      alert("링크 복사에 실패했습니다.");
+    }
+  };
+
   return {
     isEdit,
     open,
@@ -400,5 +428,7 @@ export function useProductCatalogActions({
     handleSave,
     handleDelete,
     handleToggleActive,
+    handleToggleSecret,
+    handleCopySecretLink,
   };
 }

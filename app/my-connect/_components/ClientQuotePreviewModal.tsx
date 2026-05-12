@@ -4,6 +4,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { Printer, X } from "lucide-react";
 import { PrintableEstimate } from "@/app/estimate/_components/PrintableEstimate";
 import { getPricingBySelection, type ContainerOption, type Product } from "@/app/estimate/_data/catalog";
+import { authFetch } from "@/lib/client/auth-fetch";
 import { type CurrencyCode } from "@/lib/currency";
 import { type RfqRequestRow } from "@/lib/rfq";
 import { supabase } from "@/lib/supabase";
@@ -38,10 +39,11 @@ type SelectionSnapshot = {
 
 export function ClientQuotePreviewModal({ request, open, onClose }: ClientQuotePreviewModalProps) {
   const printableRef = useRef<HTMLDivElement>(null);
-  const [supplierMeta, setSupplierMeta] = useState<{ logo: string | null; address: string | null; location: string | null }>({
+  const [supplierMeta, setSupplierMeta] = useState<{ logo: string | null; address: string | null; location: string | null; email: string | null }>({
     logo: null,
     address: null,
     location: null,
+    email: null,
   });
   const [displayRows, setDisplayRows] = useState<PrintableRow[]>([]);
 
@@ -67,17 +69,23 @@ export function ClientQuotePreviewModal({ request, open, onClose }: ClientQuoteP
     let ignore = false;
 
     const loadSupplierMeta = async () => {
-      const { data } = await supabase
+      const [{ data }, emailResponse] = await Promise.all([
+        supabase
         .from("manufacturers")
         .select("logo, address, location")
         .eq("id", request.manufacturer_id)
-        .maybeSingle();
+          .maybeSingle(),
+        authFetch(`/api/manufacturers/${request.manufacturer_id}/contact-email`),
+      ]);
+
+      const emailPayload = emailResponse.ok ? ((await emailResponse.json()) as { email?: string | null }) : null;
 
       if (!ignore) {
         setSupplierMeta({
           logo: data?.logo || null,
           address: (data as { address?: string | null } | null)?.address || null,
           location: data?.location || null,
+          email: emailPayload?.email?.trim() || null,
         });
       }
     };
@@ -91,7 +99,6 @@ export function ClientQuotePreviewModal({ request, open, onClose }: ClientQuoteP
 
   useEffect(() => {
     if (!request) {
-      setDisplayRows([]);
       return;
     }
 
@@ -389,6 +396,7 @@ export function ClientQuotePreviewModal({ request, open, onClose }: ClientQuoteP
               currencyCode={(request.currency_code || "USD") as CurrencyCode}
               displayRows={displayRows}
               supplierName={request.manufacturer_name}
+              supplierEmail={supplierMeta.email}
               supplierLogo={supplierMeta.logo}
               supplierAddress={supplierMeta.address || supplierMeta.location}
               recipientBrandName={request.brand_name}
@@ -397,7 +405,7 @@ export function ClientQuotePreviewModal({ request, open, onClose }: ClientQuoteP
           </div>
 
           <div className="border-t border-gray-100 bg-[#f9fafb] px-6 py-4 text-center print:hidden">
-            <p className="text-[12px] font-medium text-gray-500">Only the estimate document is included when printing or saving as PDF.</p>
+            <p className="text-[12px] font-medium text-gray-500">인쇄하거나 PDF로 저장할 때에는 견적서 문서만 포함됩니다.</p>
           </div>
         </div>
       </div>

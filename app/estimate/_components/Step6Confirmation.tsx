@@ -2,6 +2,7 @@
 
 import { useRouter } from "next/navigation";
 import { useEffect, useMemo, useState } from "react";
+import { authFetch } from "@/lib/client/auth-fetch";
 import {
   Check,
   Download,
@@ -31,7 +32,7 @@ type ReviewEstimate = {
   };
   selectedProduct: Product | null;
   selectedContainer: ContainerOption | null;
-  selectedManufacturer: { name?: string; logo?: string; location?: string; address?: string } | null;
+  selectedManufacturer: { id?: number; name?: string; logo?: string; location?: string; address?: string } | null;
   selectedDesign: { price: number } | null;
   totalPrice: number;
 };
@@ -55,6 +56,7 @@ export function Step6Confirmation({
 }) {
   const router = useRouter();
   const [showPrintPopup, setShowPrintPopup] = useState(false);
+  const [supplierEmail, setSupplierEmail] = useState<string | null>(null);
 
   // ESC 키로 팝업 닫기 처리
   useEffect(() => {
@@ -71,6 +73,35 @@ export function Step6Confirmation({
       document.body.style.overflow = "unset";
     };
   }, [showPrintPopup]);
+
+  useEffect(() => {
+    const manufacturerId = est.selectedManufacturer?.id;
+    if (!manufacturerId) {
+      setSupplierEmail(null);
+      return;
+    }
+
+    let ignore = false;
+
+    const fetchSupplierEmail = async () => {
+      const response = await authFetch(`/api/manufacturers/${manufacturerId}/contact-email`);
+      if (!response.ok) {
+        if (!ignore) setSupplierEmail(null);
+        return;
+      }
+
+      const payload = (await response.json()) as { email?: string | null };
+      if (!ignore) {
+        setSupplierEmail(payload.email?.trim() || null);
+      }
+    };
+
+    void fetchSupplierEmail();
+
+    return () => {
+      ignore = true;
+    };
+  }, [est.selectedManufacturer?.id]);
 
   const orderDate = new Date().toLocaleDateString("ko-KR", {
     year: "numeric",
@@ -291,6 +322,7 @@ export function Step6Confirmation({
                 currencyCode={est.selectedProduct?.paymentCurrency || "USD"}
                 displayRows={displayRows}
                 supplierName={est.selectedManufacturer?.name || "제조사 미정"}
+                supplierEmail={supplierEmail}
                 supplierLogo={est.selectedManufacturer?.logo || null}
                 supplierAddress={est.selectedManufacturer?.address || est.selectedManufacturer?.location || null}
                 recipientBrandName={reviewForm.brandName}

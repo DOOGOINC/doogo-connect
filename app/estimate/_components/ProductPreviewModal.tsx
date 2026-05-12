@@ -40,13 +40,15 @@ export function ProductPreviewModal({ product, onClose }: { product: Product | n
         <div className="flex-1 overflow-y-auto px-8 pb-10 custom-scrollbar pt-2">
           {/* Main Image */}
           <div className="relative mx-auto mb-8 aspect-[4/3] w-full max-w-[400px] overflow-hidden rounded-xl bg-white">
-            <Image
-              src={product.image}
-              alt={product.name}
-              fill
-              sizes="(max-width: 768px) calc(100vw - 64px), 400px"
-              className="object-contain"
-            />
+            {product.image ? (
+              <Image
+                src={product.image}
+                alt={product.name}
+                fill
+                sizes="(max-width: 768px) calc(100vw - 64px), 400px"
+                className="object-contain"
+              />
+            ) : null}
           </div>
 
           {/* Description */}

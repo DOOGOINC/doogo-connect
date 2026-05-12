@@ -4,6 +4,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { Bell, ChevronRight } from "lucide-react";
 import { authFetch } from "@/lib/client/auth-fetch";
+import { useChatBrowserNotifications } from "@/lib/client/useChatBrowserNotifications";
 
 type PointSummaryResponse = {
   wallet?: {
@@ -84,6 +85,8 @@ export function PortalPageHeader({
     chat: [],
   });
   const notificationPanelRef = useRef<HTMLDivElement>(null);
+
+  useChatBrowserNotifications(true);
 
   useEffect(() => {
     if (!showPoints) {

@@ -49,6 +49,8 @@ type ProductRow = {
   design_service_ids: string[] | null;
   design_package_ids: string[] | null;
   design_extra_ids: string[] | null;
+  is_secret?: boolean | null;
+  secret_access_token?: string | null;
 };
 
 type ContainerRow = {
@@ -120,7 +122,7 @@ const CATALOG_IMAGE_URL_TTL_MS = 1000 * 60 * 60 * 24;
 const MANUFACTURER_SELECT_FIELDS =
   "id, name, location, address, rating, description, tags, products, image, logo, catalog_currency";
 const PRODUCT_SELECT_FIELDS =
-  "id, manufacturer_id, category, name, description, payment_currency, base_price, discount_config, image, key_features, ingredients, directions, cautions, container_ids, design_service_ids, design_package_ids, design_extra_ids";
+  "id, manufacturer_id, category, name, description, payment_currency, base_price, discount_config, image, key_features, ingredients, directions, cautions, container_ids, design_service_ids, design_package_ids, design_extra_ids, is_secret, secret_access_token";
 const CONTAINER_SELECT_FIELDS = "id, manufacturer_id, name, description, add_price, image, payment_currency";
 const DESIGN_OPTION_SELECT_FIELDS = "id, manufacturer_id, name, price, is_default";
 const DESIGN_SERVICE_SELECT_FIELDS = "id, manufacturer_id, name, description, price, payment_currency";
@@ -171,17 +173,22 @@ const mergeSignedUrlCache = (cache: Record<string, SignedUrlCacheEntry>, nextUrl
   return nextCache;
 };
 
-const getVisibleCatalogImagePaths = (snapshot: CatalogSnapshot, currentStep: number) => {
+const getVisibleCatalogImagePaths = (snapshot: CatalogSnapshot, currentStep: number, secretProductRow?: ProductRow | null) => {
+  const productRows =
+    secretProductRow && !snapshot.productRows.some((row) => row.id === secretProductRow.id)
+      ? [secretProductRow, ...snapshot.productRows]
+      : snapshot.productRows;
+
   if (currentStep < 2) {
     return [] as string[];
   }
 
   if (currentStep < 3) {
-    return collectCatalogImagePaths(snapshot.productRows.map((row) => row.image));
+    return collectCatalogImagePaths(productRows.map((row) => row.image));
   }
 
   return collectCatalogImagePaths([
-    ...snapshot.productRows.map((row) => row.image),
+    ...productRows.map((row) => row.image),
     ...snapshot.containerRows.map((row) => row.image),
   ]);
 };
@@ -263,6 +270,7 @@ export const useEstimate = () => {
   const searchParams = useSearchParams();
   const requestedManufacturerId = Number(searchParams.get("manufacturer"));
   const requestedStep = Number(searchParams.get("step"));
+  const requestedSecretToken = searchParams.get("secret")?.trim() || "";
   const initialManufacturerId =
     requestedManufacturerId && !Number.isNaN(requestedManufacturerId) ? requestedManufacturerId : null;
 
@@ -276,6 +284,8 @@ export const useEstimate = () => {
   const [designServices, setDesignServices] = useState<DesignServiceItem[]>([]);
   const [designPackages, setDesignPackages] = useState<DesignPackageItem[]>([]);
   const [designExtras, setDesignExtras] = useState<DesignExtraItem[]>([]);
+  const [secretProductRow, setSecretProductRow] = useState<ProductRow | null>(null);
+  const [secretAccessToken, setSecretAccessToken] = useState<string | null>(null);
   const catalogCacheRef = useRef(new Map<number, CatalogSnapshot>());
   const signedUrlCacheRef = useRef<Record<string, SignedUrlCacheEntry>>({});
   const [selection, setSelection] = useState({
@@ -296,6 +306,51 @@ export const useEstimate = () => {
   const selectedDesignPackageId = selection.designPackage;
   const selectedDesignExtraIds = selection.designExtras;
   const selectedQuantity = selection.quantity;
+
+  useEffect(() => {
+    let ignore = false;
+
+    const fetchSecretProduct = async () => {
+      if (!requestedSecretToken) {
+        if (!ignore) {
+          setSecretProductRow(null);
+          setSecretAccessToken(null);
+        }
+        return;
+      }
+
+      const { data } = await supabase
+        .from("manufacturer_products")
+        .select(PRODUCT_SELECT_FIELDS)
+        .eq("secret_access_token", requestedSecretToken)
+        .eq("is_secret", true)
+        .eq("is_active", true)
+        .maybeSingle();
+
+      if (ignore) return;
+
+      if (data) {
+        setSecretProductRow(data as ProductRow);
+        setSecretAccessToken(requestedSecretToken);
+        setSelection((prev) => ({
+          ...prev,
+          manufacturer: (data as ProductRow).manufacturer_id,
+          product: (data as ProductRow).id,
+          container: null,
+        }));
+        setCurrentStep((prev) => (prev < 2 ? 2 : prev));
+      } else {
+        setSecretProductRow(null);
+        setSecretAccessToken(null);
+      }
+    };
+
+    void fetchSecretProduct();
+
+    return () => {
+      ignore = true;
+    };
+  }, [requestedSecretToken]);
 
   useEffect(() => {
     const fetchManufacturers = async () => {
@@ -330,8 +385,12 @@ export const useEstimate = () => {
     let ignore = false;
 
     const applyCatalogSnapshot = (snapshot: CatalogSnapshot) => {
+      const resolvedProductRows =
+        secretProductRow && secretProductRow.manufacturer_id === manufacturerId
+          ? [secretProductRow, ...snapshot.productRows]
+          : snapshot.productRows;
       const signedUrls = buildSignedUrlMap(signedUrlCacheRef.current);
-      setProducts(snapshot.productRows.map((row) => mapProduct(row, signedUrls, snapshot.manufacturerCurrency)));
+      setProducts(resolvedProductRows.map((row) => mapProduct(row, signedUrls, snapshot.manufacturerCurrency)));
       setContainers(snapshot.containerRows.map((row) => mapContainer(row, signedUrls)));
       setDesignOptions(snapshot.designOptionRows.map(mapDesignOption));
       setDesignServices(snapshot.designServiceRows.map(mapDesignService));
@@ -346,6 +405,7 @@ export const useEstimate = () => {
           .select(PRODUCT_SELECT_FIELDS)
           .eq("manufacturer_id", nextManufacturerId)
           .eq("is_active", true)
+          .eq("is_secret", false)
           .order("name", { ascending: true }),
         supabase
           .from("manufacturer_container_options")
@@ -448,7 +508,7 @@ export const useEstimate = () => {
       setCatalogLoading(false);
 
       const missingPaths = getMissingSignedUrlPaths(
-        getVisibleCatalogImagePaths(snapshot, currentStep),
+        getVisibleCatalogImagePaths(snapshot, currentStep, secretProductRow),
         signedUrlCacheRef.current
       );
 
@@ -477,7 +537,7 @@ export const useEstimate = () => {
     return () => {
       ignore = true;
     };
-  }, [currentStep, manufacturers, selectedManufacturerId]);
+  }, [currentStep, manufacturers, secretProductRow, selectedManufacturerId]);
 
   const selectedProduct = useMemo(() => getProductById(products, selectedProductId), [products, selectedProductId]);
 
@@ -597,6 +657,7 @@ export const useEstimate = () => {
     selectedDesign,
     unitPrice,
     totalPrice,
+    secretAccessToken,
     handleNext,
     handleBack,
     resetSelection,

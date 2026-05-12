@@ -1,12 +1,20 @@
 import { fail, mapRouteError, ok } from "@/lib/server/http";
 import { createServiceRoleClient, requireServerUser } from "@/lib/server/supabase";
 
+function trimOrNull(value: unknown) {
+  if (typeof value !== "string") return null;
+  const trimmed = value.trim();
+  return trimmed || null;
+}
+
 export async function POST(request: Request) {
   try {
     const { supabase, user } = await requireServerUser(request);
     const admin = createServiceRoleClient();
     const body = (await request.json()) as { manufacturerId?: number };
     const manufacturerId = Number(body.manufacturerId);
+    const metadataFullName = trimOrNull(user.user_metadata?.full_name) ?? trimOrNull(user.user_metadata?.name);
+    const email = trimOrNull(user.email);
 
     if (!admin) {
       throw new Error("SERVER_CONFIG_MISSING");
@@ -35,6 +43,21 @@ export async function POST(request: Request) {
     }
     if (manufacturer.owner_id === user.id) {
       return fail("본인 제조사와는 채팅을 시작할 수 없습니다.", 400);
+    }
+
+    const { error: profileUpsertError } = await admin.from("profiles").upsert(
+      {
+        id: user.id,
+        full_name: metadataFullName ?? null,
+        email: email ?? null,
+        role: profile?.role ?? "member",
+        updated_at: new Date().toISOString(),
+      },
+      { onConflict: "id" }
+    );
+
+    if (profileUpsertError) {
+      throw new Error(profileUpsertError.message);
     }
 
     const { data: existingRoom, error: existingRoomError } = await supabase

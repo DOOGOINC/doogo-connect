@@ -146,6 +146,7 @@ function EstimatePageContent() {
         designPackageId: est.selection.designPackage,
         designServiceIds: est.selection.designServices,
         designExtraIds: est.selection.designExtras,
+        secretToken: est.secretAccessToken,
         quantity: est.selection.quantity,
         reviewForm,
       }),

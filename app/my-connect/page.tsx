@@ -565,7 +565,7 @@ function MyConnectPageContent() {
           {[
             { id: "new", label: "신규 요청", count: clientProjectRequests.length },
             { id: "rejected", label: "거절/환불/요청취소", count: clientRejectedRequests.length },
-            { id: "expired", label: "완료된 내역", count: clientExpiredRequests.length },
+            { id: "expired", label: "승인 완료", count: clientExpiredRequests.length },
           ].map((tab) => {
             const isActive = clientProjectView === tab.id;
             return (

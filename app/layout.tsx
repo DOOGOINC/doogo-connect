@@ -2,6 +2,7 @@ import { Suspense } from "react";
 import type { Metadata } from "next";
 import { ReferralTracker } from "@/components/ReferralTracker";
 import { ProfileCompletionGate } from "@/components/auth/ProfileCompletionGate";
+import { FloatingAiChatbot } from "@/components/chatbot/FloatingAiChatbot";
 import { SiteFooter } from "@/components/footer/site-footer";
 import { SiteHeader } from "@/components/header/site-header";
 import { SessionTimeout } from "@/components/SessionTimeout";
@@ -102,6 +103,8 @@ export default function RootLayout({
         </div>
 
         {children}
+
+        <FloatingAiChatbot />
 
         <div className="print:hidden">
           <SiteFooter />

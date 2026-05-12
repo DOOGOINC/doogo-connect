@@ -39,11 +39,25 @@ export const isRecentlyOnline = (lastSeenAt: string | null) => {
 };
 
 export const getProfileDisplayName = (
-  profile: { full_name: string | null; email: string | null } | null | undefined,
+  profile:
+    | {
+        full_name: string | null;
+        email: string | null;
+        business_company_name?: string | null;
+        business_owner_name?: string | null;
+      }
+    | null
+    | undefined,
   fallback: string
 ) => {
   const fullName = profile?.full_name?.trim();
   if (fullName) return fullName;
+
+  const businessOwnerName = profile?.business_owner_name?.trim();
+  if (businessOwnerName) return businessOwnerName;
+
+  const businessCompanyName = profile?.business_company_name?.trim();
+  if (businessCompanyName) return businessCompanyName;
 
   const email = profile?.email?.trim();
   if (email) {

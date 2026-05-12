@@ -90,6 +90,12 @@ export function getDisplayName(profile: ProfileRow | null | undefined, fallback:
   const fullName = profile?.full_name?.trim();
   if (fullName) return fullName;
 
+  const businessOwnerName = profile?.business_owner_name?.trim();
+  if (businessOwnerName) return businessOwnerName;
+
+  const businessCompanyName = profile?.business_company_name?.trim();
+  if (businessCompanyName) return businessCompanyName;
+
   const email = profile?.email?.trim();
   if (email) {
     const [localPart] = email.split("@");

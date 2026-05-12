@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import { Loader2 } from "lucide-react";
 import { authFetch } from "@/lib/client/auth-fetch";
 import { DEFAULT_REFEREE_REWARD_POINTS } from "@/lib/points/constants";
+import { MasterAiChatbotSettings } from "./MasterAiChatbotSettings";
 import { MasterLoadingState } from "./MasterLoadingState";
 
 type PlatformSettings = {
@@ -55,11 +56,12 @@ type CommissionHistory = {
   createdAt: string;
 };
 
-type SettingsTab = "platform" | "popup" | "admin" | "manager";
+type SettingsTab = "platform" | "popup" | "ai-chatbot" | "admin" | "manager";
 
 const TABS: Array<{ id: SettingsTab; label: string; icon: string }> = [
   { id: "platform", label: "플랫폼 기본 설정", icon: "🔧" },
   { id: "popup", label: "팝업 설정", icon: "💬" },
+  { id: "ai-chatbot", label: "AI 상담 봇", icon: "🤖" },
   { id: "admin", label: "관리자 계정", icon: "🔑" },
   // { id: "manager", label: "매니저 관리", icon: "👤" },
 ];
@@ -250,7 +252,7 @@ export function MasterSettingsAdmin() {
           })}
         </div>
 
-        {activeTab === "platform" ? (
+        {activeTab === "ai-chatbot" ? <MasterAiChatbotSettings /> : activeTab === "platform" ? (
           <section className="rounded-[14px] border border-[#E5E7EB] bg-white px-6 py-6 shadow-sm">
             <h2 className="mb-5 flex items-center gap-2 text-[15px] font-bold text-[#111827]">
               <span>🔧</span>

@@ -11,6 +11,8 @@ export type ProductRow = {
   name: string;
   description: string | null;
   is_active?: boolean;
+  is_secret?: boolean;
+  secret_access_token?: string | null;
   payment_currency?: CurrencyCode | null;
   base_price: number;
   cost_price?: number | null;

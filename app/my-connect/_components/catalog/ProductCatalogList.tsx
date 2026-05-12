@@ -1,5 +1,5 @@
 /* eslint-disable @next/next/no-img-element */
-import { Edit3, Image as ImageIcon, Power, Trash2, Box, PenTool, Layout, PlusCircle, type LucideIcon } from "lucide-react";
+import { Edit3, Image as ImageIcon, Power, Trash2, Box, PenTool, Layout, PlusCircle, Link2, Lock, Unlock, type LucideIcon } from "lucide-react";
 import { formatCurrency, normalizeCurrencyCode, type CurrencyCode } from "@/lib/currency";
 import { ProductForm, ProductRow } from "./productCatalogShared";
 
@@ -13,6 +13,8 @@ type ProductCatalogListProps = {
   onEdit: (form: ProductForm) => void;
   onDelete: (id: string) => void;
   onToggleActive: (item: ProductRow) => void;
+  onToggleSecret: (item: ProductRow) => void;
+  onCopySecretLink: (item: ProductRow) => void;
   mapItemToForm: (item: ProductRow) => ProductForm;
   resolveImageUrl: (pathOrUrl: string | null | undefined) => string;
   emptyLabel?: string;
@@ -55,6 +57,8 @@ export function ProductCatalogList({
   onEdit,
   onDelete,
   onToggleActive,
+  onToggleSecret,
+  onCopySecretLink,
   mapItemToForm,
   resolveImageUrl,
   emptyLabel,
@@ -77,9 +81,8 @@ export function ProductCatalogList({
       {items.map((item) => (
         <div
           key={item.id}
-          className={`group relative flex flex-col gap-6 rounded-[16px] border border-[#E5E8EB] bg-white p-5 transition-all hover:border-[#3182F6] hover:shadow-[0_8px_24px_rgba(49,130,246,0.08)] sm:flex-row ${
-            item.is_active === false ? "opacity-75" : ""
-          }`}
+          className={`group relative flex flex-col gap-6 rounded-[16px] border border-[#E5E8EB] bg-white p-5 transition-all hover:border-[#3182F6] hover:shadow-[0_8px_24px_rgba(49,130,246,0.08)] sm:flex-row ${item.is_active === false ? "opacity-75" : ""
+            }`}
         >
           <div className="relative h-40 w-full shrink-0 overflow-hidden rounded-[12px] border border-[#F2F4F6] bg-[#F9FAFB] sm:h-32 sm:w-32">
             {resolveImageUrl(item.image) ? (
@@ -89,14 +92,19 @@ export function ProductCatalogList({
                 <ImageIcon className="h-8 w-8 text-[#D1D5DB]" />
               </div>
             )}
-            <div className="absolute left-2 top-2">
+            <div className="absolute left-2 top-2 flex flex-col gap-1">
               <span
-                className={`inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[10px] font-bold shadow-sm ${
-                  item.is_active === false ? "bg-white text-[#667085]" : "bg-[#3182F6] text-white"
-                }`}
+                className={`inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[10px] font-bold shadow-sm ${item.is_active === false ? "bg-white text-[#667085]" : "bg-[#3182F6] text-white"
+                  }`}
               >
                 {item.is_active === false ? "비활성" : "활성"}
               </span>
+              {item.is_secret ? (
+                <span className="inline-flex items-center gap-1 rounded-full bg-[#111827] px-2 py-0.5 text-[10px] font-bold text-white shadow-sm">
+                  <Lock className="h-3 w-3" />
+                  비밀상품
+                </span>
+              ) : null}
             </div>
           </div>
 
@@ -130,9 +138,9 @@ export function ProductCatalogList({
                 <OptionSummary icon={PlusCircle} label="추가" ids={item.design_extra_ids} names={extraNames} />
 
                 {!item.container_ids?.length &&
-                !item.design_service_ids?.length &&
-                !item.design_package_ids?.length &&
-                !item.design_extra_ids?.length ? (
+                  !item.design_service_ids?.length &&
+                  !item.design_package_ids?.length &&
+                  !item.design_extra_ids?.length ? (
                   <span className="text-[12px] text-[#98A2B3]">연결된 옵션이 없습니다.</span>
                 ) : null}
               </div>
@@ -148,12 +156,32 @@ export function ProductCatalogList({
               <div className="flex items-center gap-2">
                 <button
                   type="button"
+                  onClick={() => onToggleSecret(item)}
+                  className={`flex h-9 items-center justify-center gap-1.5 rounded-[8px] border px-3 text-[13px] font-semibold transition ${item.is_secret
+                      ? "border-[#111827] bg-[#111827] text-white hover:bg-[#1f2937]"
+                      : "border-[#E5E8EB] bg-white text-[#4E5968] hover:bg-[#F8F9FA] hover:text-[#191F28]"
+                    }`}
+                >
+                  {item.is_secret ? <Unlock className="h-3.5 w-3.5" /> : <Lock className="h-3.5 w-3.5" />}
+                  {item.is_secret ? "해제" : "비밀상품 전환"}
+                </button>
+                {item.is_secret ? (
+                  <button
+                    type="button"
+                    onClick={() => onCopySecretLink(item)}
+                    className="flex h-9 items-center justify-center gap-1.5 rounded-[8px] border border-[#E5E8EB] bg-white px-3 text-[13px] font-semibold text-[#4E5968] transition hover:bg-[#F8F9FA] hover:text-[#191F28]"
+                  >
+                    <Link2 className="h-3.5 w-3.5" />
+                    링크 복사
+                  </button>
+                ) : null}
+                <button
+                  type="button"
                   onClick={() => onToggleActive(item)}
-                  className={`flex h-9 items-center justify-center gap-1.5 rounded-[8px] px-3 text-[13px] font-semibold transition ${
-                    item.is_active === false
+                  className={`flex h-9 items-center justify-center gap-1.5 rounded-[8px] px-3 text-[13px] font-semibold transition ${item.is_active === false
                       ? "bg-[#F2F8FF] text-[#3182F6] hover:bg-[#E1EFFF]"
                       : "bg-[#FFF0F0] text-[#F04452] hover:bg-[#FFE5E5]"
-                  }`}
+                    }`}
                 >
                   <Power className="h-3.5 w-3.5" />
                   {item.is_active === false ? "활성화" : "비활성화"}

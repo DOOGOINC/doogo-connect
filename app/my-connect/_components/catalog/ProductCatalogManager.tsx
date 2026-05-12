@@ -34,6 +34,7 @@ export function ProductCatalogManager({
   onSectionChange,
 }: ProductCatalogManagerProps) {
   const [activeCurrency, setActiveCurrency] = useState<CurrencyCode>("USD");
+  const [showSecretOnly, setShowSecretOnly] = useState(false);
   const [form, setForm] = useState<ProductForm>(() => ({ ...createProductForm(), paymentCurrency: currencyCode }));
   const [newContainers, setNewContainers] = useState<NewContainerForm[]>([createNewContainerForm()]);
   const [newServices, setNewServices] = useState<NewOptionForm[]>([createNewOptionForm()]);
@@ -59,17 +60,25 @@ export function ProductCatalogManager({
     newContainers,
   });
 
+  const visibleProducts = useMemo(() => {
+    if (!showSecretOnly) {
+      return data.filteredProducts;
+    }
+
+    return data.filteredProducts.filter((item) => item.is_secret);
+  }, [data.filteredProducts, showSecretOnly]);
+
   const searchedProducts = useMemo(() => {
     const normalizedQuery = searchQuery.trim().toLowerCase();
 
     if (!normalizedQuery) {
-      return data.filteredProducts;
+      return visibleProducts;
     }
 
-    return data.filteredProducts.filter((item) =>
+    return visibleProducts.filter((item) =>
       [item.name, item.category, item.id].some((value) => value?.toLowerCase().includes(normalizedQuery))
     );
-  }, [data.filteredProducts, searchQuery]);
+  }, [searchQuery, visibleProducts]);
 
   const totalPages = Math.max(1, Math.ceil(searchedProducts.length / ITEMS_PER_PAGE));
   const currentPage = Math.min(page, totalPages);
@@ -150,9 +159,8 @@ export function ProductCatalogManager({
                   setActiveCurrency(option);
                   setPage(1);
                 }}
-                className={`rounded-full px-4 py-2 text-[14px] font-bold transition ${
-                  isActive ? "bg-[#3182F6] text-white" : "bg-[#F2F4F6] text-[#6B7684] hover:bg-[#E9EEF5]"
-                }`}
+                className={`rounded-full px-4 py-2 text-[14px] font-bold transition ${isActive ? "bg-[#3182F6] text-white" : "bg-[#F2F4F6] text-[#6B7684] hover:bg-[#E9EEF5]"
+                  }`}
               >
                 {option}
               </button>
@@ -225,6 +233,31 @@ export function ProductCatalogManager({
                 />
               </label>
 
+              <div className="flex items-center gap-2">
+                <button
+                  type="button"
+                  onClick={() => {
+                    setShowSecretOnly(false);
+                    setPage(1);
+                  }}
+                  className={`rounded-full px-4 py-2 text-[13px] font-bold transition ${!showSecretOnly ? "bg-[#191F28] text-white" : "bg-[#F2F4F6] text-[#6B7684] hover:bg-[#E9EEF5]"
+                    }`}
+                >
+                  전체 상품
+                </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setShowSecretOnly(true);
+                    setPage(1);
+                  }}
+                  className={`rounded-full px-4 py-2 text-[13px] font-bold transition ${showSecretOnly ? "bg-[#191F28] text-white" : "bg-[#F2F4F6] text-[#6B7684] hover:bg-[#E9EEF5]"
+                    }`}
+                >
+                  비밀 상품
+                </button>
+              </div>
+
               <ProductCatalogList
                 items={paginatedProducts}
                 currencyCode={activeCurrency}
@@ -234,6 +267,8 @@ export function ProductCatalogManager({
                 extraNames={data.extraNames}
                 onDelete={actions.handleDelete}
                 onToggleActive={actions.handleToggleActive}
+                onToggleSecret={actions.handleToggleSecret}
+                onCopySecretLink={actions.handleCopySecretLink}
                 onEdit={(nextForm) => {
                   actions.resetEditorState();
                   setActiveCurrency(nextForm.paymentCurrency);

@@ -7,6 +7,7 @@ import { usePathname, useRouter } from "next/navigation";
 import type { Session } from "@supabase/supabase-js";
 import { AuthModal } from "@/components/AuthModal";
 import { getPortalHomeByRole } from "@/lib/auth/roles";
+import { useChatBrowserNotifications } from "@/lib/client/useChatBrowserNotifications";
 import { supabase } from "@/lib/supabase";
 import { Bell, Check, LogOut, X } from "lucide-react";
 import { authFetch } from "@/lib/client/auth-fetch";
@@ -114,6 +115,8 @@ export function SiteHeader() {
   const isMasterPage = pathname?.startsWith("/master");
   const isMyConnectPage = pathname?.startsWith("/my-connect");
   const isPartnerDashboardPage = pathname?.startsWith("/partner/dashboard");
+
+  useChatBrowserNotifications(Boolean(session?.user?.id));
 
   const getDisplayName = useCallback((currentSession: Session | null) => {
     const metadataName =

@@ -19,6 +19,7 @@ interface PrintableEstimateProps {
   currencyCode: CurrencyCode;
   displayRows: EstimateRow[];
   supplierName?: string | null;
+  supplierEmail?: string | null;
   supplierLogo?: string | null;
   supplierAddress?: string | null;
   recipientBrandName?: string | null;
@@ -32,23 +33,21 @@ export function PrintableEstimate({
   currencyCode,
   displayRows,
   supplierName,
+  supplierEmail,
   supplierLogo,
   supplierAddress,
   recipientBrandName,
   recipientContactName,
 }: PrintableEstimateProps) {
   const supplierLabel = supplierName || "DOGO CONNECT";
-  const supplierAddressText = supplierAddress || "제조사 등록 주소 기준";
-  const recipientLines = [recipientBrandName?.trim(), recipientContactName?.trim()].filter(
-    (line): line is string => Boolean(line)
-  );
+  const supplierAddressText = supplierAddress || "제조사 등록 주소 기재";
+  const recipientBrand = recipientBrandName?.trim() || "";
+  const recipientContact = recipientContactName?.trim() || "";
 
   return (
-
-    <div className="mx-auto w-full max-w-[800px] min-h-fit bg-white p-10 text-black shadow-2xl print:p-0 print:shadow-none print:max-w-none">
-
+    <div className="mx-auto min-h-fit w-full max-w-[800px] bg-white p-10 text-bold shadow-2xl print:max-w-none print:p-0 print:shadow-none">
       <div className="mb-8 flex items-start justify-between">
-        <div className="flex h-[140px] w-[200px] items-center justify-center overflow-hidden bg-white p-2">
+        <div className="flex h-[120px] w-[180px] items-center justify-center overflow-hidden bg-white p-2">
           {supplierLogo ? (
             <img src={supplierLogo} alt={supplierLabel} className="max-h-full max-w-full object-contain" />
           ) : (
@@ -56,13 +55,13 @@ export function PrintableEstimate({
           )}
         </div>
 
-        <div className="flex-1 text-center pt-6">
-          <h1 className="inline-block border-b-[5px] border-black px-12 pb-1 text-[28px] font-black tracking-[0.35em]">
+        <div className="flex-1 pt-6 text-center">
+          <h1 className="inline-block border-b-[3px] border-bold px-12 pb-1 text-[28px] font-bold tracking-[0.35em]">
             견적서
           </h1>
         </div>
 
-        <div className="w-[200px]" />
+        <div className="w-[160px]" />
       </div>
 
       <div className="mb-6 flex justify-between gap-8">
@@ -70,17 +69,16 @@ export function PrintableEstimate({
           <div className="space-y-0.5">
             <p className="text-[13px] font-bold">No. {orderNumber}</p>
             <p className="text-[13px] font-bold">Date. {orderDate}</p>
+            <p className="text-[13px] font-bold">Email : {supplierEmail || ""}</p>
           </div>
-          <div className="mt-6 w-4/5 border-b-2 border-black pb-1">
-            <p className="text-[18px] font-black">귀하</p>
-          </div>
-          {recipientLines.length > 0 ? (
-            <div className="mt-3 space-y-0.5">
-              {recipientLines.map((line) => (
-                <p key={line} className="text-[14px] font-bold text-black">
-                  {line}
-                </p>
-              ))}
+          {recipientBrand ? (
+            <div className="mt-6 w-4/5 border-b-2 border-black pb-1">
+              <p className="text-[18px] font-medium leading-tight text-black">
+                {recipientBrand} <span className="font-bold">귀하</span>
+              </p>
+              {recipientContact ? (
+                <p className="mt-1 text-[12px] font-medium leading-tight text-black">{recipientContact}</p>
+              ) : null}
             </div>
           ) : null}
           <p className="mt-3 text-[13px] font-medium leading-relaxed">아래와 같이 견적서를 제출합니다.</p>
@@ -90,8 +88,12 @@ export function PrintableEstimate({
           <table className="w-full border-collapse border-[1.5px] border-black text-[11px]">
             <tbody>
               <tr>
-                <td rowSpan={4} className="w-7 border border-black bg-gray-50 py-2 text-center font-black leading-tight text-[10px]">
-                  공<br />급<br />자
+                <td rowSpan={4} className="w-7 border border-black bg-gray-50 py-2 text-center text-[10px] font-black leading-tight">
+                  공
+                  <br />
+                  급
+                  <br />
+                  자
                 </td>
                 <td className="w-16 border border-black bg-gray-50 p-1 text-center font-bold">상호</td>
                 <td colSpan={3} className="border border-black p-1 text-center font-bold tracking-wider">
@@ -111,9 +113,9 @@ export function PrintableEstimate({
                 </td>
               </tr>
               <tr>
-                <td className="border border-black bg-gray-50 p-1 text-center font-bold">형태/비고</td>
+                <td className="border border-black bg-gray-50 p-1 text-center font-bold">업태/비고</td>
                 <td colSpan={3} className="border border-black p-1 text-center font-bold">
-                  제조 연계 공급 견적
+                  제조 관련 공급 견적
                 </td>
               </tr>
             </tbody>
@@ -178,7 +180,7 @@ export function PrintableEstimate({
         <div className="space-y-1 px-1">
           <p className="text-[11px] font-medium leading-relaxed">1. 본 견적서는 발행일로부터 7일간 유효하며, 협의에 따라 조정될 수 있습니다.</p>
           <p className="text-[11px] font-medium leading-relaxed">2. 실제 제조 공정은 정식 계약 체결 및 착수금 확인 후 진행됩니다.</p>
-          <p className="text-[11px] font-medium leading-relaxed">3. 재료 수급 상황 및 환율 변동에 따라 최종 공급가는 일부 변동될 수 있습니다.</p>
+          <p className="text-[11px] font-medium leading-relaxed">3. 원료 수급 상황 및 환율 변동에 따라 최종 공급가액은 일부 변동될 수 있습니다.</p>
           <p className="text-[11px] font-medium leading-relaxed">4. 기타 상세 문의는 담당 매니저를 통해 안내받으실 수 있습니다.</p>
         </div>
       </div>

@@ -2,6 +2,7 @@
 
 import { useEffect, useMemo, useState } from "react";
 import { Eye, FileText, Package, ShoppingBag, Truck, X } from "lucide-react";
+import { AciExpressSignupModal } from "./AciExpressSignupModal";
 import { ClientQuotePreviewModal } from "./ClientQuotePreviewModal";
 import { formatRfqCurrency, formatRfqDate, getDisplayOrderNumber, type RfqRequestRow, type RfqRequestStatus } from "@/lib/rfq";
 
@@ -16,6 +17,7 @@ interface ClientDeliveryHubProps {
 }
 
 type ClientProgressTab = "request-history" | "approved" | "manufacturing" | "rejected-projects" | "completed-projects";
+const ACI_EXPRESS_MANUFACTURER_ID = 1;
 
 const CLIENT_PROGRESS_TABS: Array<{ id: ClientProgressTab; label: string }> = [
   { id: "request-history", label: "요청 내역" },
@@ -192,6 +194,7 @@ export function ClientDeliveryHub({
   const [selectedRequest, setSelectedRequest] = useState<RfqRequestRow | null>(null);
   const [quotePreviewRequest, setQuotePreviewRequest] = useState<RfqRequestRow | null>(null);
   const [paymentConfirmRequest, setPaymentConfirmRequest] = useState<RfqRequestRow | null>(null);
+  const [aciExpressModalOpen, setAciExpressModalOpen] = useState(false);
   const [paymentUpdatingId, setPaymentUpdatingId] = useState<string | null>(null);
 
   useEffect(() => {
@@ -222,6 +225,14 @@ export function ClientDeliveryHub({
 
   const visibleRequests = groupedRequests[activeTab];
   const tabMeta = TAB_META[activeTab];
+  const hasAciExpressManufacturer = useMemo(
+    () => visibleRequests.some((request) => request.manufacturer_id === ACI_EXPRESS_MANUFACTURER_ID),
+    [visibleRequests]
+  );
+
+  useEffect(() => {
+    setAciExpressModalOpen(activeTab === "manufacturing" && hasAciExpressManufacturer);
+  }, [activeTab, hasAciExpressManufacturer]);
 
   const handleOpenProject = (requestId: string) => {
     onRequestSelect(requestId);
@@ -376,6 +387,15 @@ export function ClientDeliveryHub({
                             className="inline-flex h-11 items-center justify-center rounded-[14px] bg-[#2563eb] px-4 text-[14px] font-semibold text-white shadow-sm transition hover:bg-[#1d4ed8]"
                           >
                             견적서 보기
+                          </button>
+                        ) : null}
+                        {activeTab === "manufacturing" && request.manufacturer_id === ACI_EXPRESS_MANUFACTURER_ID ? (
+                          <button
+                            type="button"
+                            onClick={() => setAciExpressModalOpen(true)}
+                            className="inline-flex h-11 items-center justify-center rounded-[14px] border border-[#d7dde7] bg-white px-4 text-[14px] font-semibold text-[#1f2937] shadow-sm transition hover:bg-[#f8fafc]"
+                          >
+                            ACI EXPRESS 신청
                           </button>
                         ) : null}
                         {activeTab === "approved" && (request.status === "reviewing" || request.status === "payment_in_progress" || request.status === "quoted") ? (
@@ -602,6 +622,8 @@ export function ClientDeliveryHub({
           </div>
         </div>
       ) : null}
+
+      <AciExpressSignupModal open={aciExpressModalOpen} onClose={() => setAciExpressModalOpen(false)} />
 
       <ClientQuotePreviewModal
         request={quotePreviewRequest}
