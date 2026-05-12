@@ -7,6 +7,7 @@
 - 목적: 무분별한 견적 요청 방지 및 실제 제조 의사가 있는 의뢰자 매칭
 - 링크: https://www.doogoconnect.com/purchase?package=starter
 
+
 ## 2. 환불 정책
 - 제조사의 원료 부족이나 기타 사유로 인해 견적이 정상적으로 진행되지 않을 경우, 사용된 5,000P는 전액 환불됩니다.
 
@@ -17,3 +18,6 @@
 4. 제조사 견적 및 가능 여부 확인
 5. 생산 시작 및 패키징
 6. 글로벌 배송 및 브랜드 런칭
+
+## 4. 포인트 충전
+- 포인트 충전 링크: https://www.doogoconnect.com/purchase?package=starter

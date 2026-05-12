@@ -125,7 +125,7 @@ export function MasterAiChatbotSettings() {
     <section className="rounded-[14px] border border-[#E5E7EB] bg-white px-6 py-6 shadow-sm">
       <h2 className="mb-5 flex items-center gap-2 text-[15px] font-bold text-[#111827]">AI 상담 봇</h2>
 
-      <div className="mb-5">
+      <div className="mb-5 flex flex-wrap items-center gap-3">
         <a
           href="https://aistudio.google.com/usage?project=gen-lang-client-0862773259&timeRange=last-hour"
           target="_blank"
@@ -134,8 +134,24 @@ export function MasterAiChatbotSettings() {
         >
           재미나이 API 사용량 보러가기
         </a>
-      </div>
+      <a
+        href="https://github.com/DOOGOINC/doogo-connect/tree/main/knowledge/ai-chatbot"
+        target="_blank"
+        rel="noreferrer noopener"
+        className="inline-flex h-10 items-center justify-center rounded-[12px] border border-[#E5E7EB] bg-white px-4 text-[13px] font-bold text-[#374151] transition hover:bg-[#F9FAFB]"
+      >
+        md 파일 업로드 하러가기
+      </a>
+      <a
+        href="https://www.notion.so/DOOGO-CONNECT-MD-35e6dc24e345809496e0f423f7cedb93"
+        target="_blank"
+        rel="noreferrer noopener"
+        className="inline-flex text-[12px] font-medium text-[#2563EB] underline underline-offset-2"
+      >
+        업로드 방법 보러가기
+      </a>
 
+      </div>
       <div className="space-y-5">
         <label className="flex items-center justify-between rounded-[14px] border border-[#E5E7EB] bg-[#FCFCFD] px-4 py-3">
           <span>

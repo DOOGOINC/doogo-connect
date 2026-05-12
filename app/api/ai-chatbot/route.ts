@@ -106,10 +106,6 @@ function setCachedReply(pathname: string, question: string, payload: CachedReply
   });
 }
 
-function getTextLength(value: string) {
-  return value.length;
-}
-
 function isLowConfidenceAssistantReply(message: ChatbotMessage, fallbackMessage: string) {
   if (message.role !== "assistant") return false;
 
@@ -153,22 +149,6 @@ async function requestGeminiReply(params: {
     })),
   ];
 
-  console.info("[ai-chatbot] Gemini request", {
-    pathname: params.pathname,
-    model: params.model,
-    temperature: params.temperature,
-    maxOutputTokens: MAX_OUTPUT_TOKENS,
-    appliedHistoryMessages: params.messages.length,
-    questionLength: getTextLength(params.messages[params.messages.length - 1]?.content || ""),
-    systemInstructionLength: getTextLength(params.systemInstruction),
-    knowledgeContextLength: getTextLength(params.knowledgeContext),
-    requestContentCount: requestContents.length,
-    retry: params.retry,
-    messages: params.messages,
-    knowledgeContext: params.knowledgeContext,
-    systemInstruction: params.systemInstruction,
-  });
-
   const geminiResponse = await fetch(
     `https://generativelanguage.googleapis.com/v1beta/models/${encodeURIComponent(params.model)}:generateContent?key=${encodeURIComponent(params.apiKey)}`,
     {
@@ -190,18 +170,6 @@ async function requestGeminiReply(params: {
   );
 
   if (!geminiResponse.ok) {
-    const errorText = await geminiResponse.text().catch(() => "");
-    console.error("[ai-chatbot] Gemini error", {
-      pathname: params.pathname,
-      model: params.model,
-      status: geminiResponse.status,
-      statusText: geminiResponse.statusText,
-      systemInstructionLength: getTextLength(params.systemInstruction),
-      knowledgeContextLength: getTextLength(params.knowledgeContext),
-      messageCount: params.messages.length,
-      retry: params.retry,
-      errorText,
-    });
     return { ok: false, reply: "" } as const;
   }
 
