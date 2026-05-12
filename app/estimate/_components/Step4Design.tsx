@@ -158,28 +158,28 @@ export function Step4Design({
 
       <div className="space-y-8">
         <section className="space-y-3">
-          <div className="flex flex-wrap gap-3">
+          <div className="grid gap-3 sm:grid-cols-2">
             <button
               type="button"
               onClick={() => setDesignRequirement("has-design")}
-              className={`rounded-[10px] border px-4 py-3 text-[14px] font-bold transition-all ${
-                designRequirement === "has-design"
+              className={`w-full rounded-[10px] border px-4 py-3 text-[14px] font-bold transition-all ${designRequirement === "has-design"
                   ? "border-[#3182f6] bg-[#f2f8ff] text-[#1b64da]"
                   : "border-[#e5e8eb] bg-white text-[#4e5968] hover:border-[#3182f6]"
-              }`}
+                }`}
             >
-              디자인 있음
+              나는 디자인이
+              준비되어있습니다
             </button>
             <button
               type="button"
               onClick={() => setDesignRequirement("needs-design")}
-              className={`rounded-[10px] border px-4 py-3 text-[14px] font-bold transition-all ${
-                designRequirement === "needs-design"
+              className={`w-full rounded-[10px] border px-4 py-3 text-[14px] font-bold transition-all ${designRequirement === "needs-design"
                   ? "border-[#3182f6] bg-[#f2f8ff] text-[#1b64da]"
                   : "border-[#e5e8eb] bg-white text-[#4e5968] hover:border-[#3182f6]"
-              }`}
+                }`}
             >
-              디자인 없음
+              나는 디자인이
+              없습니다.
             </button>
           </div>
         </section>

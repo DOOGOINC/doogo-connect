@@ -14,5 +14,5 @@
 - **월 이용료:** 총 $45 (배대지 이용료 $1/일 + 시스템 이용료 $15/월)
 
 ## 3. 배대지 신청 및 이용
-- [ACI 3PL 배대지 계정 신청 구글폼](https://docs.google.com/forms/d/e/1FAIpQLScTIkfgeKiWyAfTpK3WAuw9Z1ZfcQrVE-x1csqFl4c3W2BuZA/viewform)
+- [ACI 3PL 배대지 계정 신청 구글폼] https://docs.google.com/forms/d/e/1FAIpQLScTIkfgeKiWyAfTpK3WAuw9Z1ZfcQrVE-x1csqFl4c3W2BuZA/viewform 
 - **로그인 주의사항:** 아이디와 비밀번호 모두 반드시 **대문자**로 입력해야 함

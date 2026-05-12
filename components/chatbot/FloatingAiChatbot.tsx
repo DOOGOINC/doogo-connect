@@ -340,7 +340,7 @@ export function FloatingAiChatbot() {
     <div className="pointer-events-none fixed bottom-6 right-6 z-[95] flex flex-col items-end print:hidden">
       {isOpen ? (
         <div
-          className="pointer-events-auto mb-4 w-[min(420px,calc(100vw-1.5rem))] origin-bottom-right overflow-hidden rounded-[28px] border border-[#e7eaf0] bg-white shadow-[0_12px_40px_rgba(15,23,42,0.08)]"
+          className="pointer-events-auto fixed inset-0 w-screen origin-bottom-right overflow-hidden bg-white md:static md:mb-4 md:w-[min(420px,calc(100vw-1.5rem))] md:rounded-[28px] md:border md:border-[#e7eaf0] md:bg-white md:shadow-[0_12px_40px_rgba(15,23,42,0.08)]"
           style={{ animation: "chatbot-expand 240ms cubic-bezier(0.22, 1, 0.36, 1) both" }}
         >
           <div className="border-b border-[#eef1f5] bg-white px-5 py-4">
@@ -367,7 +367,7 @@ export function FloatingAiChatbot() {
             </div>
           </div>
 
-          <div className="flex h-[600px] flex-col bg-[#ffffff]">
+          <div className="flex h-[100dvh] flex-col bg-[#ffffff] md:h-[600px]">
             <div className="flex-1 overflow-y-auto px-5 py-6">
               {!messages.length ? (
                 <div className="max-w-[88%] whitespace-pre-wrap break-words rounded-[24px] rounded-tl-[10px] bg-[#f5f5f5] px-5 py-4 text-[14px] leading-7 text-[#1f2937] ">
@@ -461,7 +461,7 @@ export function FloatingAiChatbot() {
       <button
         type="button"
         onClick={() => setIsOpen((prev) => !prev)}
-        className="pointer-events-auto flex h-14 w-14 items-center justify-center rounded-full bg-[#111111] text-white transition-transform duration-200 hover:scale-110 hover:bg-[#1f2937] cursor-pointer"
+        className={`pointer-events-auto h-14 w-14 items-center justify-center rounded-full bg-[#111111] text-white transition-transform duration-200 hover:scale-110 hover:bg-[#1f2937] cursor-pointer ${isOpen ? "hidden md:flex" : "flex"}`}
       >
         {isOpen ? (
           <ChevronDown className="h-6 w-6 transition-transform duration-300 " strokeWidth={2.5} />
