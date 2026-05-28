@@ -10,7 +10,7 @@ import { DesignPackageCatalogManager } from "./catalog/DesignPackageCatalogManag
 import { DesignServiceCatalogManager } from "./catalog/DesignServiceCatalogManager";
 import { ProductCatalogManager } from "./catalog/ProductCatalogManager";
 
-export type ProductManagementTab = "product-list" | "product-create";
+export type ProductManagementTab = "product-list" | "product-create" | "product-inventory";
 
 type ProductRegistrationProps = {
   activeTab: ProductManagementTab;
@@ -88,7 +88,7 @@ export function ProductRegistration({ activeTab, onTabChange }: ProductRegistrat
           onSectionChange={onTabChange}
         />
 
-        <section className="space-y-8">
+        {activeTab !== "product-inventory" ? <section className="space-y-8">
           <div className="flex flex-col sm:flex-row sm:items-end sm:justify-between sm:p-2">
             <div>
               <div className="flex items-center gap-3">
@@ -125,7 +125,7 @@ export function ProductRegistration({ activeTab, onTabChange }: ProductRegistrat
               <DesignExtraCatalogManager manufacturerId={manufacturerId} currencyCode={catalogCurrency} activeCurrency={optionCurrency} />
             </div>
           </div>
-        </section>
+        </section> : null}
       </div>
     </div>
   );

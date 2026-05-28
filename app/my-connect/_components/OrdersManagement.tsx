@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import { ArrowUpDown, Calendar, ChevronDown, ChevronUp, Download, Search } from "lucide-react";
+import { ArrowUpDown, Calendar, ChevronDown, ChevronUp, Download, FileText, Search } from "lucide-react";
 import {
   formatRfqCurrency,
   formatRfqDateTime,
@@ -10,6 +10,7 @@ import {
   type RfqRequestRow,
   type RfqRequestStatus,
 } from "@/lib/rfq";
+import { ClientQuotePreviewModal } from "./ClientQuotePreviewModal";
 
 interface OrdersManagementProps {
   requests: RfqRequestRow[];
@@ -112,6 +113,7 @@ export function OrdersManagement({ requests, onStatusChange, onAdminMemoChange }
   const [endDate, setEndDate] = useState("");
   const [updatingId, setUpdatingId] = useState<string | null>(null);
   const [memoDrafts, setMemoDrafts] = useState<Record<string, string>>({});
+  const [quotePreviewRequest, setQuotePreviewRequest] = useState<RfqRequestRow | null>(null);
   const [sortConfig, setSortConfig] = useState<{ key: SortKey; direction: SortDirection } | null>({
     key: "created_at",
     direction: "desc",
@@ -414,15 +416,25 @@ export function OrdersManagement({ requests, onStatusChange, onAdminMemoChange }
                       </select>
                     </td>
                     <td className="px-5 py-3.5">
-                      <input
-                        type="text"
-                        value={memoDrafts[request.id] ?? ""}
-                        disabled={updatingId === request.id || request.status === "fulfilled" || request.status === "refunded"}
-                        onChange={(e) => setMemoDrafts((prev) => ({ ...prev, [request.id]: e.target.value }))}
-                        onBlur={() => void handleMemoBlur(request.id)}
-                        placeholder={request.status === "fulfilled" || request.status === "refunded" ? "최종 처리된 주문은 메모를 수정할 수 없습니다." : "관리 메모 입력..."}
-                        className="h-9 w-full rounded-lg border border-[#e5e8eb] bg-white px-3 text-[12px] text-[#4e5968] outline-none transition-colors focus:border-[#0064ff] disabled:cursor-not-allowed disabled:bg-[#f2f4f6]"
-                      />
+                      <div className="flex items-center gap-2">
+                        <input
+                          type="text"
+                          value={memoDrafts[request.id] ?? ""}
+                          disabled={updatingId === request.id || request.status === "fulfilled" || request.status === "refunded"}
+                          onChange={(e) => setMemoDrafts((prev) => ({ ...prev, [request.id]: e.target.value }))}
+                          onBlur={() => void handleMemoBlur(request.id)}
+                          placeholder={request.status === "fulfilled" || request.status === "refunded" ? "최종 처리된 주문은 메모를 수정할 수 없습니다." : "관리 메모 입력..."}
+                          className="h-9 min-w-0 flex-1 rounded-lg border border-[#e5e8eb] bg-white px-3 text-[12px] text-[#4e5968] outline-none transition-colors focus:border-[#0064ff] disabled:cursor-not-allowed disabled:bg-[#f2f4f6]"
+                        />
+                        <button
+                          type="button"
+                          onClick={() => setQuotePreviewRequest(request)}
+                          className="inline-flex h-9 shrink-0 items-center gap-1 rounded-lg border border-[#dbe3ef] bg-white px-3 text-[11px] font-semibold text-[#2563eb] transition-colors hover:bg-[#f8fafc] hover:text-[#1d4ed8]"
+                        >
+                          <FileText className="h-3 w-3" />
+                          인보이스
+                        </button>
+                      </div>
                     </td>
                   </tr>
                 ))
@@ -441,6 +453,12 @@ export function OrdersManagement({ requests, onStatusChange, onAdminMemoChange }
           </table>
         </div>
       </div>
+
+      <ClientQuotePreviewModal
+        request={quotePreviewRequest}
+        open={Boolean(quotePreviewRequest)}
+        onClose={() => setQuotePreviewRequest(null)}
+      />
     </div>
   );
 }

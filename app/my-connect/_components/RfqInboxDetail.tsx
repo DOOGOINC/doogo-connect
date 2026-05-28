@@ -90,7 +90,7 @@ export function RfqInboxDetail({ request, onStatusChange, onReject, statusLabelO
 
               <div className="flex flex-col items-start gap-4 md:items-end">
                 <div className="text-left md:text-right">
-                  <p className="mb-1 text-[12px] font-bold text-[#8b95a1]">최종 견적 금액 (VAT 별도)</p>
+                  <p className="mb-1 text-[12px] font-bold text-[#8b95a1]">최종 견적 금액</p>
                   <p className="text-[24px] font-bold tracking-tight tabular-nums text-[#0064ff]">
                     {formatRfqCurrency(request.total_price, request.currency_code)}
                   </p>

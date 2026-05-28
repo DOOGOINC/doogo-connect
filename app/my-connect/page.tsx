@@ -65,6 +65,7 @@ const MANUFACTURER_TAB_LABELS: Record<string, string> = {
   "trade-support": "거래 지원",
   "product-list": "상품 리스트",
   "product-create": "상품 등록",
+  "product-inventory": "재고 관리",
   chat: "1:1 채팅",
   support: "고객센터",
   settings: "설정",
@@ -795,6 +796,7 @@ function MyConnectPageContent() {
           return renderClientProjectsWithTabs();
         case "product-list":
         case "product-create":
+        case "product-inventory":
           return <ProductRegistration activeTab={activeTab as ProductManagementTab} onTabChange={setActiveTab} />;
         case "settings":
           return <AccountSettings />;

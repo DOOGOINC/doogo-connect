@@ -15,7 +15,7 @@ import type { ExtraRow, PackageRow, ServiceRow } from "./productCatalogManager.t
 import type { NewContainerForm } from "./product-catalog/ProductCatalogLinkedOptions";
 
 const PRODUCT_SELECT =
-  "id, category, name, description, is_active, is_secret, secret_access_token, payment_currency, base_price, cost_price, discount_config, image, key_features, ingredients, directions, cautions, container_ids, design_service_ids, design_package_ids, design_extra_ids";
+  "id, category, name, description, is_active, is_secret, secret_access_token, payment_currency, base_price, cost_price, stock_quantity, admin_memo, discount_config, image, key_features, ingredients, directions, cautions, container_ids, design_service_ids, design_package_ids, design_extra_ids";
 
 function fetchCatalogData(manufacturerId: number) {
   return Promise.all([

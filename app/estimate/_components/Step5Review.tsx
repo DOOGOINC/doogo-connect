@@ -152,7 +152,7 @@ export function Step5Review({
             <div className="mb-6 mt-8 h-[1px] bg-[#f2f4f6]" />
 
             <div className="flex items-center justify-between">
-              <p className="text-[14px] font-bold text-[#191f28]">합계 (VAT 별도)</p>
+              <p className="text-[14px] font-bold text-[#191f28]">합계</p>
               <p className="text-[20px] font-black tracking-tight text-[#1b64da]">
                 {formatCurrency(est.totalPrice, est.selectedProduct?.paymentCurrency)}
               </p>

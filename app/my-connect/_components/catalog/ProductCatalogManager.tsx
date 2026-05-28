@@ -4,7 +4,9 @@ import { useMemo, useRef, useState } from "react";
 import { Loader2, Plus, Search } from "lucide-react";
 import { MasterTablePagination } from "@/app/master/_components/MasterTablePagination";
 import { CURRENCY_OPTIONS, type CurrencyCode } from "@/lib/currency";
+import { supabase } from "@/lib/supabase";
 import { CatalogToast } from "./CatalogToast";
+import { ProductInventoryManagement } from "./ProductInventoryManagement";
 import { ProductCatalogList } from "./ProductCatalogList";
 import { ProductCatalogEditor } from "./product-catalog/ProductCatalogEditor";
 import type { NewContainerForm, NewOptionForm, NewPackageForm } from "./product-catalog/ProductCatalogLinkedOptions";
@@ -123,6 +125,20 @@ export function ProductCatalogManager({
     setSaving,
   });
 
+  const handleUpdateInventoryProduct = async (
+    productId: string,
+    patch: Partial<Pick<(typeof data.items)[number], "stock_quantity" | "admin_memo">>
+  ) => {
+    const { error } = await supabase.from("manufacturer_products").update(patch).eq("id", productId);
+
+    if (error) {
+      throw new Error(error.message);
+    }
+
+    await data.loadItems();
+    setToastMessage("재고 정보가 업데이트되었습니다.");
+  };
+
   return (
     <section className="space-y-8">
       {toastMessage ? <CatalogToast message={toastMessage} onClose={() => setToastMessage("")} /> : null}
@@ -169,7 +185,9 @@ export function ProductCatalogManager({
         </div>
 
         <div className="p-4 sm:p-6">
-          {open ? (
+          {activeSection === "product-inventory" ? (
+            <ProductInventoryManagement items={data.filteredProducts} onUpdateProduct={handleUpdateInventoryProduct} />
+          ) : open ? (
             <ProductCatalogEditor
               visible={open}
               isEdit={actions.isEdit}

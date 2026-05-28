@@ -229,7 +229,7 @@ export function Step6Confirmation({
 
                 <div className="mt-6 rounded-[16px] bg-[#f9fafb] p-5">
                   <div className="flex items-center justify-between">
-                    <p className="text-[18px] font-bold text-[#4e5968]">최종 합계 <span className="text-[12px] font-normal opacity-70">(VAT 별도)</span></p>
+                    <p className="text-[18px] font-bold text-[#4e5968]">최종 합계</p>
                     <p className="text-[22px] font-bold text-[#193cb8] tracking-tight tabular-nums">
                       {formatCurrency(est.totalPrice, est.selectedProduct?.paymentCurrency)}
                     </p>

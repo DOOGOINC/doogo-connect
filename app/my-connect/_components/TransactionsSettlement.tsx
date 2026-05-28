@@ -94,7 +94,15 @@ type ExtraPricingRow = {
 };
 
 const PAGE_SIZE = 10;
-const TRANSACTION_VISIBLE_STATUSES = new Set(["payment_completed", "fulfilled", "refunded"]);
+const TRANSACTION_VISIBLE_STATUSES = new Set([
+  "payment_completed",
+  "production_waiting",
+  "production_in_progress",
+  "manufacturing_completed",
+  "delivery_completed",
+  "fulfilled",
+  "refunded",
+]);
 const MONTH_NAMES = Array.from({ length: 12 }, (_, index) => index + 1);
 
 const createInvoiceNumber = (request: RfqRequestRow) => {
@@ -124,6 +132,14 @@ const getTransactionStatusLabel = (status: RfqRequestRow["status"]) => {
   switch (status) {
     case "payment_completed":
       return "결제완료";
+    case "production_waiting":
+      return "생산 대기";
+    case "production_in_progress":
+      return "제조 중";
+    case "manufacturing_completed":
+      return "제조 완료";
+    case "delivery_completed":
+      return "납품 완료";
     case "fulfilled":
       return "거래완료";
     case "refunded":
@@ -139,6 +155,14 @@ const getTransactionStatusTone = (status: RfqRequestRow["status"]) => {
   switch (status) {
     case "payment_completed":
       return "bg-[#eff6ff] text-[#2563eb]";
+    case "production_waiting":
+      return "bg-[#f3f4f6] text-[#6b7280]";
+    case "production_in_progress":
+      return "bg-[#ecfeff] text-[#0891b2]";
+    case "manufacturing_completed":
+      return "bg-[#ecfdf3] text-[#16a34a]";
+    case "delivery_completed":
+      return "bg-[#f0fdf4] text-[#15803d]";
     case "fulfilled":
       return "bg-[#dcfce7] text-[#16a34a]";
     case "refunded":

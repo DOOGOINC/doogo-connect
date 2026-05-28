@@ -123,6 +123,7 @@ const MANUFACTURER_GROUPS: SidebarGroup[] = [
     children: [
       { id: "product-list", label: "상품 리스트", icon: FolderKanban },
       { id: "product-create", label: "상품 등록", icon: FolderKanban },
+      { id: "product-inventory", label: "재고 관리", icon: FolderKanban },
     ],
   },
   {

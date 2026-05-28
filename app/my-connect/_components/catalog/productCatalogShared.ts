@@ -16,6 +16,8 @@ export type ProductRow = {
   payment_currency?: CurrencyCode | null;
   base_price: number;
   cost_price?: number | null;
+  stock_quantity?: number | null;
+  admin_memo?: string | null;
   discount_config: Record<string, number> | null;
   image: string | null;
   key_features: string[] | null;

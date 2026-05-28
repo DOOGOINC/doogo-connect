@@ -103,7 +103,6 @@ export function SummaryAside({
                     {formatCurrency(totalPrice, selectedProduct.paymentCurrency)}
                   </span>
                 </div>
-                <p className="mt-1 text-right text-[10px] text-[#8b95a1]">* VAT 별도 금액입니다.</p>
               </div>
             </div>
           ) : (

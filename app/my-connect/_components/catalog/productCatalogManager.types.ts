@@ -1,7 +1,7 @@
 import type { CurrencyCode } from "@/lib/currency";
 import type { NewContainerForm, NewOptionForm, NewPackageForm } from "./product-catalog/ProductCatalogLinkedOptions";
 
-export type ProductManagementSection = "product-list" | "product-create";
+export type ProductManagementSection = "product-list" | "product-create" | "product-inventory";
 
 export type ServiceRow = {
   id: string;

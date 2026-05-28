@@ -124,7 +124,7 @@ export function PrintableEstimate({
       </div>
 
       <div className="mb-5 flex items-center justify-between border-[1.5px] border-black bg-gray-50 p-3">
-        <span className="text-[14px] font-black">총 합계금액 (VAT 별도)</span>
+        <span className="text-[14px] font-black">총 합계금액</span>
         <span className="text-[20px] font-black tracking-tight">{formatCurrency(totalPrice, currencyCode)}</span>
       </div>
 

@@ -1,8 +1,9 @@
 "use client";
 
 import { useMemo, useState } from "react";
-import { Eye, X } from "lucide-react";
+import { Eye, FileText, X } from "lucide-react";
 import { formatRfqCurrency, getDisplayOrderNumber, getExpectedDeliveryDate, type RfqRequestRow, type RfqRequestStatus } from "@/lib/rfq";
+import { ClientQuotePreviewModal } from "./ClientQuotePreviewModal";
 
 interface ProductionManagementProps {
   requests: RfqRequestRow[];
@@ -65,6 +66,7 @@ const getProgress = (status: RfqRequestStatus) => {
 export function ProductionManagement({ requests, onStatusChange }: ProductionManagementProps) {
   const [activeTab, setActiveTab] = useState<ProductionTab>("payment-confirm");
   const [selectedRequest, setSelectedRequest] = useState<RfqRequestRow | null>(null);
+  const [quotePreviewRequest, setQuotePreviewRequest] = useState<RfqRequestRow | null>(null);
   const [updatingId, setUpdatingId] = useState<string | null>(null);
 
   const productionRequests = useMemo(
@@ -204,7 +206,15 @@ export function ProductionManagement({ requests, onStatusChange }: ProductionMan
                           className="inline-flex h-11 items-center justify-center gap-2 rounded-[14px] border border-[#d7dde7] bg-white px-4 text-[14px] font-semibold text-[#1f2937] shadow-sm transition hover:bg-[#f8fafc]"
                         >
                           <Eye className="h-4 w-4" />
-                          상세
+                          상세보기
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => setQuotePreviewRequest(request)}
+                          className="inline-flex h-11 items-center justify-center gap-2 rounded-[14px] border border-[#d7dde7] bg-white px-4 text-[14px] font-semibold text-[#2563eb] shadow-sm transition hover:bg-[#f8fafc] hover:text-[#1d4ed8]"
+                        >
+                          <FileText className="h-4 w-4" />
+                          인보이스
                         </button>
                         {activeTab === "payment-confirm" && (
                           <button
@@ -379,6 +389,11 @@ export function ProductionManagement({ requests, onStatusChange }: ProductionMan
           </div>
         </div>
       )}
+      <ClientQuotePreviewModal
+        request={quotePreviewRequest}
+        open={Boolean(quotePreviewRequest)}
+        onClose={() => setQuotePreviewRequest(null)}
+      />
     </>
   );
 }
