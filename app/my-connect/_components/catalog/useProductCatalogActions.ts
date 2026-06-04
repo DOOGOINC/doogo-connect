@@ -333,6 +333,7 @@ export function useProductCatalogActions({
         payment_currency: lockedCurrency,
         cost_price: form.costPrice.trim() ? Number(form.costPrice) : 0,
         base_price: Number(form.basePrice || 0),
+        stock_quantity: Math.max(0, Math.trunc(Number(form.stockQuantity || 0))),
         discount_config: discountConfig,
         image: form.image || null,
         key_features: parseLines(form.keyFeatures),
@@ -361,6 +362,69 @@ export function useProductCatalogActions({
         await supabase.from(record.table).delete().eq("id", record.id);
       }
       alert(error instanceof Error ? error.message : "상품 저장에 실패했습니다.");
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const handleDuplicate = async () => {
+    const duplicateId = createCatalogEntityId("PROD");
+    const lockedCurrency = items.find((item) => item.id === editingId)?.payment_currency || form.paymentCurrency;
+
+    if (!form.category.trim() || !form.name.trim()) {
+      alert("카테고리와 상품명은 필수입니다.");
+      return;
+    }
+
+    const discountConfig = Object.fromEntries(
+      form.discountRows
+        .map((row) => [row.qty.trim(), row.discount.trim()] as const)
+        .filter(([qty, discount]) => qty && discount)
+        .map(([qty, discount]) => [qty, Number(discount)])
+    );
+
+    setSaving(true);
+    let createdRecords: Array<{ table: string; id: string }> = [];
+
+    try {
+      const createdOptions = await createPendingOptions();
+      createdRecords = createdOptions.created;
+
+      const payload = {
+        manufacturer_id: manufacturerId,
+        category: form.category.trim(),
+        name: `${form.name.trim()} 복제됨`,
+        description: form.description.trim(),
+        payment_currency: lockedCurrency,
+        cost_price: form.costPrice.trim() ? Number(form.costPrice) : 0,
+        base_price: Number(form.basePrice || 0),
+        stock_quantity: Math.max(0, Math.trunc(Number(form.stockQuantity || 0))),
+        discount_config: discountConfig,
+        image: form.image || null,
+        key_features: parseLines(form.keyFeatures),
+        ingredients: parseLines(form.ingredients),
+        directions: parseLines(form.directions),
+        cautions: parseLines(form.cautions),
+        container_ids: createdOptions.containerIds,
+        design_service_ids: createdOptions.designServiceIds,
+        design_package_ids: createdOptions.designPackageIds,
+        design_extra_ids: createdOptions.designExtraIds,
+        is_active: true,
+      };
+
+      const result = await supabase.from("manufacturer_products").insert({ id: duplicateId, ...payload });
+
+      if (result.error) throw new Error(result.error.message);
+
+      await loadItems();
+      setActiveCurrency(lockedCurrency);
+      setToastMessage("상품이 복제되었습니다.");
+      closeEditor();
+    } catch (error) {
+      for (const record of createdRecords.reverse()) {
+        await supabase.from(record.table).delete().eq("id", record.id);
+      }
+      alert(error instanceof Error ? error.message : "상품 복제에 실패했습니다.");
     } finally {
       setSaving(false);
     }
@@ -426,6 +490,7 @@ export function useProductCatalogActions({
     handleImageSelect,
     handleContainerImageSelect,
     handleSave,
+    handleDuplicate,
     handleDelete,
     handleToggleActive,
     handleToggleSecret,

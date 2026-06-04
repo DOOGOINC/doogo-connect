@@ -61,6 +61,8 @@ function normalizeStringArray(value: string[] | undefined) {
   return (value || []).map((item) => item.trim()).filter(Boolean);
 }
 
+const OUT_OF_STOCK_MESSAGE = "현재 재고가 없습니다 제조사에게 문의 주세요";
+
 function canManufacturerUpdateStatus(currentStatus: RfqRequestStatus, nextStatus: RfqRequestStatus) {
   if (currentStatus === "fulfilled" || currentStatus === "refunded" || currentStatus === "request_cancelled") {
     return false;
@@ -529,7 +531,7 @@ export async function updateRfqRequest(input: UpdateRfqInput, request?: Request)
     if (!isMaster && !isManufacturerOwner) {
       throw new Error("관리 메모를 수정할 수 없습니다.");
     }
-    if (rfqRequest.status === "fulfilled" || rfqRequest.status === "refunded" || rfqRequest.status === "request_cancelled") {
+    if (false && (rfqRequest.status === "fulfilled" || rfqRequest.status === "refunded" || rfqRequest.status === "request_cancelled")) {
       throw new Error("최종 처리된 주문의 메모는 수정할 수 없습니다.");
     }
 
@@ -648,6 +650,47 @@ export async function updateRfqClientPaymentStatus(
 
   if (rfqRequest.status === input.status) {
     return rfqRequest;
+  }
+
+  const admin = createServiceRoleClient();
+  if (!admin) {
+    throw new Error("SERVER_CONFIG_MISSING");
+  }
+
+  const requestedQuantity = Math.max(0, Math.trunc(Number(rfqRequest.quantity || 0)));
+  if (!rfqRequest.product_id || requestedQuantity <= 0) {
+    throw new Error(OUT_OF_STOCK_MESSAGE);
+  }
+
+  const { data: product, error: productError } = await admin
+    .from("manufacturer_products")
+    .select("id, stock_quantity")
+    .eq("id", rfqRequest.product_id)
+    .maybeSingle();
+
+  if (productError) {
+    throw new Error(productError.message);
+  }
+
+  const currentStock = Math.max(0, Math.trunc(Number(product?.stock_quantity || 0)));
+  if (!product || currentStock < requestedQuantity) {
+    throw new Error(OUT_OF_STOCK_MESSAGE);
+  }
+
+  const { data: updatedProduct, error: stockUpdateError } = await admin
+    .from("manufacturer_products")
+    .update({ stock_quantity: currentStock - requestedQuantity })
+    .eq("id", rfqRequest.product_id)
+    .eq("stock_quantity", currentStock)
+    .select("id")
+    .maybeSingle();
+
+  if (stockUpdateError) {
+    throw new Error(stockUpdateError.message);
+  }
+
+  if (!updatedProduct) {
+    throw new Error(OUT_OF_STOCK_MESSAGE);
   }
 
   const { data: updated, error: updateError } = await supabase

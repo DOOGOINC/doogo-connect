@@ -180,6 +180,7 @@ export function useProductCatalogData({
     paymentCurrency: (item.payment_currency || currencyCode) as CurrencyCode,
     costPrice: item.cost_price == null ? "" : String(item.cost_price),
     basePrice: String(item.base_price),
+    stockQuantity: String(Math.max(0, Math.trunc(Number(item.stock_quantity || 0)))),
     image: item.image || "",
     keyFeatures: joinLines(item.key_features),
     ingredients: joinLines(item.ingredients),

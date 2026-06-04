@@ -2,6 +2,7 @@
 
 export const REFERRAL_COOKIE_KEY = "dg_referral_code";
 export const REFERRAL_STORAGE_KEY = "dg_referral_code";
+export const REFERRAL_LOCK_STORAGE_KEY = "dg_referral_code_locked";
 export const REFERRAL_COOKIE_MAX_AGE = 60 * 60 * 24 * 7;
 
 const REFERRAL_PARAM_KEYS = ["ref", "referral", "referralCode"] as const;
@@ -37,10 +38,23 @@ export function persistReferralCode(code: string) {
   return normalized;
 }
 
+export function setStoredReferralLock(locked: boolean) {
+  if (typeof window === "undefined") return;
+
+  if (locked) {
+    window.localStorage.setItem(REFERRAL_LOCK_STORAGE_KEY, "1");
+    return;
+  }
+
+  window.localStorage.removeItem(REFERRAL_LOCK_STORAGE_KEY);
+}
+
 export function captureReferralFromLocation(search = typeof window !== "undefined" ? window.location.search : "") {
   const referralCode = getReferralCodeFromSearch(search);
   if (!referralCode) return null;
-  return persistReferralCode(referralCode);
+  const persisted = persistReferralCode(referralCode);
+  setStoredReferralLock(true);
+  return persisted;
 }
 
 export function getStoredReferralCode() {
@@ -62,10 +76,17 @@ export function clearStoredReferralCode() {
   if (typeof window !== "undefined") {
     window.localStorage.removeItem(REFERRAL_STORAGE_KEY);
   }
+
+  setStoredReferralLock(false);
 }
 
 export function buildReferralLink(referralCode: string, origin = typeof window !== "undefined" ? window.location.origin : "") {
   const normalized = sanitizeReferralCode(referralCode);
   if (!normalized || !origin) return "";
-  return `${origin}/?ref=${encodeURIComponent(normalized)}`;
+  return `${origin}/signup?ref=${encodeURIComponent(normalized)}`;
+}
+
+export function isStoredReferralLocked() {
+  if (typeof window === "undefined") return false;
+  return window.localStorage.getItem(REFERRAL_LOCK_STORAGE_KEY) === "1";
 }

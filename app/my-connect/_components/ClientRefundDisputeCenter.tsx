@@ -191,11 +191,21 @@ export function ClientRefundDisputeCenter({ refreshKey = 0, requests, onRefundCo
 
   return (
     <div className="flex flex-1 flex-col overflow-auto bg-[#f7f8fa] px-8 py-6">
-      <section>
-        <h1 className="text-[20px] font-bold text-[#111827]">환불 / 취소 / 분쟁</h1>
-        <p className="mt-5 text-[14px] font-medium text-[#6b7280]">
-          제조 중단 또는 제조사 귀책 사유 발생 시 두고커넥트가 분쟁 처리를 도와드립니다.
-        </p>
+      <section className="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
+        <div>
+          <h1 className="text-[20px] font-bold text-[#111827]">환불 / 취소 / 분쟁</h1>
+          <p className="mt-5 text-[14px] font-medium text-[#6b7280]">
+            제조 중단 또는 제조사 귀책 사유 발생 시 두고커넥트가 분쟁 처리를 도와드립니다.
+          </p>
+        </div>
+        <a
+          href="https://book01.notion.site/NZ-OEM-36ad6f9dec678021bc23df8af83c56ba"
+          target="_blank"
+          rel="noreferrer noopener"
+          className="inline-flex h-11 shrink-0 items-center justify-center rounded-[12px] bg-[#3182F6] px-4 text-[14px] font-semibold text-white transition hover:bg-[#1B64DA]"
+        >
+          환불 규정 살펴보기
+        </a>
       </section>
 
       <section className="mt-8 rounded-[16px] border border-[#fde68a] bg-[#fffdf2] px-5 py-4">

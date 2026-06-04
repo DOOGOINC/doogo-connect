@@ -1,6 +1,6 @@
 /* eslint-disable @next/next/no-img-element */
 import type { ChangeEvent, RefObject } from "react";
-import { AlertCircle, ChevronLeft, ImagePlus, Info, Loader2, PlusCircle, Save, Settings2, Trash2 } from "lucide-react";
+import { AlertCircle, ChevronLeft, Copy, ImagePlus, Info, Loader2, PlusCircle, Save, Settings2, Trash2 } from "lucide-react";
 import { CURRENCY_LABELS, type CurrencyCode } from "@/lib/currency";
 import type { DiscountRow, ProductForm } from "../productCatalogShared";
 import {
@@ -56,6 +56,7 @@ type ProductCatalogEditorProps = {
   containerImageInputRef: RefObject<HTMLInputElement | null>;
   onCancel: () => void;
   onSave: () => void;
+  onDuplicate: () => void;
   onFormChange: (updater: (prev: ProductForm) => ProductForm) => void;
   onNewContainersChange: (updater: (prev: NewContainerForm[]) => NewContainerForm[]) => void;
   onNewServicesChange: (updater: (prev: NewOptionForm[]) => NewOptionForm[]) => void;
@@ -112,6 +113,7 @@ export function ProductCatalogEditor({
   containerImageInputRef,
   onCancel,
   onSave,
+  onDuplicate,
   onFormChange,
   onNewContainersChange,
   onNewServicesChange,
@@ -151,6 +153,17 @@ export function ProductCatalogEditor({
         </div>
 
         <div className="flex gap-3">
+          {isEdit ? (
+            <button
+              type="button"
+              onClick={onDuplicate}
+              disabled={saving || imageUploading || containerImageUploading}
+              className="inline-flex h-12 items-center justify-center gap-2 rounded-[12px] border border-[#E5E8EB] bg-white px-6 text-[14px] font-bold text-[#4E5968] transition hover:bg-[#F8F9FA] disabled:bg-[#F8FAFC] disabled:text-[#ADB5BD]"
+            >
+              <Copy className="h-4 w-4" />
+              복제
+            </button>
+          ) : null}
           <button
             type="button"
             onClick={onCancel}
@@ -271,6 +284,18 @@ export function ProductCatalogEditor({
                       {form.paymentCurrency}
                     </span>
                   </div>
+                </div>
+                <div>
+                  <label className={labelClassName}>초기 재고</label>
+                  <input
+                    type="number"
+                    min="0"
+                    step="1"
+                    value={form.stockQuantity}
+                    onChange={(e) => onFormChange((prev) => ({ ...prev, stockQuantity: e.target.value }))}
+                    className={inputClassName}
+                    placeholder="0"
+                  />
                 </div>
               </div>
             </div>

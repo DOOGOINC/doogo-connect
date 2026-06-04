@@ -1,9 +1,9 @@
-"use client";
+﻿"use client";
 
 import { useEffect, useState } from "react";
-import { Copy } from "lucide-react";
 import { authFetch } from "@/lib/client/auth-fetch";
 import { MasterTablePagination } from "@/app/master/_components/MasterTablePagination";
+import { buildReferralLink } from "@/utils/referral";
 
 type ReferralMember = {
   id: string;
@@ -58,7 +58,7 @@ export function PartnerReferralsPanel() {
   const [searchInput, setSearchInput] = useState("");
   const [page, setPage] = useState(1);
   const [loading, setLoading] = useState(true);
-  const [copyLabel, setCopyLabel] = useState("복사");
+  const [copyLabel, setCopyLabel] = useState("링크 복사");
   const [data, setData] = useState<ReferralResponse | null>(null);
   const [error, setError] = useState("");
 
@@ -116,7 +116,14 @@ export function PartnerReferralsPanel() {
     }
 
     try {
-      await navigator.clipboard.writeText(data.partner.referralCode);
+      const referralLink = buildReferralLink(data.partner.referralCode);
+      if (!referralLink) {
+        setCopyLabel("실패");
+        window.setTimeout(() => setCopyLabel("복사"), 1500);
+        return;
+      }
+
+      await navigator.clipboard.writeText(referralLink);
       setCopyLabel("복사됨 ✓");
       window.setTimeout(() => setCopyLabel("복사"), 1500);
     } catch (err) {

@@ -1,4 +1,4 @@
-"use client";
+﻿"use client";
 
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
@@ -7,7 +7,15 @@ import { authFetch } from "@/lib/client/auth-fetch";
 import { fetchRefereeRewardPoints, formatRewardPoints } from "@/lib/client/referee-reward";
 import { DEFAULT_REFEREE_REWARD_POINTS } from "@/lib/points/constants";
 import { supabase } from "@/lib/supabase";
-import { clearStoredReferralCode, getStoredReferralCode, persistReferralCode, sanitizeReferralCode } from "@/utils/referral";
+import {
+  captureReferralFromLocation,
+  clearStoredReferralCode,
+  getStoredReferralCode,
+  isStoredReferralLocked,
+  persistReferralCode,
+  sanitizeReferralCode,
+  setStoredReferralLock,
+} from "@/utils/referral";
 
 type ProfileRow = {
   full_name: string | null;
@@ -64,6 +72,7 @@ export default function KakaoReferralPageClient({ nextPath }: KakaoReferralPageC
   const [phoneNumber, setPhoneNumber] = useState("");
   const [referralCodeInput, setReferralCodeInput] = useState("");
   const [appliedReferralCode, setAppliedReferralCode] = useState("");
+  const [isReferralLocked, setIsReferralLocked] = useState(false);
   const [error, setError] = useState("");
   const [refereeRewardPoints, setRefereeRewardPoints] = useState(DEFAULT_REFEREE_REWARD_POINTS);
 
@@ -79,7 +88,7 @@ export default function KakaoReferralPageClient({ nextPath }: KakaoReferralPageC
         if (!active) return;
 
         if (!session?.user) {
-          router.replace("/?auth=signup");
+          router.replace("/signup");
           return;
         }
 
@@ -90,10 +99,12 @@ export default function KakaoReferralPageClient({ nextPath }: KakaoReferralPageC
 
         setEmail(session.user.email || "");
 
+        captureReferralFromLocation();
         const storedReferralCode = getStoredReferralCode();
         if (storedReferralCode) {
           setReferralCodeInput(storedReferralCode);
         }
+        setIsReferralLocked(isStoredReferralLocked());
 
         const response = await authFetch("/api/profile/sync", {
           method: "POST",
@@ -142,14 +153,15 @@ export default function KakaoReferralPageClient({ nextPath }: KakaoReferralPageC
   }, [nextPath, router]);
 
   useEffect(() => {
-    const controller = new AbortController();
+    let active = true;
 
-    void fetchRefereeRewardPoints(controller.signal).then((points) => {
+    void fetchRefereeRewardPoints().then((points) => {
+      if (!active) return;
       setRefereeRewardPoints(points);
     });
 
     return () => {
-      controller.abort();
+      active = false;
     };
   }, []);
 
@@ -198,6 +210,9 @@ export default function KakaoReferralPageClient({ nextPath }: KakaoReferralPageC
     try {
       if (normalizedReferralCode) {
         persistReferralCode(normalizedReferralCode);
+        if (!isReferralLocked) {
+          setStoredReferralLock(false);
+        }
       } else {
         clearStoredReferralCode();
       }
@@ -248,7 +263,7 @@ export default function KakaoReferralPageClient({ nextPath }: KakaoReferralPageC
           <p className="mb-2 text-sm font-semibold text-[#0064FF]">카카오 회원가입</p>
           <h1 className="text-[30px] font-bold tracking-[-0.02em] text-[#191F28]">기본 정보와 추천인 코드를 입력해 주세요</h1>
           <p className="mt-3 text-sm leading-6 text-[#6B7684]">
-            카카오로 로그인한 회원은 이 단계에서 이름과 연락처만 한 번 입력하면 됩니다.
+            카카오로 로그인한 회원은 이 단계에서 이름과 연락처만 한 번 더 입력하시면 됩니다.
             <br />
             추천인 코드는 선택 입력이며 최초 1회만 적용됩니다.
           </p>
@@ -310,7 +325,7 @@ export default function KakaoReferralPageClient({ nextPath }: KakaoReferralPageC
                 type="text"
                 value={appliedReferralCode || referralCodeInput}
                 onChange={(event) => setReferralCodeInput(event.target.value.toUpperCase())}
-                disabled={isLoading || isSaving || Boolean(appliedReferralCode)}
+                disabled={isLoading || isSaving || Boolean(appliedReferralCode) || isReferralLocked}
                 autoComplete="off"
                 className="h-full flex-1 bg-transparent text-[14px] font-medium text-[#191F28] outline-none placeholder:text-[#ADB5BD] disabled:text-[#98A2B3]"
                 placeholder="추천인 코드 (선택)"
@@ -319,11 +334,14 @@ export default function KakaoReferralPageClient({ nextPath }: KakaoReferralPageC
                 +{formatRewardPoints(refereeRewardPoints)}
               </span>
             </div>
+            {isReferralLocked && !appliedReferralCode ? (
+              <p className="mt-2 text-[12px] font-medium text-[#6B7684]">파트너 추천 링크로 자동 적용된 코드입니다.</p>
+            ) : null}
             <p className="mt-3 text-[12px] font-bold text-[#16A34A]">추천인 코드 입력 시 {formatRewardPoints(refereeRewardPoints)}를 즉시 지급합니다</p>
             {appliedReferralCode ? (
               <p className="mt-2 text-[12px] font-medium text-[#6B7684]">적용된 추천인 코드: {appliedReferralCode}</p>
             ) : (
-              <p className="mt-2 text-[12px] font-medium text-[#6B7684]">추천인 코드는 회원가입 후 최초 1회만 적용됩니다</p>
+              <p className="mt-2 text-[12px] font-medium text-[#6B7684]">추천인 코드는 회원가입 후 최초 1회만 적용됩니다.</p>
             )}
           </div>
         </div>
@@ -344,3 +362,5 @@ export default function KakaoReferralPageClient({ nextPath }: KakaoReferralPageC
     </main>
   );
 }
+
+

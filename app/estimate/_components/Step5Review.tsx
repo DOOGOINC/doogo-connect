@@ -1,8 +1,8 @@
 "use client";
 
-import { useMemo } from "react";
+import { useMemo, useState } from "react";
 import type { AppRole } from "@/lib/auth/roles";
-import { LinkIcon } from "lucide-react";
+import { ChevronDown, LinkIcon } from "lucide-react";
 import { formatCurrency } from "@/lib/currency";
 import type { ReviewFormValues } from "@/lib/rfq";
 import {
@@ -52,6 +52,7 @@ export function Step5Review({
   userRole = "member",
   onPurchasePoints,
 }: Step5ReviewProps) {
+  const [isRefundPolicyOpen, setIsRefundPolicyOpen] = useState(false);
   const selectedServiceItems = useMemo(
     () => designServices.filter((service) => (est.selection.designServices || []).includes(service.id)),
     [designServices, est.selection.designServices]
@@ -210,6 +211,33 @@ export function Step5Review({
               />
             </div>
           </div>
+        </section>
+
+        <section className="rounded-[12px] border border-[#e5e8eb] bg-white shadow-sm">
+          <button
+            type="button"
+            onClick={() => setIsRefundPolicyOpen((prev) => !prev)}
+            className="flex w-full items-center justify-between gap-4 px-6 py-5 text-left"
+          >
+            <div className="flex-1 text-center">
+              <p className="text-[16px] font-bold text-[#191f28] ">환불 규정 살펴보기</p>
+            </div>
+            <ChevronDown
+              className={`h-5 w-5 shrink-0 text-[#8b95a1] transition-transform ${isRefundPolicyOpen ? "rotate-180" : ""}`}
+            />
+          </button>
+
+          {isRefundPolicyOpen ? (
+            <div className="border-t border-[#f2f4f6] px-6 py-5">
+              <div className="space-y-4 rounded-[12px] bg-[#fffbeb] p-5 text-[14px] leading-7 text-[#bb4d00]">
+                <p className="font-bold text-[#973c00]">⚠️ 필독 · OEM 제조 환불 규정 안내</p>
+                <p>OEM 상품은 제품 선정 및 인보이스 결제 완료와 동시에</p>
+                <p>원료캡슐 확보 및 제조 자원 배정이 즉시 진행됩니다.</p>
+                <p>따라서 결제 완료 이후에는 단순 변심 및 진행 취소에 따른 환불이 불가능합니다.</p>
+                <p>반드시 최종 제품 구성 및 진행 여부를 충분히 검토하신 후 결제를 진행해주시기 바랍니다.</p>
+              </div>
+            </div>
+          ) : null}
         </section>
 
         <section className="rounded-[12px] border border-[#e5e8eb] bg-[#fff] p-6 shadow-sm">

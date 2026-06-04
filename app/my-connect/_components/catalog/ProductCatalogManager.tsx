@@ -35,7 +35,7 @@ export function ProductCatalogManager({
   activeSection,
   onSectionChange,
 }: ProductCatalogManagerProps) {
-  const [activeCurrency, setActiveCurrency] = useState<CurrencyCode>("USD");
+  const [activeCurrency, setActiveCurrency] = useState<CurrencyCode>("NZD");
   const [showSecretOnly, setShowSecretOnly] = useState(false);
   const [form, setForm] = useState<ProductForm>(() => ({ ...createProductForm(), paymentCurrency: currencyCode }));
   const [newContainers, setNewContainers] = useState<NewContainerForm[]>([createNewContainerForm()]);
@@ -186,7 +186,11 @@ export function ProductCatalogManager({
 
         <div className="p-4 sm:p-6">
           {activeSection === "product-inventory" ? (
-            <ProductInventoryManagement items={data.filteredProducts} onUpdateProduct={handleUpdateInventoryProduct} />
+            <ProductInventoryManagement
+              items={data.filteredProducts}
+              onUpdateProduct={handleUpdateInventoryProduct}
+              resolveImageUrl={data.resolveImageUrl}
+            />
           ) : open ? (
             <ProductCatalogEditor
               visible={open}
@@ -208,6 +212,7 @@ export function ProductCatalogManager({
               containerImageInputRef={containerImageInputRef}
               onCancel={actions.closeEditor}
               onSave={actions.handleSave}
+              onDuplicate={actions.handleDuplicate}
               onFormChange={setForm}
               onNewContainersChange={setNewContainers}
               onNewServicesChange={setNewServices}

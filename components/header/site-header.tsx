@@ -1,4 +1,4 @@
-"use client";
+﻿"use client";
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import Image from "next/image";
@@ -363,13 +363,18 @@ export function SiteHeader() {
         setAuthMode("login");
         setIsAuthModalOpen(true);
       });
+    } else if (params.get("auth") === "signup") {
+      window.history.replaceState({}, "", window.location.pathname);
+      queueMicrotask(() => {
+        router.push("/signup");
+      });
     }
 
     return () => {
       mounted = false;
       subscription.unsubscribe();
     };
-  }, [applySessionState, shouldSyncProfile, syncProfile]);
+  }, [applySessionState, router, shouldSyncProfile, syncProfile]);
 
   const handleLogout = async () => {
     await supabase.auth.signOut();
@@ -760,8 +765,7 @@ export function SiteHeader() {
                   <button
                     type="button"
                     onClick={() => {
-                      setAuthMode("signup");
-                      setIsAuthModalOpen(true);
+                      router.push("/signup");
                     }}
                     className="inline-flex h-10 cursor-pointer items-center rounded-[12px] px-5 text-sm font-semibold text-white bg-[#165cf9] hover:bg-[#165cf9]/80 transition-all duration-500"
                   >
@@ -818,7 +822,7 @@ export function SiteHeader() {
               ) : (
                 <>
                   <button onClick={() => { setAuthMode("login"); setIsAuthModalOpen(true); setIsMobileMenuOpen(false); }} className="h-12 rounded-xl border border-slate-400 text-slate-900 font-semibold">로그인</button>
-                  <button onClick={() => { setAuthMode("signup"); setIsAuthModalOpen(true); setIsMobileMenuOpen(false); }} className="h-12 rounded-xl bg-[#0064FF] text-white font-semibold">회원가입</button>
+                  <button onClick={() => { router.push("/signup"); setIsMobileMenuOpen(false); }} className="h-12 rounded-xl bg-[#0064FF] text-white font-semibold">회원가입</button>
                 </>
               )}
             </div>
@@ -898,7 +902,7 @@ export function SiteHeader() {
             </div>
 
             <div className="mx-4 mt-4 rounded-[14px] bg-[#eef4ff] px-3 py-2">
-              <p className="text-[12px] font-bold text-[#2563eb]">💡 포인트 안내</p>
+              <p className="text-[12px] font-bold text-[#2563eb]">포인트 안내</p>
               <ul className="mt-1.5 space-y-1 text-[12px] font-medium text-[#2563eb] list-disc ml-4">
                 <li>제조 견적 의뢰 1건당 5,000P 차감</li>
                 <li>추천 코드 입력 시 10,000P 무료 지급</li>
@@ -925,3 +929,6 @@ export function SiteHeader() {
     </>
   );
 }
+
+
+

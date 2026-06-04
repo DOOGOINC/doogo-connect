@@ -35,6 +35,10 @@ yarn-debug.log*
 yarn-error.log*
 .pnpm-debug.log*
 
+news_comment.php
+news_tools.php
+scroll_sticky_header.php
+
 # local env files
 .env
 .env.local

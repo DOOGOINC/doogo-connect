@@ -3,6 +3,8 @@ import { Edit3, Image as ImageIcon, Power, Trash2, Box, PenTool, Layout, PlusCir
 import { formatCurrency, normalizeCurrencyCode, type CurrencyCode } from "@/lib/currency";
 import { ProductForm, ProductRow } from "./productCatalogShared";
 
+const toStockValue = (value: number | null | undefined) => Math.max(0, Math.trunc(Number(value || 0)));
+
 type ProductCatalogListProps = {
   items: ProductRow[];
   currencyCode: CurrencyCode;
@@ -151,6 +153,9 @@ export function ProductCatalogList({
                 <span className="flex items-center gap-1">
                   결제통화: <strong className="text-[#4E5968]">{normalizeCurrencyCode(item.payment_currency)}</strong>
                 </span>
+                <span className="flex items-center gap-1">
+                  재고: <strong className="text-[#4E5968]">{toStockValue(item.stock_quantity).toLocaleString()}</strong>
+                </span>
               </div>
 
               <div className="flex items-center gap-2">
@@ -158,8 +163,8 @@ export function ProductCatalogList({
                   type="button"
                   onClick={() => onToggleSecret(item)}
                   className={`flex h-9 items-center justify-center gap-1.5 rounded-[8px] border px-3 text-[13px] font-semibold transition ${item.is_secret
-                      ? "border-[#111827] bg-[#111827] text-white hover:bg-[#1f2937]"
-                      : "border-[#E5E8EB] bg-white text-[#4E5968] hover:bg-[#F8F9FA] hover:text-[#191F28]"
+                    ? "border-[#111827] bg-[#111827] text-white hover:bg-[#1f2937]"
+                    : "border-[#E5E8EB] bg-white text-[#4E5968] hover:bg-[#F8F9FA] hover:text-[#191F28]"
                     }`}
                 >
                   {item.is_secret ? <Unlock className="h-3.5 w-3.5" /> : <Lock className="h-3.5 w-3.5" />}
@@ -179,8 +184,8 @@ export function ProductCatalogList({
                   type="button"
                   onClick={() => onToggleActive(item)}
                   className={`flex h-9 items-center justify-center gap-1.5 rounded-[8px] px-3 text-[13px] font-semibold transition ${item.is_active === false
-                      ? "bg-[#F2F8FF] text-[#3182F6] hover:bg-[#E1EFFF]"
-                      : "bg-[#FFF0F0] text-[#F04452] hover:bg-[#FFE5E5]"
+                    ? "bg-[#F2F8FF] text-[#3182F6] hover:bg-[#E1EFFF]"
+                    : "bg-[#FFF0F0] text-[#F04452] hover:bg-[#FFE5E5]"
                     }`}
                 >
                   <Power className="h-3.5 w-3.5" />

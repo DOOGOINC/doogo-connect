@@ -2,6 +2,14 @@ import { CATALOG_IMAGE_BUCKET } from "@/lib/storage";
 import { mapRouteError, ok } from "@/lib/server/http";
 import { createServiceRoleClient, getOwnedManufacturerId, requireServerUser } from "@/lib/server/supabase";
 
+const normalizeStorageSegment = (value: string) =>
+  value
+    .trim()
+    .toLowerCase()
+    .replace(/[^a-z0-9._-]/g, "-")
+    .replace(/-+/g, "-")
+    .replace(/^-|-$/g, "") || "item";
+
 async function ensureCatalogBucket() {
   const serviceClient = createServiceRoleClient();
   if (!serviceClient) return;
@@ -79,7 +87,8 @@ export async function POST(request: Request) {
       .replace(/[^a-z0-9.-]/g, "-")
       .replace(/-+/g, "-")
       .replace(/^-|-$/g, "");
-    const filePath = `${manufacturer.id}/${entity}/${entityId}/${Date.now()}-${safeName || "image"}.${ext}`;
+    const safeEntityId = normalizeStorageSegment(entityId);
+    const filePath = `${manufacturer.id}/${entity}/${safeEntityId}/${Date.now()}-${safeName || "image"}.${ext}`;
 
     const { error } = await uploadClient.storage.from(CATALOG_IMAGE_BUCKET).upload(filePath, file, {
       cacheControl: "3600",

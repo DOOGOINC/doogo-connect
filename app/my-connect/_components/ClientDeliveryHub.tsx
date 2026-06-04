@@ -265,8 +265,12 @@ export function ClientDeliveryHub({
 
   const handlePaymentConfirmSubmit = async () => {
     if (!paymentConfirmRequest) return;
-    await handlePaymentStatusChange(paymentConfirmRequest.id, "payment_completed");
-    setPaymentConfirmRequest(null);
+    try {
+      await handlePaymentStatusChange(paymentConfirmRequest.id, "payment_completed");
+      setPaymentConfirmRequest(null);
+    } catch {
+      // The page-level handler already shows the alert message.
+    }
   };
 
   const handleRequestCancel = async (request: RfqRequestRow) => {

@@ -48,6 +48,7 @@ export type ProductForm = {
   paymentCurrency: CurrencyCode;
   costPrice: string;
   basePrice: string;
+  stockQuantity: string;
   image: string;
   keyFeatures: string;
   ingredients: string;
@@ -74,6 +75,7 @@ export const createProductForm = (): ProductForm => ({
   paymentCurrency: "USD",
   costPrice: "",
   basePrice: "",
+  stockQuantity: "0",
   image: "",
   keyFeatures: "",
   ingredients: "",

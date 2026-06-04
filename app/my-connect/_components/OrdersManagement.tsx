@@ -420,10 +420,10 @@ export function OrdersManagement({ requests, onStatusChange, onAdminMemoChange }
                         <input
                           type="text"
                           value={memoDrafts[request.id] ?? ""}
-                          disabled={updatingId === request.id || request.status === "fulfilled" || request.status === "refunded"}
+                          disabled={updatingId === request.id}
                           onChange={(e) => setMemoDrafts((prev) => ({ ...prev, [request.id]: e.target.value }))}
                           onBlur={() => void handleMemoBlur(request.id)}
-                          placeholder={request.status === "fulfilled" || request.status === "refunded" ? "최종 처리된 주문은 메모를 수정할 수 없습니다." : "관리 메모 입력..."}
+                          placeholder="관리 메모 입력..."
                           className="h-9 min-w-0 flex-1 rounded-lg border border-[#e5e8eb] bg-white px-3 text-[12px] text-[#4e5968] outline-none transition-colors focus:border-[#0064ff] disabled:cursor-not-allowed disabled:bg-[#f2f4f6]"
                         />
                         <button

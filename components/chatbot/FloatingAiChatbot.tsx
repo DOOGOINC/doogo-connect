@@ -1,5 +1,6 @@
 "use client";
 
+import Image from "next/image";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { MessageCircle, ArrowUp, ChevronDown, X } from "lucide-react";
@@ -361,7 +362,7 @@ export function FloatingAiChatbot() {
   }
 
   return (
-    <div className="pointer-events-none fixed bottom-6 right-6 z-[95] flex flex-col items-end print:hidden">
+    <div className="pointer-events-none fixed bottom-6 right-6 z-[95] flex flex-col items-end gap-3 print:hidden">
       {isOpen ? (
         <div
           className="pointer-events-auto fixed inset-0 w-screen origin-bottom-right overflow-hidden bg-white md:static md:mb-4 md:w-[min(420px,calc(100vw-1.5rem))] md:rounded-[28px] md:border md:border-[#e7eaf0] md:bg-white md:shadow-[0_12px_40px_rgba(15,23,42,0.08)]"
@@ -485,6 +486,15 @@ export function FloatingAiChatbot() {
         </div>
       ) : null
       }
+      <Link
+        href="http://pf.kakao.com/_xgxdxetn/chat"
+        target="_blank"
+        rel="noreferrer noopener"
+        aria-label="카카오톡 상담 열기"
+        className={`pointer-events-auto transition-transform duration-200 hover:scale-110 cursor-pointer ${isOpen ? "hidden md:block" : "block"}`}
+      >
+        <Image src="/image/KakaoTalkc.png" alt="카카오톡 상담" width={60} height={60} className="h-[60px] w-[60px] object-contain" />
+      </Link>
       <button
         type="button"
         onClick={() => setIsOpen((prev) => !prev)}

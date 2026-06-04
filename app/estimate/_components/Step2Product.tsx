@@ -23,27 +23,37 @@ export function Step2Product({
   setSelection: (value: EstimateSelection) => void;
   onReset: () => void;
 }) {
+  const COMBO_CATEGORY = "관절콤보";
   const [previewProduct, setPreviewProduct] = useState<Product | null>(null);
   const [searchQuery, setSearchQuery] = useState("");
+  const [categoryTab, setCategoryTab] = useState<"single" | "combo">("single");
   const [page, setPage] = useState(1);
   const pageSize = 4;
   void _manufacturerName;
   void _onReset;
 
+  const categoryFilteredProducts = useMemo(() => {
+    return products.filter((product) =>
+      categoryTab === "combo"
+        ? product.category === COMBO_CATEGORY
+        : product.category !== COMBO_CATEGORY
+    );
+  }, [categoryTab, products]);
+
   const filteredProducts = useMemo(() => {
     const query = searchQuery.toLowerCase().trim();
-    if (!query) return products;
-    return products.filter(
+    if (!query) return categoryFilteredProducts;
+    return categoryFilteredProducts.filter(
       (p) =>
         p.name.toLowerCase().includes(query) ||
         p.category.toLowerCase().includes(query) ||
         p.ingredients.some((ing) => ing.toLowerCase().includes(query))
     );
-  }, [products, searchQuery]);
+  }, [categoryFilteredProducts, searchQuery]);
 
   const totalPages = Math.max(1, Math.ceil(filteredProducts.length / pageSize));
   const currentPage = Math.min(page, totalPages);
-  
+
   const pagedProducts = useMemo(
     () => filteredProducts.slice((currentPage - 1) * pageSize, currentPage * pageSize),
     [currentPage, filteredProducts]
@@ -56,14 +66,42 @@ export function Step2Product({
 
   // Determine where to insert the info box in the grid
   const selectedIndexInPaged = pagedProducts.findIndex((p) => p.id === selection.product);
-  const insertIndex = selectedIndexInPaged !== -1 
-    ? (Math.floor(selectedIndexInPaged / 2) + 1) * 2 
+  const insertIndex = selectedIndexInPaged !== -1
+    ? (Math.floor(selectedIndexInPaged / 2) + 1) * 2
     : -1;
 
   return (
     <>
       <div className="animate-in fade-in slide-in-from-right-4 duration-500">
         <div className="mb-5">
+          <div className="mb-4 grid grid-cols-2 gap-3">
+            <button
+              type="button"
+              onClick={() => {
+                setCategoryTab("single");
+                setPage(1);
+              }}
+              className={`flex h-[40px] items-center justify-center rounded-[12px] border text-[17px] font-bold transition ${categoryTab === "single"
+                ? "border-[#3b82f6] bg-[#eff6ff] text-[#2563eb]"
+                : "border-[#e5e7eb] bg-white text-[#4b5563] hover:bg-[#f9fafb]"}`
+              }
+            >
+              단일상품
+            </button>
+            <button
+              type="button"
+              onClick={() => {
+                setCategoryTab("combo");
+                setPage(1);
+              }}
+              className={`flex h-[40px] items-center justify-center rounded-[12px] border text-[17px] font-bold transition ${categoryTab === "combo"
+                ? "border-[#3b82f6] bg-[#eff6ff] text-[#2563eb]"
+                : "border-[#e5e7eb] bg-white text-[#4b5563] hover:bg-[#f9fafb]"}`
+              }
+            >
+              콤보상품
+            </button>
+          </div>
           <div className="relative">
             <div className="pointer-events-none absolute inset-y-0 left-0 flex items-center pl-4">
               <Search className="h-4 w-4 text-[#8b95a1]" />
@@ -83,27 +121,27 @@ export function Step2Product({
 
         <div className="mb-3.5 flex items-center justify-between">
           <h2 className="text-[17px] font-bold tracking-tight text-[#191f28]">제품 선택</h2>
-          
+
           <div className="flex items-center gap-4">
-             {totalPages > 1 && (
-               <div className="flex items-center gap-3 text-[12px] font-medium text-[#8b95a1]">
-                 <button
-                   onClick={() => setPage((prev) => Math.max(1, prev - 1))}
-                   disabled={currentPage === 1}
-                   className="p-1 disabled:opacity-30"
-                 >
-                   <ChevronLeft className="h-4 w-4" />
-                 </button>
-                 <span className="text-[#191f28]">{currentPage}</span> / {totalPages}
-                 <button
-                   onClick={() => setPage((prev) => Math.min(totalPages, prev + 1))}
-                   disabled={currentPage === totalPages}
-                   className="p-1 disabled:opacity-30"
-                 >
-                   <ChevronRight className="h-4 w-4" />
-                 </button>
-               </div>
-             )}
+            {totalPages > 1 && (
+              <div className="flex items-center gap-3 text-[12px] font-medium text-[#8b95a1]">
+                <button
+                  onClick={() => setPage((prev) => Math.max(1, prev - 1))}
+                  disabled={currentPage === 1}
+                  className="p-1 disabled:opacity-30"
+                >
+                  <ChevronLeft className="h-4 w-4" />
+                </button>
+                <span className="text-[#191f28]">{currentPage}</span> / {totalPages}
+                <button
+                  onClick={() => setPage((prev) => Math.min(totalPages, prev + 1))}
+                  disabled={currentPage === totalPages}
+                  className="p-1 disabled:opacity-30"
+                >
+                  <ChevronRight className="h-4 w-4" />
+                </button>
+              </div>
+            )}
           </div>
         </div>
 
@@ -122,7 +160,7 @@ export function Step2Product({
           <div className="grid grid-cols-2 gap-x-3 gap-y-4">
             {pagedProducts.map((product, idx) => {
               const elements = [];
-              
+
               elements.push(
                 <ProductCard
                   key={product.id}
@@ -142,10 +180,10 @@ export function Step2Product({
                         <div className="flex items-center gap-3.5 mb-5">
                           <div className="relative h-9 w-9 overflow-hidden rounded-[8px] border border-white/10 bg-white/5 shrink-0">
                             {selectedProductData.image && (
-                              <Image 
-                                src={selectedProductData.image} 
-                                alt={selectedProductData.name} 
-                                fill 
+                              <Image
+                                src={selectedProductData.image}
+                                alt={selectedProductData.name}
+                                fill
                                 sizes="36px"
                                 className="object-cover"
                               />

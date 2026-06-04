@@ -75,7 +75,7 @@ export const metadata: Metadata = {
   },
 
   verification: {
-    google: "XJq9D0biAkwduzq8tg0SX6r_uMdf_G9JnZH2we_tuH0",
+    google: "pBOLp0HMacLLPVXWGHiWw5-AivKvnjIOpVa--1ABXHA",
     other: {
       "naver-site-verification": "b04b155c4958d7511c44c56394247629b7ad9463",
     },

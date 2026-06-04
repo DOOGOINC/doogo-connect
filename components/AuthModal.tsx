@@ -571,7 +571,12 @@ export function AuthModal({ isOpen, onClose, initialMode = "login" }: AuthModalP
             <button
               type="button"
               onClick={() => {
-                setMode(mode === "login" ? "signup" : "login");
+                if (mode === "login") {
+                  onClose();
+                  window.location.href = "/signup";
+                  return;
+                }
+                setMode("login");
                 setError(null);
                 setReferralCodeInput("");
                 setAgreedToTerms(false);

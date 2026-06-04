@@ -445,7 +445,10 @@ function MyConnectPageContent() {
 
   const handleRequestPatch = async (requestId: string, patch: Partial<Pick<RfqRequestRow, "status" | "admin_memo" | "updated_at">>) => {
     const currentRequest = rfqRequests.find((r) => r.id === requestId);
-    if (currentRequest?.status === "fulfilled" || currentRequest?.status === "refunded" || currentRequest?.status === "request_cancelled") {
+    if (
+      (currentRequest?.status === "fulfilled" || currentRequest?.status === "refunded" || currentRequest?.status === "request_cancelled") &&
+      typeof patch.admin_memo === "undefined"
+    ) {
       console.warn("Attempted to update a final request:", requestId);
       return;
     }
@@ -463,6 +466,10 @@ function MyConnectPageContent() {
     const payload = (await response.json()) as { error?: string; data?: RfqRequestRow };
 
     if (!response.ok || !payload.data) {
+      if (payload.error === "현재 재고가 없습니다 제조사에게 문의 주세요") {
+        alert(payload.error);
+        throw new Error(payload.error);
+      }
       alert(`주문 정보 변경에 실패했습니다: ${payload.error || "알 수 없는 오류"}`);
       throw new Error(payload.error || "rfq_update_failed");
     }

@@ -1,8 +1,9 @@
-"use client";
+﻿"use client";
 
 import { useEffect, useMemo, useState } from "react";
 import { Loader2, X } from "lucide-react";
 import { authFetch } from "@/lib/client/auth-fetch";
+import { buildReferralLink } from "@/utils/referral";
 
 type PartnerStatus = "active" | "inactive";
 
@@ -404,6 +405,21 @@ export function MasterPartnerManagement() {
     }
   };
 
+  const handleCopyReferralLink = async (referralCode: string) => {
+    const referralLink = buildReferralLink(referralCode);
+    if (!referralLink) {
+      setError("추천 링크를 생성하지 못했습니다.");
+      return;
+    }
+
+    try {
+      await navigator.clipboard.writeText(referralLink);
+      window.alert("추천 링크가 복사되었습니다.");
+    } catch {
+      setError("추천 링크 복사에 실패했습니다.");
+    }
+  };
+
   if (loading) {
     return (
       <div className="flex flex-1 items-center justify-center bg-[#f7f8fa]">
@@ -523,7 +539,20 @@ export function MasterPartnerManagement() {
                           <div className="truncate" title={partner.email}>{partner.email}</div>
                         </td>
                         <td className="px-3 py-3 text-[12px] font-semibold text-[#667085]">
-                          <div className="truncate">{partner.referralCode || "-"}</div>
+                          {partner.referralCode ? (
+                            <div className="flex items-center gap-2">
+                              <div className="truncate">{partner.referralCode}</div>
+                              <button
+                                type="button"
+                                onClick={() => void handleCopyReferralLink(partner.referralCode)}
+                                className="shrink-0 rounded-full bg-[#eef4ff] px-2 py-0.5 text-[10px] font-bold text-[#2f6bff] transition hover:bg-[#dfe9ff]"
+                              >
+                                링크 복사
+                              </button>
+                            </div>
+                          ) : (
+                            <div className="truncate">-</div>
+                          )}
                         </td>
                         <td className="px-3 py-3 text-[12px] font-semibold text-[#667085] whitespace-nowrap">
                           {toDisplayDate(partner.createdAt)}

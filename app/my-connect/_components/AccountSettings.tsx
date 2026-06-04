@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import { Loader2 } from "lucide-react";
 import type { User } from "@supabase/supabase-js";
+import { readAutoLogoutEnabled, writeAutoLogoutEnabled } from "@/lib/client/auto-logout";
 import { authFetch } from "@/lib/client/auth-fetch";
 import { supabase } from "@/lib/supabase";
 import { AccountInfoSection } from "./AccountSettings/AccountInfoSection";
@@ -37,8 +38,10 @@ export function AccountSettings() {
   const [isEmailSent, setIsEmailSent] = useState(false);
   const [isPasswordSent, setIsPasswordSent] = useState(false);
   const [isSocialAccount, setIsSocialAccount] = useState(false);
+  const [autoLogoutEnabled, setAutoLogoutEnabled] = useState(true);
 
   useEffect(() => {
+    setAutoLogoutEnabled(readAutoLogoutEnabled());
     void fetchProfile();
 
     const {
@@ -143,6 +146,11 @@ export function AccountSettings() {
     }
   };
 
+  const handleAutoLogoutToggle = (nextValue: boolean) => {
+    setAutoLogoutEnabled(nextValue);
+    writeAutoLogoutEnabled(nextValue);
+  };
+
   if (loading) {
     return (
       <div className="flex flex-1 items-center justify-center">
@@ -156,6 +164,21 @@ export function AccountSettings() {
       <div className="max-w-[700px]">
         <h1 className="mb-4 text-2xl font-bold text-[#191F28]">{TEXT.settings}</h1>
         <p className="mt-4 mb-6 text-[15px] text-[#6b7280]">사업자 등록증 정보를 입력하세요. 세금계산서 발행에 필요합니다.</p>
+
+        <section className="mb-6 rounded-[16px] border border-[#E5E8EB] bg-white p-5 shadow-sm">
+          <label className="flex cursor-pointer items-start gap-3">
+            <input
+              type="checkbox"
+              checked={autoLogoutEnabled}
+              onChange={(event) => handleAutoLogoutToggle(event.target.checked)}
+              className="mt-1 h-4 w-4 rounded border-[#CBD5E1] text-[#3182F6] focus:ring-[#3182F6]"
+            />
+            <div>
+              <p className="text-[15px] font-bold text-[#191F28]">자동 로그아웃</p>
+              <p className="mt-1 text-[13px] leading-5 text-[#6B7280]">1시간 동안 아무 활동이 없으면 자동으로 로그아웃됩니다.</p>
+            </div>
+          </label>
+        </section>
 
         <BusinessRegistrationSection profile={profile} onProfileRefresh={fetchProfile} />
 

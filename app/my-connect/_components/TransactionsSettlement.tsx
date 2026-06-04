@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import { Calendar, CheckCircle2, Download, FileText, Info, Search } from "lucide-react";
+import { Calendar, CheckCircle2, Download, FileText, Info, Loader2, Search, StickyNote, X } from "lucide-react";
 import { MasterTablePagination } from "@/app/master/_components/MasterTablePagination";
 import { getPricingBySelection, type ContainerOption, type Product } from "@/app/estimate/_data/catalog";
 import { authFetch } from "@/lib/client/auth-fetch";
@@ -220,6 +220,9 @@ export function TransactionsSettlement({ requests, view, onRequestsRefresh }: Tr
   const [invoiceQuery, setInvoiceQuery] = useState("");
   const [selectedCurrency, setSelectedCurrency] = useState("ALL");
   const [quotePreviewRequest, setQuotePreviewRequest] = useState<RfqRequestRow | null>(null);
+  const [memoRequest, setMemoRequest] = useState<RfqRequestRow | null>(null);
+  const [memoDraft, setMemoDraft] = useState("");
+  const [memoSaving, setMemoSaving] = useState(false);
   const [currentPage, setCurrentPage] = useState(1);
   const [selectedFeeMonth, setSelectedFeeMonth] = useState(currentMonth);
   const [feePage, setFeePage] = useState(1);
@@ -231,6 +234,10 @@ export function TransactionsSettlement({ requests, view, onRequestsRefresh }: Tr
   const [packagePriceMap, setPackagePriceMap] = useState<Record<string, number>>({});
   const [servicePriceMap, setServicePriceMap] = useState<Record<string, number>>({});
   const [extraPriceMap, setExtraPriceMap] = useState<Record<string, number>>({});
+
+  useEffect(() => {
+    setMemoDraft(memoRequest?.admin_memo || "");
+  }, [memoRequest]);
 
   useEffect(() => {
     const fetchSettings = async () => {
@@ -374,33 +381,33 @@ export function TransactionsSettlement({ requests, view, onRequestsRefresh }: Tr
           const containerRow = request.container_id ? containerMap[request.container_id] : undefined;
           const product: Product | null = productRow
             ? {
-                id: productRow.id,
-                manufacturerId: productRow.manufacturer_id,
-                category: "",
-                name: request.product_name,
-                description: "",
-                paymentCurrency: (request.currency_code || "USD") as CurrencyCode,
-                basePrice: Number(productRow.base_price || 0),
-                discountConfig: Object.fromEntries(
-                  Object.entries(productRow.discount_config || {}).map(([qty, discount]) => [Number(qty), Number(discount)])
-                ),
-                image: "",
-                keyFeatures: [],
-                ingredients: [],
-                directions: [],
-                cautions: [],
-                containerIds: request.container_id ? [request.container_id] : [],
-              }
+              id: productRow.id,
+              manufacturerId: productRow.manufacturer_id,
+              category: "",
+              name: request.product_name,
+              description: "",
+              paymentCurrency: (request.currency_code || "USD") as CurrencyCode,
+              basePrice: Number(productRow.base_price || 0),
+              discountConfig: Object.fromEntries(
+                Object.entries(productRow.discount_config || {}).map(([qty, discount]) => [Number(qty), Number(discount)])
+              ),
+              image: "",
+              keyFeatures: [],
+              ingredients: [],
+              directions: [],
+              cautions: [],
+              containerIds: request.container_id ? [request.container_id] : [],
+            }
             : null;
           const container: ContainerOption | null = containerRow
             ? {
-                id: containerRow.id,
-                manufacturerId: containerRow.manufacturer_id,
-                name: containerRow.name,
-                description: "",
-                addPrice: Number(containerRow.add_price || 0),
-                image: "",
-              }
+              id: containerRow.id,
+              manufacturerId: containerRow.manufacturer_id,
+              name: containerRow.name,
+              description: "",
+              addPrice: Number(containerRow.add_price || 0),
+              image: "",
+            }
             : null;
           const pricing = getPricingBySelection({
             product,
@@ -418,8 +425,8 @@ export function TransactionsSettlement({ requests, view, onRequestsRefresh }: Tr
                 sum +
                 Number(
                   snapshotPricing.services?.find((service) => service.id === serviceId)?.price ??
-                    servicePriceMap[serviceId] ??
-                    0
+                  servicePriceMap[serviceId] ??
+                  0
                 ),
               0
             ) +
@@ -428,8 +435,8 @@ export function TransactionsSettlement({ requests, view, onRequestsRefresh }: Tr
                 sum +
                 Number(
                   snapshotPricing.extras?.find((extra) => extra.id === extraId)?.price ??
-                    extraPriceMap[extraId] ??
-                    0
+                  extraPriceMap[extraId] ??
+                  0
                 ),
               0
             );
@@ -590,6 +597,38 @@ export function TransactionsSettlement({ requests, view, onRequestsRefresh }: Tr
     const startIndex = (visiblePage - 1) * PAGE_SIZE;
     return filteredRecords.slice(startIndex, startIndex + PAGE_SIZE);
   }, [filteredRecords, visiblePage]);
+
+  const handleMemoSave = async () => {
+    if (!memoRequest || memoSaving) return;
+
+    setMemoSaving(true);
+    try {
+      const response = await authFetch(`/api/rfqs/${memoRequest.id}`, {
+        method: "PATCH",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          adminMemo: memoDraft.trim() || null,
+        }),
+      });
+      const payload = (await response.json()) as { error?: string };
+
+      if (!response.ok) {
+        throw new Error(payload.error || "메모 저장에 실패했습니다.");
+      }
+
+      if (onRequestsRefresh) {
+        await onRequestsRefresh();
+      }
+
+      setMemoRequest(null);
+    } catch (error) {
+      window.alert(error instanceof Error ? error.message : "메모 저장에 실패했습니다.");
+    } finally {
+      setMemoSaving(false);
+    }
+  };
 
   const feeTotalPages = Math.max(1, Math.ceil(feeMonthRecords.length / PAGE_SIZE));
   const visibleFeePage = Math.min(feePage, feeTotalPages);
@@ -1145,14 +1184,27 @@ export function TransactionsSettlement({ requests, view, onRequestsRefresh }: Tr
                           </span>
                         </td>
                         <td className="px-4 py-3 text-left">
-                          <button
-                            type="button"
-                            onClick={() => setQuotePreviewRequest(record.request)}
-                            className="inline-flex items-center gap-1 text-[11px] font-semibold text-[#2563eb] transition hover:text-[#1d4ed8]"
-                          >
-                            <FileText className="h-3 w-3" />
-                            {record.invoiceNumber}
-                          </button>
+                          <div className="flex items-center gap-2">
+                            <button
+                              type="button"
+                              onClick={() => setQuotePreviewRequest(record.request)}
+                              className="inline-flex items-center gap-1 text-[11px] font-semibold text-[#2563eb] transition hover:text-[#1d4ed8]"
+                            >
+                              <FileText className="h-3 w-3" />
+                              {record.invoiceNumber}
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => setMemoRequest(record.request)}
+                              className={`inline-flex h-6 w-6 items-center justify-center rounded-[6px] border transition ${record.request.admin_memo?.trim()
+                                ? "border-[#F4C84A] bg-[#F4C84A] text-white hover:bg-[#E0B435]"
+                                : "border-[#E5E7EB] bg-[#F3F4F6] text-[#9CA3AF] hover:bg-[#E5E7EB]"
+                                }`}
+                              aria-label="메모 열기"
+                            >
+                              <StickyNote className="h-3.5 w-3.5" />
+                            </button>
+                          </div>
                         </td>
                       </tr>
                     ))
@@ -1184,6 +1236,55 @@ export function TransactionsSettlement({ requests, view, onRequestsRefresh }: Tr
         open={Boolean(quotePreviewRequest)}
         onClose={() => setQuotePreviewRequest(null)}
       />
+
+      {memoRequest ? (
+        <div className="fixed inset-0 z-[120] flex items-end justify-end bg-black/50 px-6 py-6">
+          <div className="w-full max-w-[420px] rounded-[14px] border border-[#F4D470] bg-white shadow-[0_24px_80px_rgba(15,23,42,0.28)]">
+            <div className="flex items-center justify-between rounded-t-[14px] bg-[#fff2c3] px-5 py-4">
+              <h3 className="text-[18px] font-bold text-[#3B2F1D]">메모</h3>
+              <button
+                type="button"
+                onClick={() => {
+                  if (memoSaving) return;
+                  setMemoRequest(null);
+                }}
+                className="inline-flex h-9 w-9 items-center justify-center rounded-full text-[#3B2F1D] transition hover:bg-white/40"
+                aria-label="메모 닫기"
+              >
+                <X className="h-5 w-5" />
+              </button>
+            </div>
+
+            <div className="px-5 py-4">
+              <textarea
+                value={memoDraft}
+                onChange={(event) => setMemoDraft(event.target.value)}
+                placeholder="메모를 입력해주세요."
+                className="h-[160px] min-h-[120px] w-full resize-y rounded-[14px] border border-[#F4D470] bg-[#fff2c3] px-4 py-3 text-[15px] leading-7 text-[#3B2F1D] outline-none placeholder:text-[#A88A44] focus:border-[#E0B435]"
+              />
+
+              <div className="mt-5 flex items-center justify-end gap-3">
+                <button
+                  type="button"
+                  onClick={() => setMemoRequest(null)}
+                  disabled={memoSaving}
+                  className="inline-flex h-11 min-w-[100px] items-center justify-center rounded-[14px] bg-[#F3F4F6] px-5 text-[15px] font-semibold text-[#344054] transition hover:bg-[#E5E7EB] disabled:cursor-not-allowed disabled:opacity-60"
+                >
+                  취소
+                </button>
+                <button
+                  type="button"
+                  onClick={() => void handleMemoSave()}
+                  disabled={memoSaving}
+                  className="inline-flex h-11 min-w-[100px] items-center justify-center rounded-[14px] bg-[#111827] px-5 text-[15px] font-semibold text-white transition hover:bg-black disabled:cursor-not-allowed disabled:opacity-60"
+                >
+                  {memoSaving ? <Loader2 className="h-4 w-4 animate-spin" /> : "저장"}
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      ) : null}
     </>
   );
 }
