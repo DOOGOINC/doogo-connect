@@ -79,14 +79,14 @@ export function ProductCatalogList({
   }
 
   return (
-    <div className="grid gap-4">
+    <div className="grid gap-3">
       {items.map((item) => (
         <div
           key={item.id}
-          className={`group relative flex flex-col gap-6 rounded-[16px] border border-[#E5E8EB] bg-white p-5 transition-all hover:border-[#3182F6] hover:shadow-[0_8px_24px_rgba(49,130,246,0.08)] sm:flex-row ${item.is_active === false ? "opacity-75" : ""
+          className={`group relative flex flex-col gap-4 rounded-[16px] border border-[#E5E8EB] bg-white p-4 transition-all hover:border-[#3182F6] hover:shadow-[0_8px_24px_rgba(49,130,246,0.08)] sm:flex-row ${item.is_active === false ? "opacity-75" : ""
             }`}
         >
-          <div className="relative h-40 w-full shrink-0 overflow-hidden rounded-[12px] border border-[#F2F4F6] bg-[#F9FAFB] sm:h-32 sm:w-32">
+          <div className="relative h-32 w-full shrink-0 overflow-hidden rounded-[12px] border border-[#F2F4F6] bg-[#F9FAFB] sm:h-28 sm:w-28">
             {resolveImageUrl(item.image) ? (
               <img src={resolveImageUrl(item.image)} className="h-full w-full object-cover transition-transform group-hover:scale-105" alt="" />
             ) : (
@@ -112,28 +112,23 @@ export function ProductCatalogList({
 
           <div className="flex flex-1 flex-col justify-between">
             <div className="min-w-0">
-              <div className="flex items-start justify-between gap-4">
+              <div className="flex items-start justify-between gap-3">
                 <div>
                   <div className="flex items-center gap-2 text-[12px] font-semibold text-[#3182F6]">
                     <span>{item.category}</span>
                     <span className="h-3 w-[1px] bg-[#D1D5DB]" />
                     <span className="text-[#8B95A1]">{item.id}</span>
                   </div>
-                  <h3 className="mt-1 truncate text-[18px] font-bold text-[#191F28]">{item.name}</h3>
+                  <h3 className="mt-1 truncate text-[17px] font-bold text-[#191F28]">{item.name}</h3>
                 </div>
-                <div className="text-right">
-                  <div className="text-[20px] font-extrabold text-[#191F28]">
+                <div className="shrink-0 text-right">
+                  <div className="text-[18px] font-extrabold text-[#191F28]">
                     {formatCurrency(item.base_price, normalizeCurrencyCode(item.payment_currency))}
                   </div>
-                  <div className="text-[12px] font-medium text-[#8B95A1]">기본가</div>
-                  <div className="mt-2 text-[14px] font-bold text-[#4E5968]">
-                    {formatCurrency(item.cost_price || 0, normalizeCurrencyCode(item.payment_currency))}
-                  </div>
-                  <div className="text-[11px] font-medium text-[#98A2B3]">원가</div>
                 </div>
               </div>
 
-              <div className="mt-4 flex flex-wrap gap-2">
+              <div className="mt-3 flex flex-wrap gap-1.5">
                 <OptionSummary icon={Box} label="용기" ids={item.container_ids} names={containerNames} />
                 <OptionSummary icon={PenTool} label="서비스" ids={item.design_service_ids} names={serviceNames} />
                 <OptionSummary icon={Layout} label="패키지" ids={item.design_package_ids} names={packageNames} />
@@ -148,8 +143,8 @@ export function ProductCatalogList({
               </div>
             </div>
 
-            <div className="mt-6 flex items-center justify-between border-t border-[#F2F4F6] pt-4">
-              <div className="flex items-center gap-4 text-[12px] text-[#8B95A1]">
+            <div className="mt-4 flex flex-col gap-3 border-t border-[#F2F4F6] pt-3 sm:flex-row sm:items-center sm:justify-between">
+              <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-[12px] text-[#8B95A1]">
                 <span className="flex items-center gap-1">
                   결제통화: <strong className="text-[#4E5968]">{normalizeCurrencyCode(item.payment_currency)}</strong>
                 </span>
@@ -158,11 +153,11 @@ export function ProductCatalogList({
                 </span>
               </div>
 
-              <div className="flex items-center gap-2">
+              <div className="flex flex-wrap items-center gap-2">
                 <button
                   type="button"
                   onClick={() => onToggleSecret(item)}
-                  className={`flex h-9 items-center justify-center gap-1.5 rounded-[8px] border px-3 text-[13px] font-semibold transition ${item.is_secret
+                  className={`flex h-8 items-center justify-center gap-1.5 rounded-[8px] border px-3 text-[12px] font-semibold transition ${item.is_secret
                     ? "border-[#111827] bg-[#111827] text-white hover:bg-[#1f2937]"
                     : "border-[#E5E8EB] bg-white text-[#4E5968] hover:bg-[#F8F9FA] hover:text-[#191F28]"
                     }`}
@@ -174,7 +169,7 @@ export function ProductCatalogList({
                   <button
                     type="button"
                     onClick={() => onCopySecretLink(item)}
-                    className="flex h-9 items-center justify-center gap-1.5 rounded-[8px] border border-[#E5E8EB] bg-white px-3 text-[13px] font-semibold text-[#4E5968] transition hover:bg-[#F8F9FA] hover:text-[#191F28]"
+                    className="flex h-8 items-center justify-center gap-1.5 rounded-[8px] border border-[#E5E8EB] bg-white px-3 text-[12px] font-semibold text-[#4E5968] transition hover:bg-[#F8F9FA] hover:text-[#191F28]"
                   >
                     <Link2 className="h-3.5 w-3.5" />
                     링크 복사
@@ -183,7 +178,7 @@ export function ProductCatalogList({
                 <button
                   type="button"
                   onClick={() => onToggleActive(item)}
-                  className={`flex h-9 items-center justify-center gap-1.5 rounded-[8px] px-3 text-[13px] font-semibold transition ${item.is_active === false
+                  className={`flex h-8 items-center justify-center gap-1.5 rounded-[8px] px-3 text-[12px] font-semibold transition ${item.is_active === false
                     ? "bg-[#F2F8FF] text-[#3182F6] hover:bg-[#E1EFFF]"
                     : "bg-[#FFF0F0] text-[#F04452] hover:bg-[#FFE5E5]"
                     }`}
@@ -194,7 +189,7 @@ export function ProductCatalogList({
                 <button
                   type="button"
                   onClick={() => onEdit(mapItemToForm(item))}
-                  className="flex h-9 items-center justify-center gap-1.5 rounded-[8px] border border-[#E5E8EB] bg-white px-3 text-[13px] font-semibold text-[#4E5968] transition hover:bg-[#F8F9FA] hover:text-[#191F28]"
+                  className="flex h-8 items-center justify-center gap-1.5 rounded-[8px] border border-[#E5E8EB] bg-white px-3 text-[12px] font-semibold text-[#4E5968] transition hover:bg-[#F8F9FA] hover:text-[#191F28]"
                 >
                   <Edit3 className="h-3.5 w-3.5" />
                   수정
@@ -202,7 +197,7 @@ export function ProductCatalogList({
                 <button
                   type="button"
                   onClick={() => onDelete(item.id)}
-                  className="flex h-9 w-9 items-center justify-center rounded-[8px] border border-[#FFE5E5] bg-white text-[#F04452] transition hover:bg-[#FFF0F0]"
+                  className="flex h-8 w-8 items-center justify-center rounded-[8px] border border-[#FFE5E5] bg-white text-[#F04452] transition hover:bg-[#FFF0F0]"
                   aria-label="삭제"
                 >
                   <Trash2 className="h-4 w-4" />

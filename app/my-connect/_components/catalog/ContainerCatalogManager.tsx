@@ -2,8 +2,9 @@
 /* eslint-disable @next/next/no-img-element */
 
 import type { ChangeEvent } from "react";
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { Edit3, Image as ImageIcon, Loader2, Plus, Save, Trash2, Upload } from "lucide-react";
+import { MasterTablePagination } from "@/app/master/_components/MasterTablePagination";
 import { fetchCatalogSignedUrls, resolveCatalogImageUrl } from "@/lib/catalogImageUrls";
 import { CURRENCY_LABELS, CURRENCY_OPTIONS, formatCurrency, type CurrencyCode } from "@/lib/currency";
 import { uploadCatalogImage } from "@/lib/catalogImageUpload";
@@ -43,6 +44,7 @@ const createForm = (currencyCode: CurrencyCode): ContainerForm => ({
 
 const inputClassName =
   "h-12 w-full rounded-[14px] border border-[#D8E0E8] bg-white px-4 text-[14px] text-[#191F28] outline-none transition focus:border-[#3182F6] focus:ring-4 focus:ring-[#3182F6]/10 disabled:bg-[#F2F4F6] disabled:text-[#98A2B3]";
+const ITEMS_PER_PAGE = 5;
 
 export function ContainerCatalogManager({
   manufacturerId,
@@ -63,10 +65,17 @@ export function ContainerCatalogManager({
   const [imageUploading, setImageUploading] = useState(false);
   const [toastMessage, setToastMessage] = useState("");
   const [signedImageUrls, setSignedImageUrls] = useState<Record<string, string>>({});
+  const [page, setPage] = useState(1);
   const imageInputRef = useRef<HTMLInputElement>(null);
 
   const isEdit = editingId !== null;
   const filteredItems = items.filter((item) => (item.payment_currency || "USD") === visibleCurrency);
+  const totalPages = Math.max(1, Math.ceil(filteredItems.length / ITEMS_PER_PAGE));
+  const currentPage = Math.min(page, totalPages);
+  const paginatedItems = useMemo(() => {
+    const startIndex = (currentPage - 1) * ITEMS_PER_PAGE;
+    return filteredItems.slice(startIndex, startIndex + ITEMS_PER_PAGE);
+  }, [currentPage, filteredItems]);
   const resolveImageUrl = (pathOrUrl: string | null | undefined) => resolveCatalogImageUrl(pathOrUrl, signedImageUrls);
 
   const loadItems = async () => {
@@ -125,6 +134,16 @@ export function ContainerCatalogManager({
       ignore = true;
     };
   }, [form.image, items]);
+
+  useEffect(() => {
+    setPage(1);
+  }, [visibleCurrency]);
+
+  useEffect(() => {
+    if (page > totalPages) {
+      setPage(totalPages);
+    }
+  }, [page, totalPages]);
 
   const resetForm = () => {
     setForm(createForm(visibleCurrency));
@@ -317,8 +336,9 @@ export function ContainerCatalogManager({
           {visibleCurrency} 통화 용기가 없습니다.
         </div>
       ) : (
+        <>
         <div className="grid gap-4">
-          {filteredItems.map((item) => (
+          {paginatedItems.map((item) => (
             <div key={item.id} className="group relative flex flex-col gap-5 rounded-[18px] border border-[#E5E8EB] bg-white p-5 transition-all hover:border-[#3182F6] hover:shadow-[0_8px_24px_rgba(49,130,246,0.08)] sm:flex-row sm:items-start sm:justify-between">
               <div className="flex min-w-0 flex-1 items-start gap-4">
                 <div className="relative h-16 w-16 shrink-0 overflow-hidden rounded-[14px] border border-[#F2F4F6] bg-[#F8FAFC]">
@@ -370,6 +390,15 @@ export function ContainerCatalogManager({
             </div>
           ))}
         </div>
+        {filteredItems.length > ITEMS_PER_PAGE ? (
+          <MasterTablePagination
+            totalItems={filteredItems.length}
+            currentPage={currentPage}
+            totalPages={totalPages}
+            onPageChange={setPage}
+          />
+        ) : null}
+        </>
       )}
     </section>
   );

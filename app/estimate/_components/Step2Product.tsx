@@ -23,7 +23,7 @@ export function Step2Product({
   setSelection: (value: EstimateSelection) => void;
   onReset: () => void;
 }) {
-  const COMBO_CATEGORY = "관절콤보";
+  const COMBO_CATEGORY = "콤보상품";
   const [previewProduct, setPreviewProduct] = useState<Product | null>(null);
   const [searchQuery, setSearchQuery] = useState("");
   const [categoryTab, setCategoryTab] = useState<"single" | "combo">("single");

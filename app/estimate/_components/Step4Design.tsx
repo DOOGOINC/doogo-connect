@@ -143,7 +143,7 @@ export function Step4Design({
 
   return (
     <div className="animate-in fade-in slide-in-from-right-4 duration-500">
-      <div className="mb-8 flex flex-col md:flex-row md:items-end justify-between gap-4 border-b border-[#f2f4f6] pb-6">
+      <div className="mb-8 flex flex-col md:flex-row md:items-end justify-between gap-4 border-b border-[#f2f4f6]">
         <div>
           <h2 className="text-[20px] font-bold tracking-tight text-[#191f28]">디자인 옵션</h2>
           <p className="mt-1 text-[14px] text-[#4e5968]">제품에 맞는 전문 디자인 서비스를 선택하세요.</p>
@@ -163,8 +163,8 @@ export function Step4Design({
               type="button"
               onClick={() => setDesignRequirement("has-design")}
               className={`w-full rounded-[10px] border px-4 py-3 text-[14px] font-bold transition-all ${designRequirement === "has-design"
-                  ? "border-[#3182f6] bg-[#f2f8ff] text-[#1b64da]"
-                  : "border-[#e5e8eb] bg-white text-[#4e5968] hover:border-[#3182f6]"
+                ? "border-[#3182f6] bg-[#f2f8ff] text-[#1b64da]"
+                : "border-[#e5e8eb] bg-white text-[#4e5968] hover:border-[#3182f6]"
                 }`}
             >
               나는 디자인이
@@ -174,8 +174,8 @@ export function Step4Design({
               type="button"
               onClick={() => setDesignRequirement("needs-design")}
               className={`w-full rounded-[10px] border px-4 py-3 text-[14px] font-bold transition-all ${designRequirement === "needs-design"
-                  ? "border-[#3182f6] bg-[#f2f8ff] text-[#1b64da]"
-                  : "border-[#e5e8eb] bg-white text-[#4e5968] hover:border-[#3182f6]"
+                ? "border-[#3182f6] bg-[#f2f8ff] text-[#1b64da]"
+                : "border-[#e5e8eb] bg-white text-[#4e5968] hover:border-[#3182f6]"
                 }`}
             >
               나는 디자인이
@@ -241,7 +241,7 @@ export function Step4Design({
                           <div className="flex items-center gap-2">
                             <p className="text-[15px] font-bold text-[#191f28]">{item.name}</p>
                             {item.badge && (
-                              <span className="rounded-[4px] bg-[#3182f6] px-1.5 py-0.5 text-[10px] font-bold text-white uppercase">
+                              <span className={`rounded-[4px] px-1.5 py-0.5 text-[10px] font-bold text-white uppercase ${item.badge === "프리미엄" ? "bg-[#f3b310]" : "bg-[#3182f6]"}`}>
                                 {item.badge}
                               </span>
                             )}

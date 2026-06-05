@@ -43,6 +43,7 @@ export function ProductCatalogManager({
   const [newPackages, setNewPackages] = useState<NewPackageForm[]>([createNewPackageForm()]);
   const [newExtras, setNewExtras] = useState<NewOptionForm[]>([createNewOptionForm()]);
   const [searchQuery, setSearchQuery] = useState("");
+  const [selectedCategory, setSelectedCategory] = useState("all");
   const [page, setPage] = useState(1);
   const [open, setOpen] = useState(activeSection === "product-create");
   const [editingId, setEditingId] = useState<string | null>(null);
@@ -70,17 +71,37 @@ export function ProductCatalogManager({
     return data.filteredProducts.filter((item) => item.is_secret);
   }, [data.filteredProducts, showSecretOnly]);
 
+  const categoryOptions = useMemo(
+    () =>
+      Array.from(
+        new Set(
+          data.filteredProducts
+            .map((item) => item.category?.trim())
+            .filter((value): value is string => Boolean(value))
+        )
+      ),
+    [data.filteredProducts]
+  );
+
+  const categoryFilteredProducts = useMemo(() => {
+    if (selectedCategory === "all") {
+      return visibleProducts;
+    }
+
+    return visibleProducts.filter((item) => item.category === selectedCategory);
+  }, [selectedCategory, visibleProducts]);
+
   const searchedProducts = useMemo(() => {
     const normalizedQuery = searchQuery.trim().toLowerCase();
 
     if (!normalizedQuery) {
-      return visibleProducts;
+      return categoryFilteredProducts;
     }
 
-    return visibleProducts.filter((item) =>
+    return categoryFilteredProducts.filter((item) =>
       [item.name, item.category, item.id].some((value) => value?.toLowerCase().includes(normalizedQuery))
     );
-  }, [searchQuery, visibleProducts]);
+  }, [categoryFilteredProducts, searchQuery]);
 
   const totalPages = Math.max(1, Math.ceil(searchedProducts.length / ITEMS_PER_PAGE));
   const currentPage = Math.min(page, totalPages);
@@ -173,6 +194,7 @@ export function ProductCatalogManager({
                 type="button"
                 onClick={() => {
                   setActiveCurrency(option);
+                  setSelectedCategory("all");
                   setPage(1);
                 }}
                 className={`rounded-full px-4 py-2 text-[14px] font-bold transition ${isActive ? "bg-[#3182F6] text-white" : "bg-[#F2F4F6] text-[#6B7684] hover:bg-[#E9EEF5]"
@@ -242,7 +264,8 @@ export function ProductCatalogManager({
             </div>
           ) : activeSection === "product-list" ? (
             <div className="space-y-5">
-              <label className="relative block w-full sm:max-w-[360px]">
+              <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
+                <label className="relative block w-full sm:max-w-[360px]">
                 <Search className="pointer-events-none absolute left-4 top-1/2 h-4 w-4 -translate-y-1/2 text-[#9AA4B2]" />
                 <input
                   type="search"
@@ -254,7 +277,25 @@ export function ProductCatalogManager({
                   placeholder="상품명, 카테고리, 상품번호 검색"
                   className="h-11 w-full rounded-[12px] border border-[#E5E8EB] bg-white pl-11 pr-4 text-[14px] text-[#191F28] outline-none transition placeholder:text-[#9AA4B2] focus:border-[#3182F6]"
                 />
-              </label>
+                </label>
+                <label className="block w-full sm:w-[220px]">
+                  <select
+                    value={selectedCategory}
+                    onChange={(event) => {
+                      setSelectedCategory(event.target.value);
+                      setPage(1);
+                    }}
+                    className="h-11 w-full rounded-[12px] border border-[#E5E8EB] bg-white px-4 text-[14px] text-[#191F28] outline-none transition focus:border-[#3182F6]"
+                  >
+                    <option value="all">전체 카테고리</option>
+                    {categoryOptions.map((category) => (
+                      <option key={category} value={category}>
+                        {category}
+                      </option>
+                    ))}
+                  </select>
+                </label>
+              </div>
 
               <div className="flex items-center gap-2">
                 <button

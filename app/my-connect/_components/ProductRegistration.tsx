@@ -20,7 +20,7 @@ type ProductRegistrationProps = {
 export function ProductRegistration({ activeTab, onTabChange }: ProductRegistrationProps) {
   const [manufacturerId, setManufacturerId] = useState<number | null>(null);
   const [catalogCurrency, setCatalogCurrency] = useState<CurrencyCode>("USD");
-  const [optionCurrency, setOptionCurrency] = useState<CurrencyCode>("USD");
+  const [optionCurrency, setOptionCurrency] = useState<CurrencyCode>("NZD");
   const [loading, setLoading] = useState(true);
   const [message, setMessage] = useState("");
 
@@ -53,7 +53,6 @@ export function ProductRegistration({ activeTab, onTabChange }: ProductRegistrat
       setManufacturerId(manufacturer.id);
       const nextCurrency = (manufacturer.catalog_currency as CurrencyCode | null) || "USD";
       setCatalogCurrency(nextCurrency);
-      setOptionCurrency(nextCurrency);
       setLoading(false);
     };
 
