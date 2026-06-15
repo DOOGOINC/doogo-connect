@@ -17,6 +17,7 @@ export interface Product {
   description: string;
   paymentCurrency: CurrencyCode;
   basePrice: number;
+  stockQuantity?: number;
   discountConfig: DiscountConfig;
   image: string;
   keyFeatures: string[];

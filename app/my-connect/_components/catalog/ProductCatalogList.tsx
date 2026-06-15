@@ -122,8 +122,15 @@ export function ProductCatalogList({
                   <h3 className="mt-1 truncate text-[17px] font-bold text-[#191F28]">{item.name}</h3>
                 </div>
                 <div className="shrink-0 text-right">
-                  <div className="text-[18px] font-extrabold text-[#191F28]">
-                    {formatCurrency(item.base_price, normalizeCurrencyCode(item.payment_currency))}
+                  <div className="flex items-center justify-end gap-2">
+                    {toStockValue(item.stock_quantity) === 0 ? (
+                      <span className="inline-flex items-center rounded-[8px] bg-[#FFF0F0] px-3.5 py-1 text-[14px] font-bold text-[#F04452] mr-6">
+                        품절
+                      </span>
+                    ) : null}
+                    <div className="text-[18px] font-extrabold text-[#191F28]">
+                      {formatCurrency(item.base_price, normalizeCurrencyCode(item.payment_currency))}
+                    </div>
                   </div>
                 </div>
               </div>

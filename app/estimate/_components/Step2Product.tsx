@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { ChevronLeft, ChevronRight, Loader2, Search, Check } from "lucide-react";
 import Image from "next/image";
 
@@ -31,6 +31,15 @@ export function Step2Product({
   const pageSize = 4;
   void _manufacturerName;
   void _onReset;
+
+  useEffect(() => {
+    if (!selection.product) return;
+
+    const selectedProduct = products.find((product) => product.id === selection.product);
+    if (selectedProduct && Number(selectedProduct.stockQuantity || 0) <= 0) {
+      setSelection({ ...selection, product: null, container: null });
+    }
+  }, [products, selection, setSelection]);
 
   const categoryFilteredProducts = useMemo(() => {
     return products.filter((product) =>
@@ -160,15 +169,28 @@ export function Step2Product({
           <div className="grid grid-cols-2 gap-x-3 gap-y-4">
             {pagedProducts.map((product, idx) => {
               const elements = [];
+              const isSoldOut = Number(product.stockQuantity || 0) <= 0;
 
               elements.push(
-                <ProductCard
-                  key={product.id}
-                  {...product}
-                  selected={selection.product === product.id}
-                  onClick={() => setSelection({ ...selection, product: product.id, container: null })}
-                  onPreview={() => setPreviewProduct(product)}
-                />
+                <div key={product.id} className="relative">
+                  {isSoldOut ? (
+                    <span className="pointer-events-none absolute bottom-3 right-3 z-10 inline-flex items-center rounded-[8px] bg-[#fff0f0] px-2.5 py-1 text-[14px] font-bold text-[#f04452]">
+                      품절
+                    </span>
+                  ) : null}
+                  <ProductCard
+                    {...product}
+                    selected={selection.product === product.id}
+                    onClick={() => {
+                      if (isSoldOut) {
+                        window.alert("선택하신 상품은 현재 품절된 상품입니다. \n제조사에게 문의 주세요.");
+                        return;
+                      }
+                      setSelection({ ...selection, product: product.id, container: null });
+                    }}
+                    onPreview={() => setPreviewProduct(product)}
+                  />
+                </div>
               );
 
               // If this is the insertion point and we have a selected product in the current paged view

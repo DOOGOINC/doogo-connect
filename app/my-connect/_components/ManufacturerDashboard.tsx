@@ -149,7 +149,9 @@ export function ManufacturerDashboard({
   const salesAmounts = useMemo(() => {
     const now = new Date();
     const salesRequests = requests.filter(
-      (request) => request.status === "fulfilled" && isSameMonth(request.updated_at || request.created_at, now)
+      (request) =>
+        request.status === "fulfilled" &&
+        isSameMonth(request.commission_locked_at || request.updated_at || request.created_at, now)
     );
     const totalsByCurrency = new Map<string, number>();
 
@@ -240,9 +242,8 @@ export function ManufacturerDashboard({
                   </div>
                   <div className="mt-5">
                     <p
-                      className={`font-bold tracking-[-0.03em] text-[#1b2b48] ${
-                        "compact" in card && card.compact ? "text-[15px] md:text-[16px]" : "text-[20px] md:text-[22px]"
-                      }`}
+                      className={`font-bold tracking-[-0.03em] text-[#1b2b48] ${"compact" in card && card.compact ? "text-[15px] md:text-[16px]" : "text-[20px] md:text-[22px]"
+                        }`}
                     >
                       {card.value}
                     </p>
@@ -296,7 +297,9 @@ export function ManufacturerDashboard({
           </div>
         </section>
 
-        <section className="rounded-[22px] border border-[#e9edf3] bg-white shadow-[0_2px_10px_rgba(15,23,42,0.04)]">
+        <div className="px-6">
+          <div className="flex flex-col gap-4">
+            <section className="rounded-[22px] border border-[#e9edf3] bg-white shadow-[0_2px_10px_rgba(15,23,42,0.04)]">
           <div className="flex items-center justify-between border-b border-[#edf1f5] px-6 py-5">
             <h2 className="text-[18px] font-bold tracking-[-0.03em] text-[#1b2b48]">최근 신규 요청</h2>
             <button
@@ -373,10 +376,10 @@ export function ManufacturerDashboard({
               </div>
             )}
           </div>
-        </section>
+            </section>
 
-        <section className="rounded-[22px] border border-[#e9edf3] bg-white shadow-[0_2px_10px_rgba(15,23,42,0.04)]">
-          <div className="flex items-center justify-between border-b border-[#edf1f5] px-6 py-5">
+            <section className="rounded-[22px] border border-[#e9edf3] bg-white shadow-[0_2px_10px_rgba(15,23,42,0.04)]">
+              <div className="flex items-center justify-between border-b border-[#edf1f5] px-6 py-5">
             <h2 className="text-[18px] font-bold tracking-[-0.03em] text-[#1b2b48]">생산 현황</h2>
             <button
               type="button"
@@ -435,8 +438,10 @@ export function ManufacturerDashboard({
                 <p className="mt-2 text-[14px] text-[#8b95a1]">생산 상태가 변경되면 이 영역에서 빠르게 확인할 수 있습니다.</p>
               </div>
             )}
+              </div>
+            </section>
           </div>
-        </section>
+        </div>
       </div>
     </div>
   );

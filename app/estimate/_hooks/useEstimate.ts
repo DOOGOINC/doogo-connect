@@ -39,6 +39,7 @@ type ProductRow = {
   description: string | null;
   payment_currency: CurrencyCode | null;
   base_price: number;
+  stock_quantity: number | null;
   discount_config: Record<string, number> | null;
   image: string | null;
   key_features: string[] | null;
@@ -122,7 +123,7 @@ const CATALOG_IMAGE_URL_TTL_MS = 1000 * 60 * 60 * 24;
 const MANUFACTURER_SELECT_FIELDS =
   "id, name, location, address, rating, description, tags, products, image, logo, catalog_currency";
 const PRODUCT_SELECT_FIELDS =
-  "id, manufacturer_id, category, name, description, payment_currency, base_price, discount_config, image, key_features, ingredients, directions, cautions, container_ids, design_service_ids, design_package_ids, design_extra_ids, is_secret, secret_access_token";
+  "id, manufacturer_id, category, name, description, payment_currency, base_price, stock_quantity, discount_config, image, key_features, ingredients, directions, cautions, container_ids, design_service_ids, design_package_ids, design_extra_ids, is_secret, secret_access_token";
 const CONTAINER_SELECT_FIELDS = "id, manufacturer_id, name, description, add_price, image, payment_currency";
 const DESIGN_OPTION_SELECT_FIELDS = "id, manufacturer_id, name, price, is_default";
 const DESIGN_SERVICE_SELECT_FIELDS = "id, manufacturer_id, name, description, price, payment_currency";
@@ -205,6 +206,7 @@ const mapProduct = (
   description: row.description || "",
   paymentCurrency: normalizeCurrencyCode(row.payment_currency || currencyCode || "USD"),
   basePrice: row.base_price,
+  stockQuantity: row.stock_quantity ?? 0,
   discountConfig: Object.fromEntries(
     Object.entries(row.discount_config || {}).map(([qty, discount]) => [Number(qty), Number(discount)])
   ),

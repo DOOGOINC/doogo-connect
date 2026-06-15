@@ -36,7 +36,7 @@ export function ProductCatalogManager({
   onSectionChange,
 }: ProductCatalogManagerProps) {
   const [activeCurrency, setActiveCurrency] = useState<CurrencyCode>("NZD");
-  const [showSecretOnly, setShowSecretOnly] = useState(false);
+  const [productVisibilityTab, setProductVisibilityTab] = useState<"all" | "public" | "secret" | "soldout">("all");
   const [form, setForm] = useState<ProductForm>(() => ({ ...createProductForm(), paymentCurrency: currencyCode }));
   const [newContainers, setNewContainers] = useState<NewContainerForm[]>([createNewContainerForm()]);
   const [newServices, setNewServices] = useState<NewOptionForm[]>([createNewOptionForm()]);
@@ -64,12 +64,20 @@ export function ProductCatalogManager({
   });
 
   const visibleProducts = useMemo(() => {
-    if (!showSecretOnly) {
-      return data.filteredProducts;
+    if (productVisibilityTab === "secret") {
+      return data.filteredProducts.filter((item) => item.is_secret);
     }
 
-    return data.filteredProducts.filter((item) => item.is_secret);
-  }, [data.filteredProducts, showSecretOnly]);
+    if (productVisibilityTab === "public") {
+      return data.filteredProducts.filter((item) => !item.is_secret);
+    }
+
+    if (productVisibilityTab === "soldout") {
+      return data.filteredProducts.filter((item) => Number(item.stock_quantity || 0) <= 0);
+    }
+
+    return data.filteredProducts;
+  }, [data.filteredProducts, productVisibilityTab]);
 
   const categoryOptions = useMemo(
     () =>
@@ -301,10 +309,10 @@ export function ProductCatalogManager({
                 <button
                   type="button"
                   onClick={() => {
-                    setShowSecretOnly(false);
+                    setProductVisibilityTab("all");
                     setPage(1);
                   }}
-                  className={`rounded-full px-4 py-2 text-[13px] font-bold transition ${!showSecretOnly ? "bg-[#191F28] text-white" : "bg-[#F2F4F6] text-[#6B7684] hover:bg-[#E9EEF5]"
+                  className={`rounded-full px-4 py-2 text-[13px] font-bold transition ${productVisibilityTab === "all" ? "bg-[#191F28] text-white" : "bg-[#F2F4F6] text-[#6B7684] hover:bg-[#E9EEF5]"
                     }`}
                 >
                   전체 상품
@@ -312,13 +320,35 @@ export function ProductCatalogManager({
                 <button
                   type="button"
                   onClick={() => {
-                    setShowSecretOnly(true);
+                    setProductVisibilityTab("public");
                     setPage(1);
                   }}
-                  className={`rounded-full px-4 py-2 text-[13px] font-bold transition ${showSecretOnly ? "bg-[#191F28] text-white" : "bg-[#F2F4F6] text-[#6B7684] hover:bg-[#E9EEF5]"
+                  className={`rounded-full px-4 py-2 text-[13px] font-bold transition ${productVisibilityTab === "public" ? "bg-[#191F28] text-white" : "bg-[#F2F4F6] text-[#6B7684] hover:bg-[#E9EEF5]"
+                    }`}
+                >
+                  일반 상품
+                </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setProductVisibilityTab("secret");
+                    setPage(1);
+                  }}
+                  className={`rounded-full px-4 py-2 text-[13px] font-bold transition ${productVisibilityTab === "secret" ? "bg-[#191F28] text-white" : "bg-[#F2F4F6] text-[#6B7684] hover:bg-[#E9EEF5]"
                     }`}
                 >
                   비밀 상품
+                </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setProductVisibilityTab("soldout");
+                    setPage(1);
+                  }}
+                  className={`rounded-full px-4 py-2 text-[13px] font-bold transition ${productVisibilityTab === "soldout" ? "bg-[#191F28] text-white" : "bg-[#F2F4F6] text-[#6B7684] hover:bg-[#E9EEF5]"
+                    }`}
+                >
+                  품절 상품
                 </button>
               </div>
 
