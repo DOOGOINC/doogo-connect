@@ -121,6 +121,9 @@ export function MasterRequesterManagement({ refreshKey = 0 }: { refreshKey?: num
   const [selectedRequester, setSelectedRequester] = useState<RequesterTableRow | null>(null);
   const [updatingBanAction, setUpdatingBanAction] = useState<BanAction | null>(null);
   const [banReasonInput, setBanReasonInput] = useState("");
+  const [pointAmountInput, setPointAmountInput] = useState("");
+  const [pointReasonInput, setPointReasonInput] = useState("");
+  const [isSubmittingPoint, setIsSubmittingPoint] = useState(false);
   const [currentPage, setCurrentPage] = useState(1);
   const [profiles, setProfiles] = useState<ProfileRow[]>([]);
   const [wallets, setWallets] = useState<WalletRow[]>([]);
@@ -225,7 +228,62 @@ export function MasterRequesterManagement({ refreshKey = 0 }: { refreshKey?: num
 
   useEffect(() => {
     setBanReasonInput(selectedRequester?.banReason || "");
+    setPointAmountInput("");
+    setPointReasonInput("");
   }, [selectedRequester]);
+
+  const handleAddPoints = async (requester: RequesterTableRow) => {
+    const amount = Math.max(0, Math.floor(Number(pointAmountInput || 0)));
+    const reason = pointReasonInput.trim() || "관리자 수동 지급";
+
+    if (amount <= 0) {
+      window.alert("포인트를 1P 이상 입력해 주세요.");
+      return;
+    }
+
+    setIsSubmittingPoint(true);
+
+    try {
+      const response = await authFetch("/api/admin/point-settings", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          userId: requester.id,
+          amount,
+          action: "add",
+          reason,
+        }),
+      });
+      const payload = (await response.json()) as { error?: string; balanceAfter?: number };
+
+      if (!response.ok) {
+        throw new Error(payload.error || "포인트 지급 중 오류가 발생했습니다.");
+      }
+
+      const balanceAfter = Number(payload.balanceAfter || 0);
+      setWallets((prev) => {
+        const next = [...prev];
+        const index = next.findIndex((wallet) => wallet.user_id === requester.id);
+
+        if (index >= 0) {
+          next[index] = { ...next[index], balance: balanceAfter };
+          return next;
+        }
+
+        next.push({ user_id: requester.id, balance: balanceAfter });
+        return next;
+      });
+      setSelectedRequester((prev) => (prev?.id === requester.id ? { ...prev, points: balanceAfter } : prev));
+      setPointAmountInput("");
+      setPointReasonInput("");
+    } catch (error) {
+      window.alert(error instanceof Error ? error.message : "포인트 지급 중 오류가 발생했습니다.");
+    } finally {
+      setIsSubmittingPoint(false);
+    }
+  };
 
   const filteredRequesters = useMemo(() => {
     const normalizedSearch = searchTerm.trim().toLowerCase();
@@ -582,6 +640,46 @@ export function MasterRequesterManagement({ refreshKey = 0 }: { refreshKey?: num
                     {selectedRequester.status}
                     {selectedRequester.banLabel ? ` · ${selectedRequester.banLabel}` : ""}
                   </span>
+                </div>
+              </div>
+
+              <div className="mt-4 border-t border-[#edf1f5] pt-4">
+                <p className="text-[12px] font-semibold text-[#4b5565]">포인트 추가</p>
+
+                <div className="mt-3 grid grid-cols-1 gap-3">
+                  <div>
+                    <label className="mb-2 block text-[12px] font-bold text-[#6b7280]">지급 포인트</label>
+                    <input
+                      type="number"
+                      min="1"
+                      step="1"
+                      value={pointAmountInput}
+                      onChange={(event) => setPointAmountInput(event.target.value)}
+                      placeholder="추가할 포인트를 입력해 주세요"
+                      className="h-[44px] w-full rounded-[14px] border border-[#e5e7eb] bg-white px-4 text-[13px] text-[#1f2937] outline-none transition focus:border-[#2463eb] focus:ring-4 focus:ring-[#2463eb]/10"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="mb-2 block text-[12px] font-bold text-[#6b7280]">지급 사유</label>
+                    <input
+                      type="text"
+                      maxLength={120}
+                      value={pointReasonInput}
+                      onChange={(event) => setPointReasonInput(event.target.value)}
+                      placeholder="예: 운영 보상 지급"
+                      className="h-[44px] w-full rounded-[14px] border border-[#e5e7eb] bg-white px-4 text-[13px] text-[#1f2937] outline-none transition focus:border-[#2463eb] focus:ring-4 focus:ring-[#2463eb]/10"
+                    />
+                  </div>
+
+                  <button
+                    type="button"
+                    disabled={isSubmittingPoint}
+                    onClick={() => void handleAddPoints(selectedRequester)}
+                    className="h-[44px] rounded-full bg-[#2463eb] px-5 text-[13px] font-bold text-white transition hover:bg-[#1f55c8] disabled:cursor-not-allowed disabled:opacity-60"
+                  >
+                    {isSubmittingPoint ? "지급 중.." : "포인트 추가"}
+                  </button>
                 </div>
               </div>
 
