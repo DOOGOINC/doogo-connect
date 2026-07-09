@@ -14,6 +14,8 @@ interface SummaryAsideProps {
   totalPrice: number;
   unitPrice: number;
   quantity: number;
+  additionalDiscountPercent: number;
+  additionalDiscountAmount: number;
 }
 
 export function SummaryAside({
@@ -23,7 +25,9 @@ export function SummaryAside({
   currentStep,
   totalPrice,
   unitPrice,
-  quantity
+  quantity,
+  additionalDiscountPercent,
+  additionalDiscountAmount,
 }: SummaryAsideProps) {
   const [isExpanded, setIsExpanded] = useState(true);
   const productDetails = getProductDetails(selectedProduct);
@@ -97,6 +101,14 @@ export function SummaryAside({
                   <span className="text-[14px] font-medium text-[#4e5968]">개당 예상 단가</span>
                   <span className="text-[14px] font-bold text-[#1652b2]">{formatCurrency(unitPrice, selectedProduct.paymentCurrency)}</span>
                 </div>
+                {additionalDiscountPercent > 0 ? (
+                  <div className="mb-2 flex items-center justify-between">
+                    <span className="text-[13px] font-medium text-[#3182f6]">수강생 할인</span>
+                    <span className="text-[13px] font-bold text-[#3182f6]">
+                      -{formatCurrency(additionalDiscountAmount, selectedProduct.paymentCurrency)}
+                    </span>
+                  </div>
+                ) : null}
                 <div className="flex items-center justify-between">
                   <span className="text-[14px] font-bold text-[#191f28]">최종 예상 합계</span>
                   <span className="text-[18px] font-black text-[#1652b2]">

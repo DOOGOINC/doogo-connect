@@ -70,8 +70,17 @@ function formatMoney(value: number, currencyCode: string) {
   return currencyCode === "NZD" ? formatNzd(value) : formatKrw(value);
 }
 
+function formatPreciseMoney(value: number, currencyCode: string) {
+  const formatted = value.toLocaleString(undefined, {
+    minimumFractionDigits: 2,
+    maximumFractionDigits: 2,
+  });
+
+  return currencyCode === "NZD" ? `NZD ${formatted}` : `₩${formatted}`;
+}
+
 function formatPartnerProfit(value: number, currencyCode: string, commissionRateLabel: string) {
-  return `${formatMoney(value, currencyCode)} (${commissionRateLabel})`;
+  return `${formatPreciseMoney(value, currencyCode)} (${commissionRateLabel})`;
 }
 
 function formatCommissionRateLabel(value: number) {
@@ -171,7 +180,7 @@ export function PartnerSalesOrdersPanel() {
     downloadCsv(
       `partner-sales-orders-${selectedYear}-${selectedMonth || "all"}-${selectedCurrency.toLowerCase()}.csv`,
       [
-        ["거래번호", "날짜", "고객", "제조사", "제품", "수량", "통화", "원가", "캡슐판매가", "박스비", "기준금액", "파트너수익", "결제", "상태"],
+        ["거래번호", "날짜", "고객", "제조사", "제품", "수량", "통화", "원가", "캡슐판매가", "박스비", "정산금액", "파트너수익", "결제", "상태"],
         ...data.orders.map((order) => [
           order.orderNumber,
           formatDate(order.createdAt),
@@ -253,7 +262,7 @@ export function PartnerSalesOrdersPanel() {
 
         <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
           <article className="rounded-[14px] border border-[#E7ECF3] bg-white px-5 py-4 shadow-sm">
-            <p className="text-[12px] font-semibold text-[#8B95A1]">NZD 기준금액</p>
+            <p className="text-[12px] font-semibold text-[#8B95A1]">NZD 정산금액</p>
             <p className="mt-2 text-[24px] font-bold tracking-[-0.04em] text-[#1F2937]">{loading ? "-" : formatNzd(data?.summary.totalBaseNzd || 0)}</p>
           </article>
 
@@ -263,7 +272,7 @@ export function PartnerSalesOrdersPanel() {
           </article>
 
           <article className="rounded-[14px] border border-[#E7ECF3] bg-white px-5 py-4 shadow-sm">
-            <p className="text-[12px] font-semibold text-[#8B95A1]">KRW 기준금액</p>
+            <p className="text-[12px] font-semibold text-[#8B95A1]">KRW 정산금액</p>
             <p className="mt-2 text-[24px] font-bold tracking-[-0.04em] text-[#1F2937]">{loading ? "-" : formatKrw(data?.summary.totalBaseKrw || 0)}</p>
           </article>
 
@@ -285,10 +294,12 @@ export function PartnerSalesOrdersPanel() {
                   <th className="px-4 py-3">제품</th>
                   <th className="px-4 py-3">수량</th>
                   <th className="px-4 py-3">통화</th>
-                  <th className="px-4 py-3">원가</th>
+                  {/* 주석 건드리지마시오 */}
+                  {/* <th className="px-4 py-3">원가</th> */}
                   <th className="px-4 py-3">캡슐판매가</th>
+
                   <th className="px-4 py-3">박스비</th>
-                  <th className="px-4 py-3">기준금액</th>
+                  <th className="px-4 py-3">정산금액</th>
                   <th className="px-4 py-3">파트너수익</th>
                   <th className="px-4 py-3">결제</th>
                   <th className="px-4 py-3">상태</th>
@@ -314,8 +325,10 @@ export function PartnerSalesOrdersPanel() {
                         <td className="px-4 py-3 text-[12px] text-[#344054]">{order.productName}</td>
                         <td className="px-4 py-3 text-[12px] text-[#344054]">{order.quantity}</td>
                         <td className="px-4 py-3 text-[12px] text-[#344054]">{order.currencyCode}</td>
-                        <td className="px-4 py-3 text-[12px] text-[#344054]">{formatMoney(order.costAmount, order.currencyCode)}</td>
+                        {/* 주석 건드리지마시오 */}
+                        {/* <td className="px-4 py-3 text-[12px] text-[#344054]">{formatMoney(order.costAmount, order.currencyCode)}</td> */}
                         <td className="px-4 py-3 text-[12px] text-[#344054]">{formatMoney(order.capsuleSalePrice, order.currencyCode)}</td>
+
                         <td className="px-4 py-3 text-[12px] text-[#344054]">{formatMoney(order.boxPrice, order.currencyCode)}</td>
                         <td className="px-4 py-3 text-[12px] text-[#344054]">{formatMoney(order.baseAmount, order.currencyCode)}</td>
                         <td className="px-4 py-3 text-[12px] text-[#344054]">
@@ -324,9 +337,8 @@ export function PartnerSalesOrdersPanel() {
                         <td className="px-4 py-3 text-[12px] text-[#344054]">{order.paymentMethod}</td>
                         <td className="px-4 py-3">
                           <span
-                            className={`inline-flex rounded-full px-2.5 py-0.5 text-[11px] font-bold ${
-                              isCompleted ? "bg-[#DCFCE7] text-[#16A34A]" : "bg-[#E9F2FF] text-[#2563EB]"
-                            }`}
+                            className={`inline-flex rounded-full px-2.5 py-0.5 text-[11px] font-bold ${isCompleted ? "bg-[#DCFCE7] text-[#16A34A]" : "bg-[#E9F2FF] text-[#2563EB]"
+                              }`}
                           >
                             {order.statusLabel}
                           </span>

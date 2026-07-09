@@ -578,13 +578,13 @@ export function ManufacturerAdmin() {
                               >
                                 수정
                               </button>
-                              <button
+                              {/* <button
                                 type="button"
                                 onClick={() => manufacturer.id && handleDelete(manufacturer.id)}
                                 className="rounded-[14px] bg-[#fef2f2] px-3 py-1 text-[12px] font-bold text-[#dc2626] transition hover:bg-[#fee2e2]"
                               >
                                 삭제
-                              </button>
+                              </button> */}
                             </div>
                           </td>
                         </tr>

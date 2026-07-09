@@ -14,6 +14,7 @@ export function Step2Product({
   catalogLoading,
   selection,
   setSelection,
+  additionalDiscountPercent,
   onReset: _onReset,
 }: {
   manufacturerName: string;
@@ -21,6 +22,7 @@ export function Step2Product({
   catalogLoading: boolean;
   selection: EstimateSelection;
   setSelection: (value: EstimateSelection) => void;
+  additionalDiscountPercent: number;
   onReset: () => void;
 }) {
   const COMBO_CATEGORY = "콤보상품";
@@ -180,6 +182,7 @@ export function Step2Product({
                   ) : null}
                   <ProductCard
                     {...product}
+                    additionalDiscountPercent={additionalDiscountPercent}
                     selected={selection.product === product.id}
                     onClick={() => {
                       if (isSoldOut) {
@@ -253,7 +256,13 @@ export function Step2Product({
         )}
       </div>
 
-      {previewProduct && <ProductPreviewModal product={previewProduct} onClose={() => setPreviewProduct(null)} />}
+      {previewProduct && (
+        <ProductPreviewModal
+          product={previewProduct}
+          additionalDiscountPercent={additionalDiscountPercent}
+          onClose={() => setPreviewProduct(null)}
+        />
+      )}
     </>
   );
 }

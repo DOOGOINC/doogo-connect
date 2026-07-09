@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect } from "react";
-import { authFetch } from "@/lib/client/auth-fetch";
+import { fetchNotificationsCached } from "@/lib/client/notification-cache";
 
 type NotificationItem = {
   key: string;
@@ -37,10 +37,9 @@ async function fetchSharedChatNotifications(isActive: () => boolean) {
 
   pollingInFlight = (async () => {
     try {
-      const response = await authFetch("/api/notifications");
-      const payload = (await response.json()) as NotificationResponse;
+      const payload = (await fetchNotificationsCached(true)) as NotificationResponse;
 
-      if (!response.ok || !isActive()) {
+      if (!isActive()) {
         return;
       }
 

@@ -152,6 +152,7 @@ export async function PATCH(request: Request) {
     const refereeRewardPoints = toPointInput(body.refereeRewardPoints, DEFAULT_REFEREE_REWARD_POINTS);
     const rfqRequestCostPoints = toPointInput(body.rfqRequestCostPoints, DEFAULT_RFQ_REQUEST_POINT_COST);
     const commissionRatePercent = toPercentInput(body.commissionRatePercent, DEFAULT_COMMISSION_RATE_PERCENT);
+    const studentDiscountPercent = toPercentInput(body.studentDiscountPercent, 0);
     const platformName =
       typeof body.platformName === "string" && body.platformName.trim()
         ? body.platformName.trim().slice(0, 80)
@@ -170,6 +171,7 @@ export async function PATCH(request: Request) {
       referee_reward_points: refereeRewardPoints,
       rfq_request_cost_points: rfqRequestCostPoints,
       commission_rate_percent: commissionRatePercent,
+      student_discount_percent: studentDiscountPercent,
       platform_name: platformName,
       point_purchase_packages: pointPurchasePackages,
       updated_by: user.id,
@@ -201,6 +203,7 @@ export async function PATCH(request: Request) {
         refereeRewardPoints,
         rfqRequestCostPoints,
         commissionRatePercent,
+        studentDiscountPercent,
         platformName,
         pointPurchasePackages,
       },

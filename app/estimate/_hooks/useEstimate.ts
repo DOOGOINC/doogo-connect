@@ -268,7 +268,7 @@ const mapDesignExtra = (row: DesignExtraRow): DesignExtraItem => ({
   paymentCurrency: normalizeCurrencyCode(row.payment_currency || "USD"),
 });
 
-export const useEstimate = () => {
+export const useEstimate = (additionalDiscountPercent = 0) => {
   const searchParams = useSearchParams();
   const requestedManufacturerId = Number(searchParams.get("manufacturer"));
   const requestedStep = Number(searchParams.get("step"));
@@ -610,11 +610,13 @@ export const useEstimate = () => {
         container: selectedContainer,
         quantity: selectedQuantity,
         designPrice: selectedDesignPrice,
+        additionalDiscountPercent,
       }),
-    [selectedContainer, selectedDesignPrice, selectedProduct, selectedQuantity]
+    [additionalDiscountPercent, selectedContainer, selectedDesignPrice, selectedProduct, selectedQuantity]
   );
 
   const unitPrice = selectedProductId && currentStep > 1 ? pricing.unitPrice : 0;
+  const additionalDiscountAmount = selectedProductId && currentStep > 1 ? pricing.additionalDiscountAmount : 0;
   const totalPrice = selectedProductId && currentStep > 1 ? pricing.totalPrice : 0;
 
   const handleNext = () => {
@@ -657,6 +659,8 @@ export const useEstimate = () => {
     selectedManufacturer,
     selectedContainer,
     selectedDesign,
+    additionalDiscountPercent,
+    additionalDiscountAmount,
     unitPrice,
     totalPrice,
     secretAccessToken,

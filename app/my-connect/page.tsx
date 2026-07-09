@@ -5,6 +5,11 @@ export const dynamic = "force-dynamic";
 import { Suspense, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useSearchParams } from "next/navigation";
 import { PortalPageHeader } from "@/components/header/PortalPageHeader";
+import {
+  clearStoredImpersonationUserId,
+  getStoredImpersonationUserId,
+  setStoredImpersonationUserId,
+} from "@/lib/client/impersonation";
 import { fetchCatalogSignedUrls, resolveCatalogImageUrl } from "@/lib/catalogImageUrls";
 import { getPortalHomeByRole, type AppRole } from "@/lib/auth/roles";
 import { authFetch } from "@/lib/client/auth-fetch";
@@ -191,10 +196,12 @@ function MyConnectPageContent() {
   const [userId, setUserId] = useState<string>("");
   const [displayName, setDisplayName] = useState("고객");
   const [userRole, setUserRole] = useState<AppRole>("member");
+  const [memberGrade, setMemberGrade] = useState<"student" | "general">("general");
   const [manufacturerId, setManufacturerId] = useState<number | null>(null);
   const [manufacturerName, setManufacturerName] = useState("");
   const [viewMode, setViewMode] = useState<ConnectViewMode>("client");
   const [isLoading, setIsLoading] = useState(true);
+  const [isImpersonating, setIsImpersonating] = useState(false);
   const [activeTab, setActiveTab] = useState("dashboard");
   const [deliveryTab, setDeliveryTab] = useState<DeliveryTab>("request-history");
   const [manufacturerInboxView, setManufacturerInboxView] = useState<"new" | "rejected" | "expired">("new");
@@ -223,29 +230,56 @@ function MyConnectPageContent() {
       setDisplayName(resolveSessionDisplayName(session));
 
       const fallbackRole = resolveSessionRole(session) || "member";
-      setUserRole(fallbackRole);
+      const requestedImpersonationUserId = params.get("impersonate")?.trim() || "";
+      const storedImpersonationUserId = getStoredImpersonationUserId();
+      const impersonationUserId = requestedImpersonationUserId || storedImpersonationUserId || "";
 
-      const profileLookup = Promise.race([
-        supabase
-          .from("profiles")
-          .select("role, full_name")
-          .eq("id", session.user.id)
-          .maybeSingle()
-          .then(({ data, error }) => {
-            if (error) {
-              console.warn("Profile role lookup skipped:", error.message);
-              return null;
-            }
+      if (impersonationUserId) {
+        setStoredImpersonationUserId(impersonationUserId);
+      }
 
-            return data;
+      const profileSyncUrl = impersonationUserId
+        ? `/api/profile/sync?impersonate=${encodeURIComponent(impersonationUserId)}`
+        : "/api/profile/sync";
+      const profileLookupRequest = authFetch(
+        profileSyncUrl,
+        impersonationUserId
+          ? {
+            headers: {
+              "X-Impersonate-User-Id": impersonationUserId,
+            },
+          }
+          : undefined
+      )
+        .then(async (response) => {
+          const payload = (await response.json()) as {
+            profile?: { id?: string; full_name?: string | null; role?: AppRole | null; member_grade?: "student" | "general" | null };
+            actorRole?: AppRole;
+            isImpersonating?: boolean;
+            error?: string;
+          };
+
+          if (!response.ok) {
+            throw new Error(payload.error || "Profile lookup failed.");
+          }
+
+          return payload;
+        })
+        .catch((error) => {
+          console.warn("Profile role lookup skipped:", error instanceof Error ? error.message : String(error));
+          return null;
+        });
+      const resolvedProfileLookup = impersonationUserId
+        ? profileLookupRequest
+        : Promise.race([
+          profileLookupRequest,
+          new Promise<null>((resolve) => {
+            window.setTimeout(() => resolve(null), PROFILE_LOOKUP_TIMEOUT_MS);
           }),
-        new Promise<null>((resolve) => {
-          window.setTimeout(() => resolve(null), PROFILE_LOOKUP_TIMEOUT_MS);
-        }),
-      ]);
+        ]);
 
-      const [profile, { data: manufacturer, error: manufacturerError }] = await Promise.all([
-        profileLookup,
+      const [profilePayload, { data: manufacturer, error: manufacturerError }] = await Promise.all([
+        resolvedProfileLookup,
         supabase.from("manufacturers").select("id, name").eq("owner_id", session.user.id).maybeSingle(),
       ]);
       if (manufacturerError) {
@@ -253,15 +287,40 @@ function MyConnectPageContent() {
       }
 
       const hasLinkedManufacturer = Boolean(manufacturer?.id);
-      const profileRole = (profile?.role as AppRole | undefined) || fallbackRole;
+      const profileRole = profilePayload?.profile?.role || fallbackRole;
+      const resolvedMemberGrade = profilePayload?.profile?.member_grade === "student" ? "student" : "general";
       const resolvedDisplayName =
-        profile?.full_name?.trim() ||
+        profilePayload?.profile?.full_name?.trim() ||
         session.user.user_metadata?.full_name ||
         session.user.user_metadata?.name ||
         session.user.identities?.[0]?.identity_data?.full_name ||
         session.user.identities?.[0]?.identity_data?.name ||
         "고객";
+      if (impersonationUserId) {
+        if (profilePayload?.profile?.role && profilePayload.profile.role !== "member") {
+          clearStoredImpersonationUserId();
+          window.location.href = "/master?tab=requesters";
+          return;
+        }
+
+        setIsImpersonating(true);
+        setUserId(profilePayload?.profile?.id || impersonationUserId);
+        setDisplayName(resolvedDisplayName);
+        setUserRole("member");
+        setMemberGrade(resolvedMemberGrade);
+        setViewMode("client");
+        setActiveTab(resolveClientTab(requestedTab));
+        setChatInitialRoomId(requestedRoomId);
+        setDeliveryTab(requestedDeliveryTab);
+        setManufacturerId(null);
+        setManufacturerName("");
+        setIsLoading(false);
+        return;
+      }
+
+      setIsImpersonating(false);
       setDisplayName(resolvedDisplayName);
+      setMemberGrade(resolvedMemberGrade);
       const nextRole: AppRole =
         profileRole === "master"
           ? "master"
@@ -297,6 +356,11 @@ function MyConnectPageContent() {
     };
 
     void initializePage();
+  }, []);
+
+  const handleExitImpersonation = useCallback(() => {
+    clearStoredImpersonationUserId();
+    window.location.href = "/master?tab=requesters";
   }, []);
 
   useEffect(() => {
@@ -875,11 +939,39 @@ function MyConnectPageContent() {
           activeTab={activeTab}
           displayName={displayName}
           isManufacturer={isManufacturer}
+          memberGrade={memberGrade}
           onTabChange={setActiveTab}
           viewMode={viewMode}
           manufacturerName={manufacturerName}
         />
         <div className={`flex min-w-0 flex-1 flex-col bg-white ${isFixedHeightTab ? "overflow-hidden" : ""}`}>
+          {isImpersonating ? (
+            <div className="flex items-center justify-between gap-6 bg-[#2563EB] px-8 py-3.5 border-b border-[#1D4ED8] shadow-lg">
+
+              <div className="flex items-center gap-3">
+                <div className="flex items-center justify-center p-1.5 rounded-full bg-white/20 ring-1 ring-white/30">
+                  <span className="relative flex h-2 w-2">
+                    <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-white opacity-75"></span>
+                    <span className="relative inline-flex rounded-full h-2 w-2 bg-white"></span>
+                  </span>
+                </div>
+                <div className="flex items-center gap-2 text-[14px]">
+                  <span className="text-blue-100 font-medium">마스터 세션 활성화:</span>
+                  <span className="text-white font-bold tracking-tight">{displayName}</span>
+                  <span className="text-blue-400">|</span>
+                  <span className="text-white font-medium">권한 대행 모드</span>
+                </div>
+              </div>
+
+              <button
+                type="button"
+                onClick={handleExitImpersonation}
+                className="flex items-center gap-2 px-4 py-1.5 rounded-lg bg-[#fff] border border-blue-400/30 hover:bg-[#EDF0F3] text-[#000] text-[13px] font-semibold transition-all duration-200 active:scale-95 shadow-sm cursor-pointer"
+              >
+                종료
+              </button>
+            </div>
+          ) : null}
           <PortalPageHeader
             portalLabel={viewMode === "manufacturer" ? "제조사 대시보드" : "의뢰자 대시보드"}
             sectionLabel={(viewMode === "manufacturer" ? MANUFACTURER_TAB_LABELS : CLIENT_TAB_LABELS)[activeTab] || "대시보드"}

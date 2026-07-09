@@ -5,9 +5,18 @@ import { X, Check, AlertTriangle } from "lucide-react";
 import { formatCurrency } from "@/lib/currency";
 import { getDynamicDiscounts, getProductDetails, type Product } from "../_data/catalog";
 
-export function ProductPreviewModal({ product, onClose }: { product: Product | null; onClose: () => void }) {
+export function ProductPreviewModal({
+  product,
+  additionalDiscountPercent,
+  onClose,
+}: {
+  product: Product | null;
+  additionalDiscountPercent: number;
+  onClose: () => void;
+}) {
   const details = getProductDetails(product);
   const pricingRows = getDynamicDiscounts(product);
+  void additionalDiscountPercent;
 
   if (!product || !details) return null;
 

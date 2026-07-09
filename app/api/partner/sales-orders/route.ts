@@ -79,7 +79,7 @@ function getContainerAmount(order: SalesOrderRow) {
 }
 
 function getBaseAmount(order: SalesOrderRow) {
-  return getProductAmount(order) + getContainerAmount(order);
+  return getProductAmount(order);
 }
 
 function getCompensationRecordedAt(order: SalesOrderRow) {
@@ -240,7 +240,7 @@ export async function GET(request: Request) {
       const productAmount = getProductAmount(order);
       const containerAmount = getContainerAmount(order);
       const costAmount = toMoney(productCostMap.get(trimValue(order.product_id))) * Number(order.quantity || 0);
-      const baseAmount = productAmount + containerAmount;
+      const baseAmount = productAmount;
       const appliedCommissionRate = getPartnerCommissionRateForTimestamp(
         getCompensationRecordedAt(order),
         partnerAccess.periods,

@@ -32,6 +32,25 @@ type PartnerResponse = {
   error?: string;
 };
 
+type PartnerReferralMember = {
+  id: string;
+  name: string;
+  email: string;
+  createdAt: string | null;
+  transactionCount: number;
+};
+
+type PartnerReferralResponse = {
+  count?: number;
+  members?: PartnerReferralMember[];
+  error?: string;
+};
+
+type PartnerReferralCache = {
+  count: number;
+  members: PartnerReferralMember[];
+};
+
 const EMPTY_FORM: PartnerForm = {
   name: "",
   email: "",
@@ -205,6 +224,97 @@ function PartnerEditModal({
   );
 }
 
+function PartnerInfoModal({
+  partner,
+  members,
+  totalCount,
+  loading,
+  error,
+  onClose,
+}: {
+  partner: PartnerRow;
+  members: PartnerReferralMember[];
+  totalCount: number;
+  loading: boolean;
+  error: string;
+  onClose: () => void;
+}) {
+  return (
+    <div className="fixed inset-0 z-[120] flex items-center justify-center bg-black/35 px-4 py-6">
+      <div className="w-full max-w-[500px] overflow-hidden rounded-[22px] bg-white shadow-[0_24px_80px_rgba(15,23,42,0.24)]">
+        <div className="flex items-center justify-between bg-[#2554dd] px-5 py-4 text-white">
+          <h2 className="text-[17px] font-bold">🤝 파트너 정보 - {partner.name}</h2>
+          <button
+            type="button"
+            onClick={onClose}
+            className="flex h-8 w-8 items-center justify-center rounded-full text-white/80 transition hover:bg-white/10 hover:text-white"
+            aria-label="닫기"
+          >
+            <X className="h-5 w-5" />
+          </button>
+        </div>
+
+        <div className="space-y-4 px-5 pb-5 pt-5">
+          <div className="rounded-[18px] border border-[#e7edf4] bg-[#f8fafc] px-4 py-4">
+            <p className="text-[12px] font-bold text-[#667085]">추천한 회원 수</p>
+            <p className="mt-1 text-[22px] font-bold text-[#20293f]">{loading ? "-" : `${totalCount}명`}</p>
+          </div>
+
+          <div className="rounded-[18px] border border-[#e7edf4]">
+            <div className="grid grid-cols-[1.4fr_1fr_88px] gap-3 border-b border-[#eef2f6] px-4 py-3 text-[12px] font-bold text-[#667085]">
+              <div>회원명</div>
+              <div>이메일</div>
+              <div className="text-center">거래 횟수</div>
+            </div>
+
+            <div className="max-h-[320px] overflow-y-auto">
+              {loading ? (
+                <div className="flex items-center justify-center px-4 py-12 text-[12px] font-semibold text-[#667085]">
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                  불러오는 중...
+                </div>
+              ) : error ? (
+                <div className="px-4 py-10 text-center text-[12px] font-bold text-[#dc2626]">{error}</div>
+              ) : members.length === 0 ? (
+                <div className="px-4 py-10 text-center text-[12px] font-semibold text-[#98a2b3]">추천한 회원이 없습니다.</div>
+              ) : (
+                members.map((member) => (
+                  <div
+                    key={member.id}
+                    className="grid grid-cols-[1.4fr_1fr_88px] gap-3 border-b border-[#f2f4f7] px-4 py-3 text-[12px] last:border-b-0"
+                  >
+                    <div className="min-w-0 truncate font-bold text-[#344054]" title={member.name}>
+                      {member.name}
+                    </div>
+                    <div className="min-w-0 truncate font-semibold text-[#667085]" title={member.email}>
+                      {member.email}
+                    </div>
+                    <div
+                      className={`text-center font-bold ${member.transactionCount > 0 ? "text-[#2f6bff]" : "text-[#344054]"}`}
+                    >
+                      {member.transactionCount}회
+                    </div>
+                  </div>
+                ))
+              )}
+            </div>
+          </div>
+
+          <div className="flex justify-end pt-1">
+            <button
+              type="button"
+              onClick={onClose}
+              className="flex h-11 min-w-[140px] items-center justify-center rounded-[17px] bg-[#f1f3f7] px-5 text-[14px] font-bold text-[#5f6673] transition hover:bg-[#e8ecf3]"
+            >
+              닫기
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 export function MasterPartnerManagement() {
   const [partners, setPartners] = useState<PartnerRow[]>([]);
   const [form, setForm] = useState<PartnerForm>(EMPTY_FORM);
@@ -214,8 +324,14 @@ export function MasterPartnerManagement() {
   const [message, setMessage] = useState("");
   const [error, setError] = useState("");
   const [modalError, setModalError] = useState("");
+  const [infoError, setInfoError] = useState("");
   const [editingPartner, setEditingPartner] = useState<PartnerRow | null>(null);
+  const [infoPartner, setInfoPartner] = useState<PartnerRow | null>(null);
   const [editingStatus, setEditingStatus] = useState<PartnerStatus>("active");
+  const [infoLoading, setInfoLoading] = useState(false);
+  const [referralMembers, setReferralMembers] = useState<PartnerReferralMember[]>([]);
+  const [referralCount, setReferralCount] = useState(0);
+  const [referralCache, setReferralCache] = useState<Record<string, PartnerReferralCache>>({});
 
   const partnerCount = partners.length;
 
@@ -314,6 +430,53 @@ export function MasterPartnerManagement() {
     setEditingStatus("active");
     setEditingForm(EMPTY_FORM);
     setModalError("");
+  };
+
+  const closeInfoModal = () => {
+    setInfoPartner(null);
+    setInfoLoading(false);
+    setInfoError("");
+    setReferralMembers([]);
+    setReferralCount(0);
+  };
+
+  const openInfoModal = async (partner: PartnerRow) => {
+    setInfoPartner(partner);
+    setInfoError("");
+
+    const cachedReferral = referralCache[partner.id];
+    if (cachedReferral) {
+      setInfoLoading(false);
+      setReferralMembers(cachedReferral.members);
+      setReferralCount(cachedReferral.count);
+      return;
+    }
+
+    setInfoLoading(true);
+    setReferralMembers([]);
+    setReferralCount(0);
+
+    try {
+      const response = await authFetch(`/api/admin/partners/referrals?partnerId=${encodeURIComponent(partner.id)}`);
+      const payload = (await response.json()) as PartnerReferralResponse;
+
+      if (!response.ok) {
+        throw new Error(payload.error || "파트너 정보를 불러오지 못했습니다.");
+      }
+
+      const nextReferral = {
+        members: payload.members || [],
+        count: payload.count || 0,
+      };
+
+      setReferralMembers(nextReferral.members);
+      setReferralCount(nextReferral.count);
+      setReferralCache((prev) => ({ ...prev, [partner.id]: nextReferral }));
+    } catch (fetchError) {
+      setInfoError(fetchError instanceof Error ? fetchError.message : "파트너 정보를 불러오지 못했습니다.");
+    } finally {
+      setInfoLoading(false);
+    }
   };
 
   const handleEditSave = async () => {
@@ -526,7 +689,7 @@ export function MasterPartnerManagement() {
                       <th className="w-[15%] px-3 py-3">생성일</th>
                       <th className="w-[80px] px-3 py-3 text-center">수수료</th>
                       <th className="w-[90px] px-3 py-3 text-center">상태</th>
-                      <th className="w-[80px] px-3 py-3 text-center">관리</th>
+                      <th className="w-[120px] px-3 py-3 text-center">관리</th>
                     </tr>
                   </thead>
                   <tbody>
@@ -571,7 +734,14 @@ export function MasterPartnerManagement() {
                           </span>
                         </td>
                         <td className="px-3 py-3">
-                          <div className="flex justify-center">
+                          <div className="flex justify-center gap-2">
+                            <button
+                              type="button"
+                              onClick={() => void openInfoModal(partner)}
+                              className="inline-flex items-center justify-center rounded-full bg-[#f1f3f7] px-2.5 py-0.5 text-[11px] font-bold text-[#5f6673] transition hover:bg-[#e8ecf3] whitespace-nowrap"
+                            >
+                              정보
+                            </button>
                             <button
                               type="button"
                               onClick={() => openEditModal(partner)}
@@ -603,6 +773,17 @@ export function MasterPartnerManagement() {
           onFormChange={(patch) => setEditingForm((prev) => ({ ...prev, ...patch }))}
           status={editingStatus}
           onStatusChange={setEditingStatus}
+        />
+      ) : null}
+
+      {infoPartner ? (
+        <PartnerInfoModal
+          partner={infoPartner}
+          members={referralMembers}
+          totalCount={referralCount}
+          loading={infoLoading}
+          error={infoError}
+          onClose={closeInfoModal}
         />
       ) : null}
     </>

@@ -13,6 +13,7 @@ export async function GET() {
 
     return ok({
       refereeRewardPoints: settings.refereeRewardPoints,
+      studentDiscountPercent: settings.studentDiscountPercent,
     });
   } catch (error) {
     return mapRouteError(error);

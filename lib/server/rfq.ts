@@ -211,6 +211,19 @@ export async function createRfqRequest(input: SubmitRfqInput, request?: Request)
   const pointReason = `${manufacturerResult.data.name}:${product.name}`;
   const pointClient = createServiceRoleClient();
   const pointSettings = pointClient ? await ensurePointSettings(pointClient) : null;
+  const requesterProfile =
+    role === "member"
+      ? await supabase.from("profiles").select("member_grade").eq("id", user.id).maybeSingle<{ member_grade?: string | null }>()
+      : null;
+
+  if (requesterProfile?.error) {
+    throw new Error(requesterProfile.error.message);
+  }
+
+  const additionalDiscountPercent =
+    role === "member" && requesterProfile?.data?.member_grade === "student"
+      ? Number(pointSettings?.studentDiscountPercent || 0)
+      : 0;
 
   if (role === "member") {
     if (!pointClient) {
@@ -302,6 +315,7 @@ export async function createRfqRequest(input: SubmitRfqInput, request?: Request)
       : null,
     quantity,
     designPrice,
+    additionalDiscountPercent,
   });
   const commissionSnapshot = calculateCommissionSnapshot(
     pricing.totalPrice,
@@ -374,6 +388,8 @@ export async function createRfqRequest(input: SubmitRfqInput, request?: Request)
         container_unit_price: pricing.containerUnitPrice,
         container_amount: pricing.containerUnitPrice * quantity,
         package_price: Number(designPackageResult.data?.price || 0),
+        additional_discount_percent: additionalDiscountPercent,
+        additional_discount_amount: pricing.additionalDiscountAmount,
         services: (designServicesResult.data || []).map((item) => ({
           id: item.id,
           name: item.name,

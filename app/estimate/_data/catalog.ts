@@ -106,9 +106,17 @@ export interface EstimateSelection {
 
 export const formatPriceText = (addPrice: number, currencyCode: CurrencyCode = "USD") =>
   formatCurrency(addPrice, currencyCode);
+
+function normalizeAdditionalDiscountPercent(value?: number) {
+  if (!Number.isFinite(value)) return 0;
+  return Math.max(0, Math.min(100, Number(value || 0)));
+}
+
 export const getDynamicDiscounts = (product: Product | null): DiscountRow[] => {
+  const additionalDiscountRate = 1;
+
   if (!product || !product.discountConfig || Object.keys(product.discountConfig).length === 0) {
-    return [{ qty: 50, label: "50개 (최소)", discount: 1, note: "0% (최소)" }];
+    return [{ qty: 50, label: "50개 (최소)", discount: additionalDiscountRate, note: "0% (최소)" }];
   }
 
   const quantities = Object.keys(product.discountConfig)
@@ -117,7 +125,8 @@ export const getDynamicDiscounts = (product: Product | null): DiscountRow[] => {
 
   return quantities.map((qty) => {
     const percent = product.discountConfig[qty];
-    const discountRate = 1 - percent / 100;
+    const catalogDiscountRate = 1 - percent / 100;
+    const discountRate = catalogDiscountRate * additionalDiscountRate;
 
     return {
       qty,
@@ -212,11 +221,13 @@ export const getPricingBySelection = ({
   container,
   quantity,
   designPrice = 0,
+  additionalDiscountPercent = 0,
 }: {
   product: Product | null;
   container?: ContainerOption | null;
   quantity: number;
   designPrice?: number;
+  additionalDiscountPercent?: number;
 }) => {
   const discounts = getDynamicDiscounts(product);
   const currentDiscountRow =
@@ -230,8 +241,13 @@ export const getPricingBySelection = ({
   const discountedProductUnitPrice = (product?.basePrice || 0) * currentDiscountRow.discount;
   const containerUnitPrice = container?.addPrice || 0;
   const unitPrice = discountedProductUnitPrice + containerUnitPrice;
-  const subtotal = unitPrice * quantity;
-  const totalPrice = subtotal + designPrice;
+  const productAmount = discountedProductUnitPrice * quantity;
+  const containerAmount = containerUnitPrice * quantity;
+  const subtotal = productAmount + containerAmount;
+  const subtotalBeforeAdditionalDiscount = subtotal + designPrice;
+  const additionalDiscountAmount =
+    subtotalBeforeAdditionalDiscount * (normalizeAdditionalDiscountPercent(additionalDiscountPercent) / 100);
+  const totalPrice = subtotalBeforeAdditionalDiscount - additionalDiscountAmount;
 
   return {
     discounts,
@@ -239,7 +255,11 @@ export const getPricingBySelection = ({
     discountedProductUnitPrice,
     containerUnitPrice,
     unitPrice,
+    productAmount,
+    containerAmount,
     subtotal,
+    subtotalBeforeAdditionalDiscount,
+    additionalDiscountAmount,
     totalPrice,
   };
 };

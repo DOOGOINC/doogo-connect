@@ -9,6 +9,7 @@ interface ProductCardProps {
   description: string;
   paymentCurrency: CurrencyCode;
   basePrice: number;
+  additionalDiscountPercent: number;
   image: string;
   selected: boolean;
   onClick: () => void;
@@ -20,12 +21,15 @@ export function ProductCard({
   name,
   paymentCurrency,
   basePrice,
+  additionalDiscountPercent,
   image,
   selected,
   onClick,
   onPreview,
 }: ProductCardProps) {
   const imageSrc = image?.trim() || null;
+  const displayBasePrice = basePrice;
+  void additionalDiscountPercent;
 
   return (
     <div
@@ -94,7 +98,7 @@ export function ProductCard({
 
         <div className="mt-1.5 flex items-center gap-1">
           <span className="text-[14px] font-bold text-[#0052cc]">
-            {formatCurrency(basePrice, paymentCurrency)}~
+            {formatCurrency(displayBasePrice, paymentCurrency)}~
           </span>
           <span className="text-[12px] text-[#8b95a1]">/ 개</span>
         </div>

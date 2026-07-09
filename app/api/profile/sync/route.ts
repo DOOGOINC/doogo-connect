@@ -40,6 +40,47 @@ function trimOrNull(value: unknown) {
   return trimmed || null;
 }
 
+export async function GET(request: Request) {
+  try {
+    const { user, actorUser, supabase, isImpersonating } = await requireServerUser(request);
+    const adminClient = createServiceRoleClient();
+    const profileClient = adminClient ?? supabase;
+
+    const [{ data: profile, error: profileError }, { data: actorProfile, error: actorProfileError }] = await Promise.all([
+      profileClient
+        .from("profiles")
+        .select("id, full_name, email, phone_number, role, member_grade")
+        .eq("id", user.id)
+        .maybeSingle(),
+      profileClient.from("profiles").select("role").eq("id", actorUser.id).maybeSingle(),
+    ]);
+
+    if (profileError) {
+      throw new Error(profileError.message);
+    }
+
+    if (actorProfileError) {
+      throw new Error(actorProfileError.message);
+    }
+
+    return ok({
+      success: true,
+      profile: {
+        id: user.id,
+        full_name: trimOrNull(profile?.full_name) ?? trimOrNull(user.user_metadata?.full_name) ?? trimOrNull(user.user_metadata?.name),
+        email: trimOrNull(profile?.email) ?? trimOrNull(user.email),
+        phone_number: trimOrNull(profile?.phone_number) ?? trimOrNull(user.user_metadata?.phone_number),
+        role: (profile?.role as AppRole | null) ?? "member",
+        member_grade: profile?.member_grade === "student" ? "student" : "general",
+      },
+      actorRole: ((actorProfile?.role as AppRole | null) ?? (isImpersonating ? "master" : (profile?.role as AppRole | null)) ?? "member") as AppRole,
+      isImpersonating,
+    });
+  } catch (error) {
+    return mapRouteError(error);
+  }
+}
+
 export async function POST(request: Request) {
   try {
     const body = await request.json();

@@ -26,6 +26,7 @@ type PointSettingsRow = {
   referee_reward_points: number | null;
   rfq_request_cost_points?: number | null;
   commission_rate_percent?: number | null;
+  student_discount_percent?: number | null;
   platform_name?: string | null;
   point_purchase_packages?: unknown;
 };
@@ -90,7 +91,7 @@ export function normalizePointPurchasePackages(value: unknown): PointPurchasePac
 export async function ensurePointSettings(supabase: SupabaseClient) {
   const { data: existing, error: readError } = await supabase
     .from("point_settings")
-    .select("id, referrer_reward_points, referee_reward_points, rfq_request_cost_points, commission_rate_percent, platform_name, point_purchase_packages")
+    .select("id, referrer_reward_points, referee_reward_points, rfq_request_cost_points, commission_rate_percent, student_discount_percent, platform_name, point_purchase_packages")
     .eq("id", POINT_SETTINGS_ROW_ID)
     .maybeSingle<PointSettingsRow>();
 
@@ -116,6 +117,7 @@ export async function ensurePointSettings(supabase: SupabaseClient) {
         refereeRewardPoints: toSafePointValue(legacyExisting.referee_reward_points, DEFAULT_REFEREE_REWARD_POINTS),
         rfqRequestCostPoints: DEFAULT_RFQ_REQUEST_POINT_COST,
         commissionRatePercent: DEFAULT_COMMISSION_RATE_PERCENT,
+        studentDiscountPercent: 0,
         platformName: DEFAULT_PLATFORM_NAME,
         pointPurchasePackages: normalizePointPurchasePackages(null),
       };
@@ -129,6 +131,7 @@ export async function ensurePointSettings(supabase: SupabaseClient) {
       refereeRewardPoints: toSafePointValue(existing.referee_reward_points, DEFAULT_REFEREE_REWARD_POINTS),
       rfqRequestCostPoints: toSafePointValue(existing.rfq_request_cost_points, DEFAULT_RFQ_REQUEST_POINT_COST),
       commissionRatePercent: toSafePercentValue(existing.commission_rate_percent, DEFAULT_COMMISSION_RATE_PERCENT),
+      studentDiscountPercent: toSafePercentValue(existing.student_discount_percent, 0),
       platformName: existing.platform_name?.trim() || DEFAULT_PLATFORM_NAME,
       pointPurchasePackages: normalizePointPurchasePackages(existing.point_purchase_packages),
     };
@@ -140,6 +143,7 @@ export async function ensurePointSettings(supabase: SupabaseClient) {
     referee_reward_points: DEFAULT_REFEREE_REWARD_POINTS,
     rfq_request_cost_points: DEFAULT_RFQ_REQUEST_POINT_COST,
     commission_rate_percent: DEFAULT_COMMISSION_RATE_PERCENT,
+    student_discount_percent: 0,
     platform_name: DEFAULT_PLATFORM_NAME,
     point_purchase_packages: DEFAULT_POINT_PURCHASE_PACKAGES,
   };
@@ -155,6 +159,7 @@ export async function ensurePointSettings(supabase: SupabaseClient) {
     refereeRewardPoints: DEFAULT_REFEREE_REWARD_POINTS,
     rfqRequestCostPoints: DEFAULT_RFQ_REQUEST_POINT_COST,
     commissionRatePercent: DEFAULT_COMMISSION_RATE_PERCENT,
+    studentDiscountPercent: 0,
     platformName: DEFAULT_PLATFORM_NAME,
     pointPurchasePackages: normalizePointPurchasePackages(null),
   };

@@ -6,7 +6,6 @@ import { authFetch } from "@/lib/client/auth-fetch";
 import {
   Check,
   Download,
-  RotateCcw,
   ChevronRight,
   X,
   Printer
@@ -45,6 +44,7 @@ export function Step6Confirmation({
   reviewForm,
   rfqRequest,
   onReset,
+  additionalDiscountPercent = 0,
 }: {
   designServices: DesignServiceItem[];
   designPackages: DesignPackageItem[];
@@ -53,10 +53,12 @@ export function Step6Confirmation({
   reviewForm: ReviewFormValues;
   rfqRequest: Pick<RfqRequestRow, "request_number" | "order_number"> | null;
   onReset: () => void;
+  additionalDiscountPercent?: number;
 }) {
   const router = useRouter();
   const [showPrintPopup, setShowPrintPopup] = useState(false);
-  const [supplierEmail, setSupplierEmail] = useState<string | null>(null);
+  const [supplierEmailState, setSupplierEmailState] = useState<{ manufacturerId: number; email: string | null } | null>(null);
+  void onReset;
 
   // ESC 키로 팝업 닫기 처리
   useEffect(() => {
@@ -77,7 +79,6 @@ export function Step6Confirmation({
   useEffect(() => {
     const manufacturerId = est.selectedManufacturer?.id;
     if (!manufacturerId) {
-      setSupplierEmail(null);
       return;
     }
 
@@ -86,13 +87,13 @@ export function Step6Confirmation({
     const fetchSupplierEmail = async () => {
       const response = await authFetch(`/api/manufacturers/${manufacturerId}/contact-email`);
       if (!response.ok) {
-        if (!ignore) setSupplierEmail(null);
+        if (!ignore) setSupplierEmailState({ manufacturerId, email: null });
         return;
       }
 
       const payload = (await response.json()) as { email?: string | null };
       if (!ignore) {
-        setSupplierEmail(payload.email?.trim() || null);
+        setSupplierEmailState({ manufacturerId, email: payload.email?.trim() || null });
       }
     };
 
@@ -111,6 +112,7 @@ export function Step6Confirmation({
 
   const orderNumber = rfqRequest ? getDisplayOrderNumber(rfqRequest) : "ORD-발급중";
   const requestNumber = rfqRequest?.request_number || null;
+  const supplierEmail = supplierEmailState?.manufacturerId === est.selectedManufacturer?.id ? supplierEmailState?.email ?? null : null;
 
   const pricing = useMemo(
     () =>
@@ -119,8 +121,9 @@ export function Step6Confirmation({
         container: est.selectedContainer,
         quantity: est.selection.quantity,
         designPrice: est.selectedDesign?.price || 0,
+        additionalDiscountPercent,
       }),
-    [est.selectedContainer, est.selectedDesign?.price, est.selectedProduct, est.selection.quantity]
+    [additionalDiscountPercent, est.selectedContainer, est.selectedDesign?.price, est.selectedProduct, est.selection.quantity]
   );
 
   const displayRows = useMemo(() => {
@@ -179,8 +182,18 @@ export function Step6Confirmation({
       });
     });
 
+    if (additionalDiscountPercent > 0) {
+      rows.push({
+        title: "수강생 할인",
+        spec: `제품, 용기, 디자인 포함 전체 ${additionalDiscountPercent}% 할인`,
+        unitPrice: -pricing.additionalDiscountAmount,
+        quantity: 1,
+        amount: -pricing.additionalDiscountAmount,
+      });
+    }
+
     return rows;
-  }, [est, pricing, designServices, designPackages, designExtras]);
+  }, [additionalDiscountPercent, est, pricing, designServices, designPackages, designExtras]);
 
   const handlePrint = () => {
     window.print();

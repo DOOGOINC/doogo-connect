@@ -7,6 +7,12 @@ import { usePathname, useRouter } from "next/navigation";
 import type { Session } from "@supabase/supabase-js";
 import { AuthModal } from "@/components/AuthModal";
 import { getPortalHomeByRole } from "@/lib/auth/roles";
+import {
+  fetchNotificationsCached,
+  fetchNotificationSummaryCached,
+  invalidateNotificationCache,
+  primeNotificationCache,
+} from "@/lib/client/notification-cache";
 import { useChatBrowserNotifications } from "@/lib/client/useChatBrowserNotifications";
 import { supabase } from "@/lib/supabase";
 import { Bell, Check, LogOut, X } from "lucide-react";
@@ -39,12 +45,6 @@ type NotificationItem = {
   createdAt: string;
   isRead: boolean;
   avatarInitial?: string | null;
-};
-
-type NotificationResponse = {
-  trade?: NotificationItem[];
-  chat?: NotificationItem[];
-  unreadCount?: number;
 };
 
 const DEFAULT_POINT_PACKAGES: PointPackage[] = [
@@ -235,15 +235,9 @@ export function SiteHeader() {
 
     const fetchUnreadNotificationCount = async () => {
       try {
-        const response = await authFetch("/api/notifications?mode=summary");
-        const payload = (await response.json()) as NotificationResponse & { error?: string };
-
-        if (!response.ok) {
-          throw new Error(payload.error || "failed_to_load_notifications");
-        }
-
+        const unreadCount = await fetchNotificationSummaryCached();
         if (active) {
-          setUnreadCount(Number(payload.unreadCount || 0));
+          setUnreadCount(unreadCount);
         }
       } catch (error) {
         console.error("Failed to load notification summary:", error);
@@ -377,6 +371,7 @@ export function SiteHeader() {
   }, [applySessionState, router, shouldSyncProfile, syncProfile]);
 
   const handleLogout = async () => {
+    invalidateNotificationCache();
     await supabase.auth.signOut();
     window.location.href = "/";
   };
@@ -385,13 +380,7 @@ export function SiteHeader() {
     setNotificationLoading(true);
 
     try {
-      const response = await authFetch("/api/notifications");
-      const payload = (await response.json()) as NotificationResponse & { error?: string };
-
-      if (!response.ok) {
-        throw new Error(payload.error || "failed_to_load_notifications");
-      }
-
+      const payload = await fetchNotificationsCached();
       setNotifications({
         trade: payload.trade || [],
         chat: payload.chat || [],
@@ -425,7 +414,13 @@ export function SiteHeader() {
           trade: prev.trade.map((item) => (keys.includes(item.key) ? { ...item, isRead: true } : item)),
           chat: prev.chat.map((item) => (keys.includes(item.key) ? { ...item, isRead: true } : item)),
         };
-        setUnreadCount([...next.trade, ...next.chat].filter((item) => !item.isRead).length);
+        const nextUnreadCount = [...next.trade, ...next.chat].filter((item) => !item.isRead).length;
+        setUnreadCount(nextUnreadCount);
+        primeNotificationCache({
+          trade: next.trade,
+          chat: next.chat,
+          unreadCount: nextUnreadCount,
+        });
         return next;
       });
     } catch (error) {
@@ -461,7 +456,13 @@ export function SiteHeader() {
       setNotifications((prev) => {
         const nextItems = prev[activeNotificationTab].map((item) => ({ ...item, isRead: true }));
         const next = { ...prev, [activeNotificationTab]: nextItems };
-        setUnreadCount([...next.trade, ...next.chat].filter((item) => !item.isRead).length);
+        const nextUnreadCount = [...next.trade, ...next.chat].filter((item) => !item.isRead).length;
+        setUnreadCount(nextUnreadCount);
+        primeNotificationCache({
+          trade: next.trade,
+          chat: next.chat,
+          unreadCount: nextUnreadCount,
+        });
         return next;
       });
     } catch (error) {

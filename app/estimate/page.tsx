@@ -6,6 +6,7 @@ import { ChevronLeft, ChevronRight } from "lucide-react";
 import { AuthModal } from "@/components/AuthModal";
 import { authFetch } from "@/lib/client/auth-fetch";
 import type { AppRole } from "@/lib/auth/roles";
+import { clearStoredImpersonationUserId, getStoredImpersonationUserId, setStoredImpersonationUserId } from "@/lib/client/impersonation";
 import { DEFAULT_REVIEW_FORM_VALUES, type ReviewFormValues, type RfqRequestRow } from "@/lib/rfq";
 import { supabase } from "@/lib/supabase";
 import { FooterBar } from "./_components/FooterBar";
@@ -19,10 +20,10 @@ import { SummaryAside } from "./_components/SummaryAside";
 import { STEPS } from "./_data/steps";
 import { useEstimate } from "./_hooks/useEstimate";
 
+type MemberGrade = "student" | "general";
 
 function EstimatePageContent() {
   const router = useRouter();
-  const est = useEstimate();
   const [isAuthModalOpen, setIsAuthModalOpen] = useState(false);
   const [session, setSession] = useState<{ user: { id: string; email?: string } } | null>(null);
   const [isLoadingAuth, setIsLoadingAuth] = useState(true);
@@ -32,6 +33,10 @@ function EstimatePageContent() {
   const [pointBalance, setPointBalance] = useState(0);
   const [rfqRequestPointCost, setRfqRequestPointCost] = useState(5000);
   const [userRole, setUserRole] = useState<AppRole>("member");
+  const [memberGrade, setMemberGrade] = useState<MemberGrade>("general");
+  const [studentDiscountPercent, setStudentDiscountPercent] = useState(0);
+  const additionalDiscountPercent = userRole === "member" && memberGrade === "student" ? studentDiscountPercent : 0;
+  const est = useEstimate(additionalDiscountPercent);
 
   useEffect(() => {
     const initializeSession = async () => {
@@ -46,17 +51,67 @@ function EstimatePageContent() {
 
       setSession(session);
 
-      const { data: profile, error: profileError } = await supabase
-        .from("profiles")
-        .select("full_name, email, phone_number, role")
-        .eq("id", session.user.id)
-        .maybeSingle();
+      const fallbackRole =
+        (session.user.user_metadata?.role === "master" ||
+        session.user.user_metadata?.role === "manufacturer" ||
+        session.user.user_metadata?.role === "member" ||
+        session.user.user_metadata?.role === "partner"
+          ? session.user.user_metadata.role
+          : null) || "member";
+      const params = new URLSearchParams(window.location.search);
+      const requestedImpersonationUserId = params.get("impersonate")?.trim() || "";
+      const storedImpersonationUserId = getStoredImpersonationUserId();
+      const impersonationUserId = requestedImpersonationUserId || storedImpersonationUserId || "";
 
-      if (profileError) {
-        console.warn("Profile prefill skipped:", profileError.message);
+      if (impersonationUserId) {
+        setStoredImpersonationUserId(impersonationUserId);
       }
 
-      setUserRole((profile?.role as AppRole | undefined) || "member");
+      const profileSyncUrl = impersonationUserId
+        ? `/api/profile/sync?impersonate=${encodeURIComponent(impersonationUserId)}`
+        : "/api/profile/sync";
+      const profilePayload = await authFetch(profileSyncUrl, impersonationUserId
+        ? {
+            headers: {
+              "X-Impersonate-User-Id": impersonationUserId,
+            },
+          }
+        : undefined)
+        .then(async (response) => {
+          const payload = (await response.json()) as {
+            profile?: {
+              full_name?: string | null;
+              email?: string | null;
+              phone_number?: string | null;
+              role?: AppRole | null;
+              member_grade?: MemberGrade | null;
+            };
+            error?: string;
+          };
+
+          if (!response.ok) {
+            throw new Error(payload.error || "Profile prefill failed.");
+          }
+
+          return payload;
+        })
+        .catch((error) => {
+          console.warn("Profile prefill skipped:", error instanceof Error ? error.message : String(error));
+          return null;
+        });
+
+      const profile = profilePayload?.profile;
+      const resolvedRole = profile?.role || fallbackRole;
+      if (impersonationUserId) {
+        if (profile?.role && resolvedRole !== "member") {
+          clearStoredImpersonationUserId();
+          window.location.href = "/master?tab=requesters";
+          return;
+        }
+      }
+
+      setUserRole(resolvedRole);
+      setMemberGrade(profile?.member_grade === "student" ? "student" : "general");
 
       setReviewForm((prev) => ({
         ...prev,
@@ -65,14 +120,23 @@ function EstimatePageContent() {
         contactPhone: prev.contactPhone || profile?.phone_number || session.user.user_metadata?.phone_number || "",
       }));
 
-      const pointResponse = await authFetch("/api/points/summary");
+      const [pointResponse, publicSettingsResponse] = await Promise.all([
+        authFetch("/api/points/summary"),
+        authFetch("/api/point-settings/public"),
+      ]);
       const pointPayload = (await pointResponse.json()) as {
         wallet?: { balance?: number };
         rfqRequestCostPoints?: number;
       } & { error?: string };
+      const publicSettingsPayload = (await publicSettingsResponse.json()) as {
+        studentDiscountPercent?: number;
+      } & { error?: string };
       if (pointResponse.ok) {
         setPointBalance(Number(pointPayload.wallet?.balance || 0));
         setRfqRequestPointCost(Number(pointPayload.rfqRequestCostPoints || 5000));
+      }
+      if (publicSettingsResponse.ok) {
+        setStudentDiscountPercent(Number(publicSettingsPayload.studentDiscountPercent || 0));
       }
       setIsLoadingAuth(false);
     };
@@ -266,6 +330,7 @@ function EstimatePageContent() {
               reviewForm={reviewForm}
               rfqRequest={submittedRfq}
               onReset={est.resetSelection}
+              additionalDiscountPercent={est.additionalDiscountPercent}
             />
           ) : (
             <div className="grid items-start gap-8 lg:grid-cols-[380px_1fr]">
@@ -277,6 +342,8 @@ function EstimatePageContent() {
                 totalPrice={est.totalPrice}
                 unitPrice={est.unitPrice}
                 quantity={est.selection.quantity}
+                additionalDiscountPercent={est.additionalDiscountPercent}
+                additionalDiscountAmount={est.additionalDiscountAmount}
               />
 
               <div className="relative min-h-[500px] p-1">
@@ -296,6 +363,7 @@ function EstimatePageContent() {
                     catalogLoading={est.catalogLoading}
                     selection={est.selection}
                     setSelection={est.setSelection}
+                    additionalDiscountPercent={est.additionalDiscountPercent}
                     onReset={est.resetSelection}
                   />
                 ) : null}
@@ -306,6 +374,7 @@ function EstimatePageContent() {
                     setSelection={est.setSelection}
                     selectedProduct={est.selectedProduct}
                     selectedContainer={est.selectedContainer}
+                    additionalDiscountPercent={est.additionalDiscountPercent}
                     onReset={est.resetSelection}
                   />
                 ) : null}
@@ -334,6 +403,7 @@ function EstimatePageContent() {
                     pointCost={rfqRequestPointCost}
                     userRole={userRole}
                     onPurchasePoints={() => router.push("/purchase")}
+                    additionalDiscountPercent={est.additionalDiscountPercent}
                   />
                 ) : null}
 
@@ -384,6 +454,8 @@ function EstimatePageContent() {
           quantity={est.selection.quantity}
           unitPrice={est.unitPrice}
           totalPrice={est.totalPrice}
+          additionalDiscountPercent={est.additionalDiscountPercent}
+          additionalDiscountAmount={est.additionalDiscountAmount}
         />
       ) : null}
 

@@ -38,6 +38,7 @@ type Step5ReviewProps = {
   pointCost?: number;
   userRole?: AppRole;
   onPurchasePoints?: () => void;
+  additionalDiscountPercent?: number;
 };
 
 export function Step5Review({
@@ -51,6 +52,7 @@ export function Step5Review({
   pointCost = 5000,
   userRole = "member",
   onPurchasePoints,
+  additionalDiscountPercent = 0,
 }: Step5ReviewProps) {
   const [isRefundPolicyOpen, setIsRefundPolicyOpen] = useState(false);
   const selectedServiceItems = useMemo(
@@ -75,8 +77,9 @@ export function Step5Review({
         container: est.selectedContainer,
         quantity: est.selection.quantity,
         designPrice: est.selectedDesign?.price || 0,
+        additionalDiscountPercent,
       }),
-    [est.selectedContainer, est.selectedDesign?.price, est.selectedProduct, est.selection.quantity]
+    [additionalDiscountPercent, est.selectedContainer, est.selectedDesign?.price, est.selectedProduct, est.selection.quantity]
   );
 
   const displayRows = useMemo(() => {
@@ -149,6 +152,20 @@ export function Step5Review({
                 </p>
               </div>
             ))}
+
+            {additionalDiscountPercent > 0 ? (
+              <div className="flex items-center justify-between rounded-[12px] bg-[#f2f8ff] px-4 py-3">
+                <div className="space-y-1 pr-4">
+                  <p className="text-[14px] font-bold leading-snug text-[#3182f6]">수강생 할인</p>
+                  <p className="text-[12px] font-medium leading-relaxed text-[#6b7684]">
+                    제품, 용기, 디자인 포함 전체 금액의 {additionalDiscountPercent}% 할인
+                  </p>
+                </div>
+                <p className="whitespace-nowrap text-[14px] font-bold text-[#3182f6]">
+                  -{formatCurrency(pricing.additionalDiscountAmount, est.selectedProduct?.paymentCurrency)}
+                </p>
+              </div>
+            ) : null}
 
             <div className="mb-6 mt-8 h-[1px] bg-[#f2f4f6]" />
 

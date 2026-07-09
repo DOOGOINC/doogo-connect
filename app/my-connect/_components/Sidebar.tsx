@@ -162,6 +162,7 @@ interface SidebarProps {
   activeTab: string;
   displayName?: string;
   isManufacturer: boolean;
+  memberGrade?: "student" | "general";
   onTabChange: (id: string) => void;
   viewMode: "client" | "manufacturer";
   manufacturerName?: string;
@@ -174,23 +175,25 @@ function getInitialOpenState(groups: SidebarGroup[]) {
   }, {});
 }
 
-export function Sidebar({ activeTab, displayName, isManufacturer, onTabChange, viewMode, manufacturerName }: SidebarProps) {
+export function Sidebar({ activeTab, displayName, isManufacturer, memberGrade = "general", onTabChange, viewMode, manufacturerName }: SidebarProps) {
   const groups = viewMode === "manufacturer" ? MANUFACTURER_GROUPS : CLIENT_GROUPS;
   const utilityItems = UTILITY_ITEMS_BY_MODE[viewMode];
   const [openGroups, setOpenGroups] = useState<Record<string, boolean>>(() => getInitialOpenState(groups));
+  const showStudentBadge = viewMode === "client" && memberGrade === "student";
 
   const profileName = viewMode === "manufacturer" ? manufacturerName?.trim() || "제조사 계정" : `${displayName?.trim() || "고객"} 고객님`;
   const profileTypeLabel = isManufacturer ? "제조사" : "의뢰자";
   const profileDescription = isManufacturer ? "제조사 계정" : "의뢰자 계정";
   const connectLabel = viewMode === "manufacturer" ? "마이커넥트 (제조사)" : "마이커넥트 (의뢰자)";
   const homeTab = "dashboard";
+
   const handleLogout = async () => {
     await supabase.auth.signOut();
     window.location.href = "/";
   };
 
   return (
-    <aside className="flex h-full min-h-0 w-[248px] flex-shrink-0 flex-col border-r border-[#edf0f4] bg-white">
+    <aside className="flex h-full min-h-0 w-[268px] flex-shrink-0 flex-col border-r border-[#edf0f4] bg-white">
       <div className="flex-shrink-0 border-b border-[#edf0f4] bg-white px-5 py-3">
         <NextLink href="/" className="group">
           <div className="flex h-16 flex-col items-center justify-center gap-1.5">
@@ -220,12 +223,21 @@ export function Sidebar({ activeTab, displayName, isManufacturer, onTabChange, v
           </div>
         </div>
 
-        <div className="mt-3 flex flex-wrap items-center gap-2">
+        <div className="mt-3 flex items-center gap-2 overflow-x-auto whitespace-nowrap [scrollbar-width:none] [-ms-overflow-style:none] [&::-webkit-scrollbar]:hidden">
           <span className="rounded-full bg-[#2f6bff] px-3 py-1 text-[11px] font-semibold text-white">{profileTypeLabel}</span>
           <span className="inline-flex items-center gap-1 rounded-full bg-[#ddf7e8] px-3 py-1 text-[11px] font-semibold text-[#14904c]">
             <BadgeCheck className="h-3.5 w-3.5" />
             인증 완료
           </span>
+          {showStudentBadge ? (
+            <span
+              title="두고커넥트 수강생 등급은 이벤트 기간 내 10% 할인 혜택을 받습니다."
+              className="inline-flex items-center gap-1 rounded-full bg-[#fff4cc] px-3 py-1 text-[11px] font-semibold text-[#b7791f]"
+            >
+              <BadgeCheck className="h-3.5 w-3.5" />
+              수강생
+            </span>
+          ) : null}
         </div>
       </div>
 

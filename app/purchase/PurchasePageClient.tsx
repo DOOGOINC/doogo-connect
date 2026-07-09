@@ -6,6 +6,7 @@ import { useRouter, useSearchParams } from "next/navigation";
 import Script from "next/script";
 import { getPortalHomeByRole, type AppRole } from "@/lib/auth/roles";
 import { authFetch } from "@/lib/client/auth-fetch";
+import { clearStoredImpersonationUserId, getStoredImpersonationUserId, setStoredImpersonationUserId } from "@/lib/client/impersonation";
 import { supabase } from "@/lib/supabase";
 import { PurchaseFooterNotice, PurchaseMainSection, PurchaseSummarySection } from "./PurchaseSections";
 import {
@@ -56,27 +57,58 @@ export function PurchasePageClient() {
       }
 
       const fallbackRole = resolveSessionRole(session) || "member";
-      const profile = await Promise.race([
-        supabase
-          .from("profiles")
-          .select("role")
-          .eq("id", session.user.id)
-          .maybeSingle()
-          .then(({ data, error }) => {
-            if (error) {
-              console.warn("Profile role lookup skipped:", error.message);
-              return null;
-            }
+      const requestedImpersonationUserId = searchParams.get("impersonate")?.trim() || "";
+      const storedImpersonationUserId = getStoredImpersonationUserId();
+      const impersonationUserId = requestedImpersonationUserId || storedImpersonationUserId || "";
 
-            return data;
-          }),
-        new Promise<null>((resolve) => {
-          window.setTimeout(() => resolve(null), PROFILE_LOOKUP_TIMEOUT_MS);
-        }),
-      ]);
+      if (impersonationUserId) {
+        setStoredImpersonationUserId(impersonationUserId);
+      }
 
-      const role = ((profile?.role as AppRole | null) || fallbackRole) as AppRole;
-      if (role !== "member") {
+      const profileSyncUrl = impersonationUserId
+        ? `/api/profile/sync?impersonate=${encodeURIComponent(impersonationUserId)}`
+        : "/api/profile/sync";
+      const profileLookupRequest = (
+        impersonationUserId
+          ? authFetch(profileSyncUrl, {
+              headers: {
+                "X-Impersonate-User-Id": impersonationUserId,
+              },
+            })
+          : authFetch(profileSyncUrl)
+      )
+        .then(async (response) => {
+          const payload = (await response.json()) as {
+            profile?: { role?: AppRole | null };
+            error?: string;
+          };
+          if (!response.ok) {
+            throw new Error(payload.error || "Profile lookup failed.");
+          }
+          return payload;
+        })
+        .catch((error) => {
+          console.warn("Profile role lookup skipped:", error instanceof Error ? error.message : String(error));
+          return null;
+        });
+
+      const profilePayload = await (impersonationUserId
+        ? profileLookupRequest
+        : Promise.race([
+            profileLookupRequest,
+            new Promise<null>((resolve) => {
+              window.setTimeout(() => resolve(null), PROFILE_LOOKUP_TIMEOUT_MS);
+            }),
+          ]));
+
+      const role = (profilePayload?.profile?.role || fallbackRole) as AppRole;
+      if (impersonationUserId) {
+        if (profilePayload?.profile?.role && role !== "member") {
+          clearStoredImpersonationUserId();
+          window.location.href = "/master?tab=requesters";
+          return;
+        }
+      } else if (role !== "member") {
         router.replace(getPortalHomeByRole(role));
         return;
       }
@@ -94,7 +126,7 @@ export function PurchasePageClient() {
     };
 
     void checkAccess();
-  }, [router]);
+  }, [router, searchParams]);
 
   const selectedPackage = useMemo(
     () => pointPackages.find((item) => item.id === selectedPackageId) || pointPackages[0],

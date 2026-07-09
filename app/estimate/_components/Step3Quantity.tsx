@@ -19,6 +19,7 @@ export function Step3Quantity({
   setSelection,
   selectedProduct,
   selectedContainer,
+  additionalDiscountPercent,
   onReset,
 }: {
   containers: ContainerOption[];
@@ -26,11 +27,13 @@ export function Step3Quantity({
   setSelection: (value: EstimateSelection) => void;
   selectedProduct: Product | null;
   selectedContainer: ContainerOption | null;
+  additionalDiscountPercent: number;
   onReset: () => void;
 }) {
   const currencyCode = selectedProduct?.paymentCurrency || "USD";
   const dynamicDiscounts = getDynamicDiscounts(selectedProduct);
   const availableContainers = getContainersByProduct(containers, selectedProduct);
+  void additionalDiscountPercent;
 
   const updateQty = (newQty: number) => {
     if (newQty < 50) return;

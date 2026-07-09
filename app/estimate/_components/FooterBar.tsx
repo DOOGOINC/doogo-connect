@@ -22,6 +22,8 @@ interface FooterBarProps {
   quantity: number;
   unitPrice: number;
   totalPrice: number;
+  additionalDiscountPercent: number;
+  additionalDiscountAmount: number;
 }
 
 export function FooterBar({
@@ -30,11 +32,14 @@ export function FooterBar({
   quantity,
   unitPrice,
   totalPrice,
+  additionalDiscountPercent,
+  additionalDiscountAmount,
 }: FooterBarProps) {
   const pricing = getPricingBySelection({
     product: selectedProduct,
     container: selectedContainer,
     quantity,
+    additionalDiscountPercent,
   });
 
   return (
@@ -77,7 +82,12 @@ export function FooterBar({
                     <p className="text-[24px] font-black tracking-tight text-[#191f28]">
                       {formatCurrency(totalPrice, selectedProduct.paymentCurrency)}
                     </p>
-                    {pricing.currentDiscountRow.discount < 1 && (
+                    {additionalDiscountPercent > 0 ? (
+                      <span className="text-[11px] font-bold text-[#3182f6]">
+                        수강생 {additionalDiscountPercent}% 할인 -{formatCurrency(additionalDiscountAmount, selectedProduct.paymentCurrency)}
+                      </span>
+                    ) : null}
+                    {additionalDiscountPercent <= 0 && pricing.currentDiscountRow.discount < 1 && (
                       <span className="text-[11px] font-bold text-[#3182f6]">
                         {Math.round((1 - pricing.currentDiscountRow.discount) * 100)}% 할인 적용됨
                       </span>

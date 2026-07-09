@@ -29,6 +29,8 @@ type SnapshotPricing = {
   container_unit_price?: number;
   container_amount?: number;
   package_price?: number;
+  additional_discount_percent?: number;
+  additional_discount_amount?: number;
   services?: Array<{ id: string; name: string; price: number }>;
   extras?: Array<{ id: string; name: string; price: number }>;
 };
@@ -228,6 +230,26 @@ export function ClientQuotePreviewModal({ request, open, onClose }: ClientQuoteP
       const productAmount = Number(snapshotPricing.product_amount ?? productUnitPrice * request.quantity);
       const containerUnitPrice = Number(snapshotPricing.container_unit_price ?? pricing.containerUnitPrice ?? 0);
       const containerAmount = Number(snapshotPricing.container_amount ?? containerUnitPrice * request.quantity);
+      const packagePrice = Number(snapshotPricing.package_price ?? designPackageResult.data?.price ?? 0);
+      const serviceAmount =
+        (snapshotPricing.services || []).length > 0
+          ? (snapshotPricing.services || []).reduce((sum, item) => sum + Number(item.price || 0), 0)
+          : (designServicesResult.data || []).reduce((sum, item) => sum + Number(item.price || 0), 0);
+      const extraAmount =
+        (snapshotPricing.extras || []).length > 0
+          ? (snapshotPricing.extras || []).reduce((sum, item) => sum + Number(item.price || 0), 0)
+          : (designExtrasResult.data || []).reduce((sum, item) => sum + Number(item.price || 0), 0);
+      const subtotalBeforeDiscount = productAmount + containerAmount + packagePrice + serviceAmount + extraAmount;
+      const additionalDiscountAmount = Math.max(
+        0,
+        Number(snapshotPricing.additional_discount_amount ?? subtotalBeforeDiscount - Number(request.total_price || 0))
+      );
+      const additionalDiscountPercent =
+        Number(snapshotPricing.additional_discount_percent ?? 0) > 0
+          ? Number(snapshotPricing.additional_discount_percent || 0)
+          : subtotalBeforeDiscount > 0 && additionalDiscountAmount > 0
+            ? Math.round((additionalDiscountAmount / subtotalBeforeDiscount) * 100)
+            : 0;
 
       rows.push({
         title: request.product_name,
@@ -249,7 +271,6 @@ export function ClientQuotePreviewModal({ request, open, onClose }: ClientQuoteP
 
       const packageRow = designPackageResult.data;
       if (packageRow) {
-        const packagePrice = Number(snapshotPricing.package_price ?? packageRow.price ?? 0);
         rows.push({
           title: packageRow.name,
           spec: "디자인 패키지",
@@ -288,6 +309,16 @@ export function ClientQuotePreviewModal({ request, open, onClose }: ClientQuoteP
           };
         })
       );
+
+      if (additionalDiscountAmount > 0) {
+        rows.push({
+          title: "수강생 할인",
+          spec: `제품, 용기, 디자인 포함 전체 ${additionalDiscountPercent}% 할인`,
+          unitPrice: -additionalDiscountAmount,
+          quantity: 1,
+          amount: -additionalDiscountAmount,
+        });
+      }
 
       if (!rows.length) {
         rows.push(...buildFallbackRows());

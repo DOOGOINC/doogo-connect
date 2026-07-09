@@ -1,4 +1,9 @@
 import { mapRouteError, ok } from "@/lib/server/http";
+import {
+  getPartnerCommissionRateForTimestamp,
+  getPartnerCompensationAccessByUserId,
+  isTimestampWithinPartnerCompensationPeriods,
+} from "@/lib/server/partners";
 import { createServiceRoleClient, getOwnedManufacturerId, requireRoleUser } from "@/lib/server/supabase";
 
 type PatchBody = {
@@ -22,6 +27,48 @@ type MonthClosureRow = {
   settlement_month: number;
   closed_at: string;
 };
+
+type PartnerFeeRequestRow = {
+  id: string;
+  client_id: string;
+  status: string | null;
+  created_at: string | null;
+  commission_locked_at: string | null;
+  selection_snapshot?: {
+    pricing?: {
+      product_amount?: number | null;
+    } | null;
+  } | null;
+};
+
+type ClientReferralRow = {
+  id: string;
+  referred_by_profile_id: string | null;
+};
+
+type PartnerProfileRow = {
+  id: string;
+  full_name: string | null;
+};
+
+function trimValue(value: string | null | undefined, fallback = "") {
+  const trimmed = typeof value === "string" ? value.trim() : "";
+  return trimmed || fallback;
+}
+
+function toMoney(value: unknown) {
+  const numeric = Number(value);
+  if (!Number.isFinite(numeric)) return 0;
+  return Math.max(0, numeric);
+}
+
+function getPartnerCompensationRecordedAt(row: PartnerFeeRequestRow) {
+  return trimValue(row.commission_locked_at) || trimValue(row.created_at);
+}
+
+function isPartnerFeeVisibleStatus(status: string) {
+  return status !== "request_cancelled" && status !== "rejected" && status !== "refunded";
+}
 
 function getMonthKey(year: number, month: number) {
   return `${year}-${String(month).padStart(2, "0")}`;
@@ -77,9 +124,92 @@ export async function GET(request: Request) {
       throw new Error(closureResult.error.message);
     }
 
+    const partnerFeeRequestResult = await admin
+      .from("rfq_requests")
+      .select("id, client_id, status, created_at, commission_locked_at, selection_snapshot")
+      .eq("manufacturer_id", manufacturerId);
+
+    if (partnerFeeRequestResult.error) {
+      throw new Error(partnerFeeRequestResult.error.message);
+    }
+
+    const partnerFeeRequests = (partnerFeeRequestResult.data as PartnerFeeRequestRow[] | null) || [];
+    const clientIds = Array.from(new Set(partnerFeeRequests.map((row) => row.client_id).filter(Boolean)));
+    const clientReferralMap = new Map<string, string>();
+
+    if (clientIds.length) {
+      const clientReferralResult = await admin.from("profiles").select("id, referred_by_profile_id").in("id", clientIds);
+
+      if (clientReferralResult.error) {
+        throw new Error(clientReferralResult.error.message);
+      }
+
+      for (const row of (clientReferralResult.data as ClientReferralRow[] | null) || []) {
+        const partnerProfileId = trimValue(row.referred_by_profile_id);
+        if (partnerProfileId) {
+          clientReferralMap.set(row.id, partnerProfileId);
+        }
+      }
+    }
+
+    const partnerIds = Array.from(new Set(clientReferralMap.values()));
+    const partnerProfileNames = new Map<string, string>();
+
+    if (partnerIds.length) {
+      const partnerProfileResult = await admin.from("profiles").select("id, full_name").in("id", partnerIds);
+
+      if (partnerProfileResult.error) {
+        throw new Error(partnerProfileResult.error.message);
+      }
+
+      for (const row of (partnerProfileResult.data as PartnerProfileRow[] | null) || []) {
+        const partnerName = trimValue(row.full_name);
+        if (partnerName) {
+          partnerProfileNames.set(row.id, partnerName);
+        }
+      }
+    }
+
+    const partnerAccessEntries = await Promise.all(
+      partnerIds.map(async (partnerUserId) => [partnerUserId, await getPartnerCompensationAccessByUserId(admin, partnerUserId)] as const)
+    );
+    const partnerAccessMap = new Map(partnerAccessEntries);
+    const partnerFees = Object.fromEntries(
+      partnerFeeRequests.flatMap((row) => {
+        const status = trimValue(row.status);
+        const partnerUserId = clientReferralMap.get(row.client_id);
+        const recordedAt = getPartnerCompensationRecordedAt(row);
+
+        if (!partnerUserId || !recordedAt || !isPartnerFeeVisibleStatus(status)) {
+          return [];
+        }
+
+        const partnerAccess = partnerAccessMap.get(partnerUserId);
+        if (!partnerAccess || !isTimestampWithinPartnerCompensationPeriods(recordedAt, partnerAccess.periods)) {
+          return [];
+        }
+
+        const productAmount = toMoney(row.selection_snapshot?.pricing?.product_amount);
+        const commissionRate = getPartnerCommissionRateForTimestamp(recordedAt, partnerAccess.periods, partnerAccess.commissionRate);
+        const amount = Number((productAmount * (commissionRate / 100)).toFixed(2));
+
+        return [[row.id, { amount, commissionRate }]];
+      })
+    );
+    const partnerNames = Object.fromEntries(
+      partnerFeeRequests.flatMap((row) => {
+        const partnerUserId = clientReferralMap.get(row.client_id);
+        const partnerName = partnerUserId ? partnerProfileNames.get(partnerUserId) : "";
+
+        return partnerName ? [[row.id, partnerName]] : [];
+      })
+    );
+
     return ok({
       rows: (requestResult.data as FeeSettlementRequestRow[] | null) || [],
       closures: (closureResult.data as MonthClosureRow[] | null) || [],
+      partnerFees,
+      partnerNames,
     });
   } catch (error) {
     return mapRouteError(error);
