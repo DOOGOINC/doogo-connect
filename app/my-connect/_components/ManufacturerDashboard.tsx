@@ -1,10 +1,12 @@
 "use client";
 
-import { useMemo } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { ArrowRight } from "lucide-react";
 import { type RfqRequestRow, type RfqRequestStatus } from "@/lib/rfq";
+import { supabase } from "@/lib/supabase";
 
 interface ManufacturerDashboardProps {
+  userId: string;
   displayName: string;
   requests: RfqRequestRow[];
   onRequestSelect: (requestId: string) => void;
@@ -124,6 +126,7 @@ function isSameMonth(value: string, now: Date) {
 }
 
 export function ManufacturerDashboard({
+  userId,
   displayName,
   requests,
   onRequestSelect,
@@ -131,19 +134,13 @@ export function ManufacturerDashboard({
   onApproveRequest,
   onRejectRequest,
 }: ManufacturerDashboardProps) {
+  const [messageCount, setMessageCount] = useState(0);
   const pendingRequests = useMemo(
     () => requests.filter((request) => request.status === "pending"),
     [requests]
   );
   const activeProductionRequests = useMemo(
     () => requests.filter((request) => ACTIVE_PRODUCTION_STATUSES.includes(request.status)),
-    [requests]
-  );
-  const messageCount = useMemo(
-    () =>
-      requests.filter((request) =>
-        ["pending", "reviewing", "payment_in_progress"].includes(request.status)
-      ).length,
     [requests]
   );
   const salesAmounts = useMemo(() => {
@@ -186,6 +183,75 @@ export function ManufacturerDashboard({
         .slice(0, 3),
     [requests]
   );
+
+  useEffect(() => {
+    let active = true;
+
+    const fetchUnreadMessageCount = async () => {
+      try {
+        const { data: manufacturer, error: manufacturerError } = await supabase
+          .from("manufacturers")
+          .select("id")
+          .eq("owner_id", userId)
+          .maybeSingle();
+
+        if (manufacturerError) {
+          throw manufacturerError;
+        }
+
+        if (!manufacturer?.id) {
+          if (active) {
+            setMessageCount(0);
+          }
+          return;
+        }
+
+        const { data: roomRows, error: roomError } = await supabase
+          .from("chat_rooms")
+          .select("id")
+          .eq("manufacturer_id", manufacturer.id)
+          .or("room_type.is.null,room_type.eq.manufacturer");
+
+        if (roomError) {
+          throw roomError;
+        }
+
+        const roomIds = ((roomRows as Array<{ id: string }> | null) || []).map((room) => room.id).filter(Boolean);
+        if (!roomIds.length) {
+          if (active) {
+            setMessageCount(0);
+          }
+          return;
+        }
+
+        const { count, error: unreadMessagesError } = await supabase
+          .from("chat_messages")
+          .select("id", { count: "exact", head: true })
+          .in("room_id", roomIds)
+          .neq("sender_id", userId)
+          .eq("is_read", false);
+
+        if (unreadMessagesError) {
+          throw unreadMessagesError;
+        }
+
+        if (active) {
+          setMessageCount(Number(count || 0));
+        }
+      } catch (error) {
+        console.error("Failed to fetch manufacturer dashboard unread message count:", error);
+        if (active) {
+          setMessageCount(0);
+        }
+      }
+    };
+
+    void fetchUnreadMessageCount();
+
+    return () => {
+      active = false;
+    };
+  }, [userId]);
 
   return (
     <div className="flex flex-1 flex-col overflow-auto bg-[#f9fafb] px-2">

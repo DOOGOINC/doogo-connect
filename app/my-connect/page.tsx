@@ -805,11 +805,12 @@ function MyConnectPageContent() {
     if (viewMode === "manufacturer") {
       switch (activeTab) {
         case "dashboard":
-          return (
-            <ManufacturerDashboard
-              displayName={manufacturerName || displayName}
-              requests={rfqRequests}
-              onRequestSelect={setSelectedRfqId}
+            return (
+              <ManufacturerDashboard
+                userId={userId}
+                displayName={manufacturerName || displayName}
+                requests={rfqRequests}
+                onRequestSelect={setSelectedRfqId}
               onTabChange={setActiveTab}
               onApproveRequest={(requestId) => handleRequestStatusChange(requestId, "reviewing")}
               onRejectRequest={(requestId, reason) =>

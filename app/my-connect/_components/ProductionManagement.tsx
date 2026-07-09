@@ -10,9 +10,10 @@ interface ProductionManagementProps {
   onStatusChange: (requestId: string, status: RfqRequestStatus) => Promise<void>;
 }
 
-type ProductionTab = "payment-confirm" | "waiting" | "started" | "in-progress" | "completed" | "delivery-completed";
+type ProductionTab = "payment-pending" | "payment-confirm" | "waiting" | "started" | "in-progress" | "completed" | "delivery-completed";
 
 const PRODUCTION_TABS: Array<{ id: ProductionTab; label: string }> = [
+  { id: "payment-pending", label: "결제 대기" },
   { id: "payment-confirm", label: "결제 확인" },
   { id: "waiting", label: "생산 대기" },
   { id: "started", label: "제조 시작" },
@@ -22,6 +23,7 @@ const PRODUCTION_TABS: Array<{ id: ProductionTab; label: string }> = [
 ];
 
 const PRODUCTION_STATUS_MAP: Record<ProductionTab, RfqRequestStatus[]> = {
+  "payment-pending": ["reviewing", "payment_in_progress"],
   "payment-confirm": ["payment_completed"],
   waiting: ["production_waiting", "quoted"],
   started: ["production_started", "ordered"],
@@ -64,7 +66,7 @@ const getProgress = (status: RfqRequestStatus) => {
 };
 
 export function ProductionManagement({ requests, onStatusChange }: ProductionManagementProps) {
-  const [activeTab, setActiveTab] = useState<ProductionTab>("payment-confirm");
+  const [activeTab, setActiveTab] = useState<ProductionTab>("payment-pending");
   const [selectedRequest, setSelectedRequest] = useState<RfqRequestRow | null>(null);
   const [quotePreviewRequest, setQuotePreviewRequest] = useState<RfqRequestRow | null>(null);
   const [updatingId, setUpdatingId] = useState<string | null>(null);
@@ -81,7 +83,7 @@ export function ProductionManagement({ requests, onStatusChange }: ProductionMan
           acc[tab.id] = productionRequests.filter((request) => PRODUCTION_STATUS_MAP[tab.id].includes(request.status)).length;
           return acc;
         },
-        { "payment-confirm": 0, waiting: 0, started: 0, "in-progress": 0, completed: 0, "delivery-completed": 0 }
+        { "payment-pending": 0, "payment-confirm": 0, waiting: 0, started: 0, "in-progress": 0, completed: 0, "delivery-completed": 0 }
       ),
     [productionRequests]
   );
@@ -134,6 +136,7 @@ export function ProductionManagement({ requests, onStatusChange }: ProductionMan
           <div>
             <h2 className="text-[24px] font-bold tracking-tight text-[#1f2937] lg:text-[26px]">생산 진행</h2>
             <p className="mt-1.5 text-[14px] text-[#667085] lg:text-[15px]">
+              {activeTab === "payment-pending" && "결제 대기 또는 결제 진행 중인 주문입니다."}
               {activeTab === "payment-confirm" && "의뢰자가 결제를 완료한 주문을 제조사가 수기로 확인합니다."}
               {activeTab === "waiting" && "생산 대기 상태의 주문입니다."}
               {activeTab === "started" && "제조 시작 처리된 주문입니다."}
