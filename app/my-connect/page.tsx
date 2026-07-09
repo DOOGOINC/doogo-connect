@@ -326,7 +326,7 @@ function MyConnectPageContent() {
           ? "master"
           : profileRole === "partner"
             ? "partner"
-            : hasLinkedManufacturer && profileRole === "manufacturer"
+            : hasLinkedManufacturer
               ? "manufacturer"
               : "member";
       setUserRole(nextRole);
