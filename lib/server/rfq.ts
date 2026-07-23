@@ -7,7 +7,7 @@ import {
   type RfqRequestStatus,
 } from "@/lib/rfq";
 import { normalizeCurrencyCode } from "@/lib/currency";
-import { getPricingBySelection } from "@/app/estimate/_data/catalog";
+import { MIN_ORDER_QUANTITY, getPricingBySelection } from "@/app/estimate/_data/catalog";
 import { awardUserPoints, ensurePointSettings, spendUserPoints } from "./points";
 import { createServiceRoleClient, getProfileRole, requireServerUser, userOwnsManufacturer } from "./supabase";
 
@@ -121,7 +121,7 @@ export async function createRfqRequest(input: SubmitRfqInput, request?: Request)
   }
 
   const quantity = Number(input.quantity);
-  if (!Number.isInteger(quantity) || quantity <= 0) {
+  if (!Number.isInteger(quantity) || quantity < MIN_ORDER_QUANTITY) {
     throw new Error("수량이 올바르지 않습니다.");
   }
 

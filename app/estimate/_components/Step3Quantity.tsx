@@ -2,9 +2,11 @@
 
 import { Minus, Package2, Plus, RotateCcw } from "lucide-react";
 import Image from "next/image";
+import { useEffect } from "react";
 import { formatCurrency } from "@/lib/currency";
 
 import {
+  MIN_ORDER_QUANTITY,
   formatPriceText,
   getContainersByProduct,
   getDynamicDiscounts,
@@ -33,15 +35,22 @@ export function Step3Quantity({
   const currencyCode = selectedProduct?.paymentCurrency || "USD";
   const dynamicDiscounts = getDynamicDiscounts(selectedProduct);
   const availableContainers = getContainersByProduct(containers, selectedProduct);
+  const normalizedQuantity = Math.max(selection.quantity, MIN_ORDER_QUANTITY);
   void additionalDiscountPercent;
 
+  useEffect(() => {
+    if (selection.quantity !== normalizedQuantity) {
+      setSelection({ ...selection, quantity: normalizedQuantity });
+    }
+  }, [normalizedQuantity, selection, setSelection]);
+
   const updateQty = (newQty: number) => {
-    if (newQty < 50) return;
+    if (newQty < MIN_ORDER_QUANTITY) return;
     setSelection({ ...selection, quantity: newQty });
   };
 
   const handleQtySelect = (qty: number) => {
-    setSelection({ ...selection, quantity: qty });
+    setSelection({ ...selection, quantity: Math.max(qty, MIN_ORDER_QUANTITY) });
   };
 
   const handleContainerSelect = (id: string | null) => {
@@ -69,24 +78,24 @@ export function Step3Quantity({
           <div className="flex items-center justify-between">
             <h3 className="text-[15px] font-bold text-[#191f28]">주문 수량 설정</h3>
             <div className="flex items-center gap-2 rounded-[6px] bg-[#f2f8ff] px-2.5 py-1 text-[12px] font-bold text-[#3182f6]">
-              {selection.quantity.toLocaleString()}개 선택됨
+              {normalizedQuantity.toLocaleString()}개 선택됨
             </div>
           </div>
 
           <div className="flex flex-col md:flex-row items-center gap-4 rounded-[12px] border border-[#e5e8eb] bg-white p-4">
             <div className="flex h-10 w-full md:w-[180px] items-center overflow-hidden rounded-[8px] border-2 border-[#f2f4f6] bg-white">
               <button
-                onClick={() => updateQty(selection.quantity - 50)}
+                onClick={() => updateQty(normalizedQuantity - 50)}
                 className="flex h-full w-12 items-center justify-center hover:bg-[#f9fafb] text-[#8b95a1]"
               >
                 <Minus className="h-4 w-4" />
               </button>
               <div className="flex h-full flex-1 items-center justify-center border-x border-[#f2f4f6]">
-                <span className="text-[15px] font-bold text-[#191f28]">{selection.quantity.toLocaleString()}</span>
+                <span className="text-[15px] font-bold text-[#191f28]">{normalizedQuantity.toLocaleString()}</span>
                 <span className="ml-1 text-[13px] font-medium text-[#8b95a1]">개</span>
               </div>
               <button
-                onClick={() => updateQty(selection.quantity + 50)}
+                onClick={() => updateQty(normalizedQuantity + 50)}
                 className="flex h-full w-12 items-center justify-center hover:bg-[#f9fafb] text-[#3182f6]"
               >
                 <Plus className="h-4 w-4" />
@@ -101,7 +110,7 @@ export function Step3Quantity({
           <div className="grid gap-2">
             {dynamicDiscounts.map((row, index) => {
               const nextQty = dynamicDiscounts[index + 1]?.qty;
-              const isCurrentRange = selection.quantity >= row.qty && (!nextQty || selection.quantity < nextQty);
+              const isCurrentRange = normalizedQuantity >= row.qty && (!nextQty || normalizedQuantity < nextQty);
               const discountedProductUnitPrice = (selectedProduct?.basePrice || 0) * row.discount;
               const unitPrice = discountedProductUnitPrice + (selectedContainer?.addPrice || 0);
 
@@ -204,9 +213,9 @@ export function Step3Quantity({
                       <span className="opacity-70">용기 × 수량:</span>{" "}
                       <span className="font-bold">{formatCurrency(container.addPrice, currencyCode)}</span>
                       {" "}×{" "}
-                      <span className="font-bold">{selection.quantity.toLocaleString()}</span>
+                      <span className="font-bold">{normalizedQuantity.toLocaleString()}</span>
                       {" "}={" "}
-                      <span className="font-bold">{formatCurrency(container.addPrice * selection.quantity, currencyCode)}</span>
+                      <span className="font-bold">{formatCurrency(container.addPrice * normalizedQuantity, currencyCode)}</span>
                     </p>
                   </div>
                 </button>

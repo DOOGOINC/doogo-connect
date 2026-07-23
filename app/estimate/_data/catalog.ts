@@ -104,6 +104,8 @@ export interface EstimateSelection {
   designExtras: string[];
 }
 
+export const MIN_ORDER_QUANTITY = 100;
+
 export const formatPriceText = (addPrice: number, currencyCode: CurrencyCode = "USD") =>
   formatCurrency(addPrice, currencyCode);
 
@@ -116,7 +118,7 @@ export const getDynamicDiscounts = (product: Product | null): DiscountRow[] => {
   const additionalDiscountRate = 1;
 
   if (!product || !product.discountConfig || Object.keys(product.discountConfig).length === 0) {
-    return [{ qty: 50, label: "50개 (최소)", discount: additionalDiscountRate, note: "0% (최소)" }];
+    return [{ qty: MIN_ORDER_QUANTITY, label: `${MIN_ORDER_QUANTITY}개 (최소)`, discount: additionalDiscountRate, note: "0% (최소)" }];
   }
 
   const quantities = Object.keys(product.discountConfig)
@@ -130,7 +132,7 @@ export const getDynamicDiscounts = (product: Product | null): DiscountRow[] => {
 
     return {
       qty,
-      label: `${qty.toLocaleString()}개${qty === 50 ? " (최소)" : ""}`,
+      label: `${qty.toLocaleString()}개${qty === MIN_ORDER_QUANTITY ? " (최소)" : ""}`,
       discount: discountRate,
       note: percent === 0 ? "0% (기준가)" : `${percent}% 할인`,
     };
@@ -232,9 +234,9 @@ export const getPricingBySelection = ({
   const discounts = getDynamicDiscounts(product);
   const currentDiscountRow =
     [...discounts].reverse().find((discount) => quantity >= discount.qty) || {
-      qty: 50,
+      qty: MIN_ORDER_QUANTITY,
       discount: 1,
-      label: "50개 (최소)",
+      label: `${MIN_ORDER_QUANTITY}개 (최소)`,
       note: "0%",
     };
 

@@ -5,6 +5,7 @@ import { normalizeCurrencyCode, type CurrencyCode } from "@/lib/currency";
 import { supabase } from "@/lib/supabase";
 import { MANUFACTURERS as FALLBACK_MANUFACTURERS } from "../_data/constants";
 import {
+  MIN_ORDER_QUANTITY,
   type ContainerOption,
   type DesignExtraItem,
   type DesignOption,
@@ -293,7 +294,7 @@ export const useEstimate = (additionalDiscountPercent = 0) => {
   const [selection, setSelection] = useState({
     manufacturer: initialManufacturerId as number | null,
     product: null as string | null,
-    quantity: 50,
+    quantity: MIN_ORDER_QUANTITY,
     container: null as string | null,
     design: null as string | null,
     designServices: [] as string[],
@@ -632,7 +633,7 @@ export const useEstimate = (additionalDiscountPercent = 0) => {
     setSelection({
       manufacturer: null,
       product: null,
-      quantity: 50,
+      quantity: MIN_ORDER_QUANTITY,
       container: null,
       design: null,
       designServices: [],
