@@ -18,6 +18,7 @@ export interface Product {
   paymentCurrency: CurrencyCode;
   basePrice: number;
   stockQuantity?: number;
+  minOrderQuantity?: number;
   discountConfig: DiscountConfig;
   image: string;
   keyFeatures: string[];
@@ -106,6 +107,9 @@ export interface EstimateSelection {
 
 export const MIN_ORDER_QUANTITY = 100;
 
+export const getProductMinOrderQuantity = (product: Product | null) =>
+  Number(product?.minOrderQuantity) === 50 ? 50 : MIN_ORDER_QUANTITY;
+
 export const formatPriceText = (addPrice: number, currencyCode: CurrencyCode = "USD") =>
   formatCurrency(addPrice, currencyCode);
 
@@ -116,14 +120,20 @@ function normalizeAdditionalDiscountPercent(value?: number) {
 
 export const getDynamicDiscounts = (product: Product | null): DiscountRow[] => {
   const additionalDiscountRate = 1;
+  const minOrderQuantity = getProductMinOrderQuantity(product);
 
   if (!product || !product.discountConfig || Object.keys(product.discountConfig).length === 0) {
-    return [{ qty: MIN_ORDER_QUANTITY, label: `${MIN_ORDER_QUANTITY}개 (최소)`, discount: additionalDiscountRate, note: "0% (최소)" }];
+    return [{ qty: minOrderQuantity, label: `${minOrderQuantity}개 (최소)`, discount: additionalDiscountRate, note: "0% (최소)" }];
   }
 
   const quantities = Object.keys(product.discountConfig)
     .map(Number)
+    .filter((qty) => qty >= minOrderQuantity)
     .sort((a, b) => a - b);
+
+  if (quantities.length === 0) {
+    return [{ qty: minOrderQuantity, label: `${minOrderQuantity}개 (최소)`, discount: additionalDiscountRate, note: "0% (최소)" }];
+  }
 
   return quantities.map((qty) => {
     const percent = product.discountConfig[qty];
@@ -132,7 +142,7 @@ export const getDynamicDiscounts = (product: Product | null): DiscountRow[] => {
 
     return {
       qty,
-      label: `${qty.toLocaleString()}개${qty === MIN_ORDER_QUANTITY ? " (최소)" : ""}`,
+      label: `${qty.toLocaleString()}개${qty === minOrderQuantity ? " (최소)" : ""}`,
       discount: discountRate,
       note: percent === 0 ? "0% (기준가)" : `${percent}% 할인`,
     };
@@ -232,11 +242,12 @@ export const getPricingBySelection = ({
   additionalDiscountPercent?: number;
 }) => {
   const discounts = getDynamicDiscounts(product);
+  const minOrderQuantity = getProductMinOrderQuantity(product);
   const currentDiscountRow =
     [...discounts].reverse().find((discount) => quantity >= discount.qty) || {
-      qty: MIN_ORDER_QUANTITY,
+      qty: minOrderQuantity,
       discount: 1,
-      label: `${MIN_ORDER_QUANTITY}개 (최소)`,
+      label: `${minOrderQuantity}개 (최소)`,
       note: "0%",
     };
 

@@ -10,12 +10,13 @@ import {
   type ProductRow,
   createDiscountRows,
   joinLines,
+  normalizeMinOrderQuantity,
 } from "./productCatalogShared";
 import type { ExtraRow, PackageRow, ServiceRow } from "./productCatalogManager.types";
 import type { NewContainerForm } from "./product-catalog/ProductCatalogLinkedOptions";
 
 const PRODUCT_SELECT =
-  "id, category, name, description, is_active, is_secret, secret_access_token, payment_currency, base_price, cost_price, stock_quantity, admin_memo, discount_config, image, key_features, ingredients, directions, cautions, container_ids, design_service_ids, design_package_ids, design_extra_ids";
+  "id, category, name, description, is_active, is_secret, secret_access_token, payment_currency, base_price, cost_price, stock_quantity, min_order_quantity, admin_memo, discount_config, image, key_features, ingredients, directions, cautions, container_ids, design_service_ids, design_package_ids, design_extra_ids";
 
 function fetchCatalogData(manufacturerId: number) {
   return Promise.all([
@@ -181,6 +182,7 @@ export function useProductCatalogData({
     costPrice: item.cost_price == null ? "" : String(item.cost_price),
     basePrice: String(item.base_price),
     stockQuantity: String(Math.max(0, Math.trunc(Number(item.stock_quantity || 0)))),
+    minOrderQuantity: String(normalizeMinOrderQuantity(item.min_order_quantity)),
     image: item.image || "",
     keyFeatures: joinLines(item.key_features),
     ingredients: joinLines(item.ingredients),

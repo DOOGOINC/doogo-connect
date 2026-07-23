@@ -2,7 +2,7 @@
 import type { ChangeEvent, RefObject } from "react";
 import { AlertCircle, ChevronLeft, Copy, ImagePlus, Info, Loader2, PlusCircle, Save, Settings2, Trash2 } from "lucide-react";
 import { CURRENCY_LABELS, type CurrencyCode } from "@/lib/currency";
-import type { DiscountRow, ProductForm } from "../productCatalogShared";
+import { MIN_ORDER_QUANTITY_OPTIONS, normalizeMinOrderQuantity, type DiscountRow, type ProductForm } from "../productCatalogShared";
 import {
   ProductCatalogLinkedOptions,
   type NewContainerForm,
@@ -296,6 +296,29 @@ export function ProductCatalogEditor({
                     className={inputClassName}
                     placeholder="0"
                   />
+                </div>
+                <div>
+                  <label className={labelClassName}>최소 주문 수량</label>
+                  <div className="grid grid-cols-2 gap-2">
+                    {MIN_ORDER_QUANTITY_OPTIONS.map((quantity) => {
+                      const isSelected = normalizeMinOrderQuantity(form.minOrderQuantity) === quantity;
+
+                      return (
+                        <button
+                          key={quantity}
+                          type="button"
+                          onClick={() => onFormChange((prev) => ({ ...prev, minOrderQuantity: String(quantity) }))}
+                          className={`h-12 rounded-[10px] border text-[14px] font-bold transition ${
+                            isSelected
+                              ? "border-[#3182F6] bg-[#F2F8FF] text-[#3182F6]"
+                              : "border-[#E5E8EB] bg-white text-[#4E5968] hover:border-[#3182F6]"
+                          }`}
+                        >
+                          {quantity}개 이상 가능
+                        </button>
+                      );
+                    })}
+                  </div>
                 </div>
               </div>
             </div>

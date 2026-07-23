@@ -17,6 +17,7 @@ export type ProductRow = {
   base_price: number;
   cost_price?: number | null;
   stock_quantity?: number | null;
+  min_order_quantity?: number | null;
   admin_memo?: string | null;
   discount_config: Record<string, number> | null;
   image: string | null;
@@ -49,6 +50,7 @@ export type ProductForm = {
   costPrice: string;
   basePrice: string;
   stockQuantity: string;
+  minOrderQuantity: string;
   image: string;
   keyFeatures: string;
   ingredients: string;
@@ -60,6 +62,12 @@ export type ProductForm = {
   designExtraIds: string[];
   discountRows: DiscountRow[];
 };
+
+export const MIN_ORDER_QUANTITY_OPTIONS = [50, 100] as const;
+
+export const normalizeMinOrderQuantity = (value: string | number | null | undefined) =>
+  Number(value) === 50 ? 50 : 100;
+
 
 export const createDiscountRows = (): DiscountRow[] => [
   { qty: "50", discount: "0" },
@@ -76,6 +84,7 @@ export const createProductForm = (): ProductForm => ({
   costPrice: "",
   basePrice: "",
   stockQuantity: "0",
+  minOrderQuantity: "100",
   image: "",
   keyFeatures: "",
   ingredients: "",

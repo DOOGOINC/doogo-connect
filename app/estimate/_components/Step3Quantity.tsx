@@ -6,10 +6,10 @@ import { useEffect } from "react";
 import { formatCurrency } from "@/lib/currency";
 
 import {
-  MIN_ORDER_QUANTITY,
   formatPriceText,
   getContainersByProduct,
   getDynamicDiscounts,
+  getProductMinOrderQuantity,
   type ContainerOption,
   type EstimateSelection,
   type Product,
@@ -35,7 +35,8 @@ export function Step3Quantity({
   const currencyCode = selectedProduct?.paymentCurrency || "USD";
   const dynamicDiscounts = getDynamicDiscounts(selectedProduct);
   const availableContainers = getContainersByProduct(containers, selectedProduct);
-  const normalizedQuantity = Math.max(selection.quantity, MIN_ORDER_QUANTITY);
+  const minOrderQuantity = getProductMinOrderQuantity(selectedProduct);
+  const normalizedQuantity = Math.max(selection.quantity, minOrderQuantity);
   void additionalDiscountPercent;
 
   useEffect(() => {
@@ -45,12 +46,12 @@ export function Step3Quantity({
   }, [normalizedQuantity, selection, setSelection]);
 
   const updateQty = (newQty: number) => {
-    if (newQty < MIN_ORDER_QUANTITY) return;
+    if (newQty < minOrderQuantity) return;
     setSelection({ ...selection, quantity: newQty });
   };
 
   const handleQtySelect = (qty: number) => {
-    setSelection({ ...selection, quantity: Math.max(qty, MIN_ORDER_QUANTITY) });
+    setSelection({ ...selection, quantity: Math.max(qty, minOrderQuantity) });
   };
 
   const handleContainerSelect = (id: string | null) => {

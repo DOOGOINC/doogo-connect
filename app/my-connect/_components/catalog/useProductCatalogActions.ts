@@ -12,6 +12,7 @@ import {
   type ProductRow,
   createCatalogEntityId,
   createProductForm,
+  normalizeMinOrderQuantity,
   parseLines,
 } from "./productCatalogShared";
 import {
@@ -334,6 +335,7 @@ export function useProductCatalogActions({
         cost_price: form.costPrice.trim() ? Number(form.costPrice) : 0,
         base_price: Number(form.basePrice || 0),
         stock_quantity: Math.max(0, Math.trunc(Number(form.stockQuantity || 0))),
+        min_order_quantity: normalizeMinOrderQuantity(form.minOrderQuantity),
         discount_config: discountConfig,
         image: form.image || null,
         key_features: parseLines(form.keyFeatures),
@@ -399,6 +401,7 @@ export function useProductCatalogActions({
         cost_price: form.costPrice.trim() ? Number(form.costPrice) : 0,
         base_price: Number(form.basePrice || 0),
         stock_quantity: Math.max(0, Math.trunc(Number(form.stockQuantity || 0))),
+        min_order_quantity: normalizeMinOrderQuantity(form.minOrderQuantity),
         discount_config: discountConfig,
         image: form.image || null,
         key_features: parseLines(form.keyFeatures),

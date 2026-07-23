@@ -4,7 +4,7 @@ import { useEffect, useMemo, useState } from "react";
 import { ChevronLeft, ChevronRight, Loader2, Search, Check } from "lucide-react";
 import Image from "next/image";
 
-import { type EstimateSelection, type Product } from "../_data/catalog";
+import { getProductMinOrderQuantity, type EstimateSelection, type Product } from "../_data/catalog";
 import { ProductCard } from "./ProductCard";
 import { ProductPreviewModal } from "./ProductPreviewModal";
 
@@ -189,7 +189,7 @@ export function Step2Product({
                         window.alert("선택하신 상품은 현재 품절된 상품입니다. \n제조사에게 문의 주세요.");
                         return;
                       }
-                      setSelection({ ...selection, product: product.id, container: null });
+                      setSelection({ ...selection, product: product.id, quantity: getProductMinOrderQuantity(product), container: null });
                     }}
                     onPreview={() => setPreviewProduct(product)}
                   />
